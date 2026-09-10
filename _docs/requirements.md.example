@@ -1,0 +1,24 @@
+# Project Requirements
+
+Build a chore tracking web app for households.
+
+## Core features
+
+- Users sign up with email and password
+- Each user belongs to one household
+- Household has an invite code for joining
+- Partners can create chores (name, category, difficulty: easy/medium/hard)
+- Chores rotate among partners fairly
+- Dashboard shows today's chores, upcoming, and overdue
+- Completing a chore awards points based on difficulty
+- Fairness stats show points per partner
+
+## Tech stack
+
+Django 5.0, PostgreSQL, Bootstrap 5, pytest
+
+## Non-goals (out of scope for v1)
+
+- Mobile app
+- Email notifications
+- Social login

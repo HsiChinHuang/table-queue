@@ -1,0 +1,1787 @@
+openapi: 3.0.3
+info:
+  title: TableQueue API
+  version: 0.1.0
+  description: |
+    Restaurant waitlist manager API.
+    All UI text is in English. Formats follow Taiwan localization.
+servers:
+  - url: http://localhost:8000
+    description: Local development
+
+tags:
+  - name: public
+    description: Public endpoints (no auth)
+  - name: auth
+    description: Authentication endpoints
+  - name: staff
+    description: Staff endpoints (JWT required)
+  - name: admin
+    description: Admin endpoints (JWT required)
+  - name: health
+    description: Health check
+
+security:
+  - bearerAuth: []
+
+paths:
+
+  # ============================================================
+  # PUBLIC
+  # ============================================================
+
+  /api/v1/public/branches/{branch_id}:
+    get:
+      tags: [public]
+      operationId: getPublicBranch
+      summary: Get public branch info
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/BranchId'
+      responses:
+        '200':
+          description: Branch info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicBranchResponse'
+              example:
+                restaurant_name: Sunny Bistro
+                branch_name: Taipei Xinyi
+                address: No. 123, Example Rd., Xinyi Dist., Taipei City 110, Taiwan
+                phone: 02-1234-5678
+                open_time: '11:00'
+                close_time: '21:00'
+                hours: 11:00–21:00
+                is_waitlist_open: true
+                timezone: Asia/Taipei
+        '404':
+          $ref: '#/components/responses/BranchNotFound'
+
+  /api/v1/public/branches/{branch_id}/board:
+    get:
+      tags: [public]
+      operationId: getPublicBoard
+      summary: Get public board data
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/BranchId'
+      responses:
+        '200':
+          description: Board data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoardResponse'
+              example:
+                restaurant_name: Sunny Bistro
+                branch_name: Taipei Xinyi
+                hours: 11:00–21:00
+                is_waitlist_open: true
+                current_called:
+                  queue_number: A012
+                  party_size: 4
+                next_up:
+                  queue_number: A013
+                  party_size: 2
+                recent_calls:
+                  - queue_number: A011
+                    party_size: 2
+                  - queue_number: A010
+                    party_size: 6
+                waiting_count: 5
+        '404':
+          $ref: '#/components/responses/BranchNotFound'
+
+  /api/v1/branches/{branch_id}/waitlist:
+    post:
+      tags: [public]
+      operationId: joinWaitlist
+      summary: Join the waitlist
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/BranchId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JoinWaitlistRequest'
+            example:
+              name: John Smith
+              phone: 0900-000-001
+              party_size: 4
+              note: Window seat
+      responses:
+        '201':
+          description: Waitlist entry created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaitlistEntryResponse'
+              example:
+                id: 5f7c1a9e-9a7b-4f1e-8e1a-1b2c3d4e5f60
+                queue_number: A001
+                full_queue_number: A-20260910-001
+                status: WAITING
+                status_token: abc123def456
+                status_url: /status/A001?token=abc123def456
+                name: John Smith
+                phone_masked: 0900-***-001
+                party_size: 4
+                note: Window seat
+                created_at: '2026-09-10T13:00:00+08:00'
+                called_at: null
+                seated_at: null
+                remaining_seconds: null
+                table_id: null
+                table_label: null
+                updated_at: '2026-09-10T13:00:00+08:00'
+        '409':
+          description: Duplicate phone or waitlist closed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                DuplicatePhone:
+                  value:
+                    error:
+                      code: WAITLIST_DUPLICATE_PHONE
+                      message: Phone already on waitlist
+                      details:
+                        queue_number: A001
+                WaitlistClosed:
+                  value:
+                    error:
+                      code: WAITLIST_CLOSED
+                      message: Waitlist is currently closed
+                      details: {}
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/v1/waitlist/{queue_number}:
+    get:
+      tags: [public]
+      operationId: getWaitlistStatus
+      summary: Get waitlist status
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/QueueNumber'
+        - name: token
+          in: query
+          schema:
+            type: string
+        - name: phone_last3
+          in: query
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 3
+      responses:
+        '200':
+          description: Waitlist status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaitlistStatusResponse'
+              example:
+                queue_number: A001
+                status: WAITING
+                party_size: 4
+                waiting_ahead: 3
+                estimated_wait_minutes: 45
+                called_at: null
+                remaining_seconds: null
+                hold_minutes: null
+                created_at: '2026-09-10T13:00:00+08:00'
+        '404':
+          $ref: '#/components/responses/WaitlistNotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /api/v1/waitlist/{queue_number}/cancel:
+    post:
+      tags: [public]
+      operationId: cancelWaitlist
+      summary: Cancel a waitlist entry
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/QueueNumber'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelWaitlistRequest'
+            example:
+              token: abc123def456
+      responses:
+        '200':
+          description: Waitlist entry cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaitlistEntryResponse'
+        '404':
+          $ref: '#/components/responses/WaitlistNotFound'
+        '409':
+          $ref: '#/components/responses/WaitlistInvalidStatus'
+
+# ============================================================
+# AUTH
+# ============================================================
+
+  /api/v1/auth/login:
+    post:
+      tags: [auth]
+      operationId: staffLogin
+      summary: Staff login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StaffLoginRequest'
+            example:
+              pin: '1234'
+      responses:
+        '200':
+          description: JWT token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffLoginResponse'
+              example:
+                access_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                token_type: bearer
+                expires_in: 43200
+        '401':
+          description: Invalid PIN
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: AUTH_INVALID_PIN
+                  message: Invalid PIN
+                  details: {}
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /api/v1/auth/change-pin:
+    post:
+      tags: [auth]
+      operationId: changePin
+      summary: Change staff PIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePinRequest'
+            example:
+              current_pin: '1234'
+              new_pin: '5678'
+              confirm_new_pin: '5678'
+      responses:
+        '204':
+          description: PIN changed
+        '401':
+          description: Invalid current PIN
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: AUTH_INVALID_PIN
+                  message: Invalid PIN
+                  details: {}
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+# ============================================================
+# STAFF — WAITLIST
+# ============================================================
+
+  /api/v1/staff/waitlist:
+    get:
+      tags: [staff]
+      operationId: listWaitlist
+      summary: List waitlist entries
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ACTIVE, CLOSED, ALL]
+            default: ACTIVE
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Name or phone last 3 digits
+        - name: party_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Waitlist entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaitlistListResponse'
+              example:
+                items:
+                  - id: 5f7c1a9e-9a7b-4f1e-8e1a-1b2c3d4e5f60
+                    queue_number: A001
+                    full_queue_number: A-20260910-001
+                    name: John Smith
+                    phone_masked: 0900-***-001
+                    party_size: 4
+                    note: Window seat
+                    status: WAITING
+                    created_at: '2026-09-10T13:00:00+08:00'
+                    called_at: null
+                    seated_at: null
+                    remaining_seconds: null
+                    table_id: null
+                    table_label: null
+                    updated_at: '2026-09-10T13:00:00+08:00'
+                total: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/staff/waitlist/{id}/call:
+    post:
+      tags: [staff]
+      operationId: callWaitlist
+      summary: Call a waitlist entry
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Entry called
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaitlistEntryResponse'
+              example:
+                id: 5f7c1a9e-9a7b-4f1e-8e1a-1b2c3d4e5f60
+                queue_number: A001
+                full_queue_number: A-20260910-001
+                name: John Smith
+                phone_masked: 0900-***-001
+                party_size: 4
+                note: Window seat
+                status: CALLED
+                created_at: '2026-09-10T13:00:00+08:00'
+                called_at: '2026-09-10T13:10:00+08:00'
+                seated_at: null
+                remaining_seconds: 600
+                hold_minutes_snapshot: 10
+                table_id: null
+                table_label: null
+                updated_at: '2026-09-10T13:10:00+08:00'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/WaitlistNotFound'
+        '409':
+          $ref: '#/components/responses/WaitlistInvalidStatus'
+
+  /api/v1/staff/waitlist/{id}/seat:
+    post:
+      tags: [staff]
+      operationId: seatWaitlist
+      summary: Seat a waitlist entry
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SeatWaitlistRequest'
+            example:
+              table_id: 9c1b2d3e-4f5a-6b7c-8d9e-0f1a2b3c4d5e
+      responses:
+        '200':
+          description: Entry seated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaitlistEntryResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/WaitlistNotFound'
+        '409':
+          description: Table not available or invalid status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                TableNotAvailable:
+                  value:
+                    error:
+                      code: TABLE_NOT_AVAILABLE
+                      message: Table is not available
+                      details: {}
+                InvalidStatus:
+                  value:
+                    error:
+                      code: WAITLIST_INVALID_STATUS
+                      message: Invalid status for this action
+                      details: {}
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/v1/staff/waitlist/{id}/no-show:
+    post:
+      tags: [staff]
+      operationId: noShowWaitlist
+      summary: Mark a waitlist entry as no-show
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Entry marked no-show
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaitlistEntryResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/WaitlistNotFound'
+        '409':
+          $ref: '#/components/responses/WaitlistInvalidStatus'
+
+  /api/v1/staff/waitlist/{id}/restore:
+    post:
+      tags: [staff]
+      operationId: restoreWaitlist
+      summary: Restore a no-show entry to waiting
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Entry restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaitlistEntryResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/WaitlistNotFound'
+        '409':
+          $ref: '#/components/responses/WaitlistInvalidStatus'
+
+  /api/v1/staff/waitlist/{id}/revert:
+    post:
+      tags: [staff]
+      operationId: revertWaitlist
+      summary: Revert a called entry back to waiting
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Entry reverted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaitlistEntryResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/WaitlistNotFound'
+        '409':
+          $ref: '#/components/responses/WaitlistInvalidStatus'
+
+  /api/v1/staff/waitlist/{id}/cancel:
+    post:
+      tags: [staff]
+      operationId: cancelWaitlistByStaff
+      summary: Cancel a waitlist entry (staff)
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Entry cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaitlistEntryResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/WaitlistNotFound'
+        '409':
+          $ref: '#/components/responses/WaitlistInvalidStatus'
+
+  /api/v1/staff/waitlist/{id}/edit:
+    post:
+      tags: [staff]
+      operationId: editWaitlist
+      summary: Edit party size or note
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditWaitlistRequest'
+            example:
+              party_size: 5
+              note: Needs high chair
+      responses:
+        '200':
+          description: Entry updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaitlistEntryResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/WaitlistNotFound'
+        '409':
+          $ref: '#/components/responses/WaitlistInvalidStatus'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/v1/staff/waitlist/reorder:
+    post:
+      tags: [staff]
+      operationId: reorderWaitlist
+      summary: Reorder waitlist entries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderWaitlistRequest'
+            example:
+              ordered_ids:
+                - 5f7c1a9e-9a7b-4f1e-8e1a-1b2c3d4e5f60
+                - 6a8d2b0f-1b8c-5e2f-9f2b-2c3d4e5f6a71
+      responses:
+        '200':
+          description: Reordered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaitlistListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+# ============================================================
+# STAFF — TABLES
+# ============================================================
+
+  /api/v1/staff/tables:
+    get:
+      tags: [staff]
+      operationId: listTables
+      summary: List active tables
+      responses:
+        '200':
+          description: Tables
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TableListResponse'
+              example:
+                items:
+                  - id: 9c1b2d3e-4f5a-6b7c-8d9e-0f1a2b3c4d5e
+                    label: A1
+                    capacity: 2
+                    section: Main Hall
+                    status: AVAILABLE
+                    is_active: true
+                    current_waitlist: null
+                  - id: 0d2e3f4a-5b6c-7d8e-9f0a-1b2c3d4e5f6a
+                    label: B1
+                    capacity: 4
+                    section: Main Hall
+                    status: OCCUPIED
+                    is_active: true
+                    current_waitlist:
+                      queue_number: A005
+                      party_size: 4
+                      seated_at: '2026-09-10T13:05:00+08:00'
+                      elapsed_minutes: 25
+                total: 2
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/staff/tables/{id}:
+    patch:
+      tags: [staff]
+      operationId: updateTableStatus
+      summary: Update table status (AVAILABLE or CLEANING only)
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTableStatusRequest'
+            example:
+              status: CLEANING
+      responses:
+        '200':
+          description: Table updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TableResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/TableNotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/v1/staff/tables/{id}/release:
+    post:
+      tags: [staff]
+      operationId: releaseTable
+      summary: Release an occupied table
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Table released
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TableResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/TableNotFound'
+        '409':
+          description: Table not occupied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: TABLE_NOT_AVAILABLE
+                  message: Table is not occupied
+                  details: {}
+
+# ============================================================
+# STAFF — DASHBOARD
+# ============================================================
+
+  /api/v1/staff/dashboard:
+    get:
+      tags: [staff]
+      operationId: getDashboard
+      summary: Get dashboard stats
+      responses:
+        '200':
+          description: Dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardResponse'
+              example:
+                waiting_count: 5
+                called_count: 1
+                seated_count: 2
+                available_table_count: 4
+                occupied_table_count: 2
+                cleaning_table_count: 1
+                no_show_today: 1
+                cancelled_today: 2
+                seated_today: 8
+                avg_wait_minutes_today: 18
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+# ============================================================
+# ADMIN — SETTINGS
+# ============================================================
+
+  /api/v1/admin/settings:
+    get:
+      tags: [admin]
+      operationId: getSettings
+      summary: Get settings
+      responses:
+        '200':
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsResponse'
+              example:
+                restaurant_name: Sunny Bistro
+                branch_name: Taipei Xinyi
+                address: No. 123, Example Rd., Xinyi Dist., Taipei City 110, Taiwan
+                phone: 02-1234-5678
+                open_time: '11:00'
+                close_time: '21:00'
+                hold_minutes: 10
+                avg_seat_minutes: 15
+                queue_prefix: A
+                is_waitlist_open: true
+                sound_enabled_default: true
+                notification_templates:
+                  joined: You're on the waitlist. Your number is {queue_number}.
+                  called: It's your turn! Please come to the counter within {hold_minutes} minutes.
+                  no_show: Your number has been called and marked as no-show.
+                has_pin: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    patch:
+      tags: [admin]
+      operationId: updateSettings
+      summary: Update settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSettingsRequest'
+            example:
+              hold_minutes: 12
+              avg_seat_minutes: 20
+              queue_prefix: B
+              is_waitlist_open: false
+              sound_enabled_default: false
+              notification_templates:
+                joined: You're on the waitlist. Your number is {queue_number}.
+                called: It's your turn! Please come to the counter within {hold_minutes} minutes.
+                no_show: Your number has been called and marked as no-show.
+      responses:
+        '200':
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+# ============================================================
+# ADMIN — TABLES
+# ============================================================
+
+  /api/v1/admin/tables:
+    get:
+      tags: [admin]
+      operationId: listAdminTables
+      summary: List all tables including inactive
+      parameters:
+        - name: include_inactive
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Tables
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TableListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [admin]
+      operationId: createTable
+      summary: Create a table
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTableRequest'
+            example:
+              label: A5
+              capacity: 2
+              section: Patio
+              sort_order: 5000
+      responses:
+        '201':
+          description: Table created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TableResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Label already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: CONFLICT
+                  message: Table label already exists
+                  details: {}
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/v1/admin/tables/{id}:
+    patch:
+      tags: [admin]
+      operationId: updateTable
+      summary: Update a table
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTableRequest'
+            example:
+              label: A5
+              capacity: 4
+              section: Patio
+              sort_order: 5000
+              is_active: true
+      responses:
+        '200':
+          description: Table updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TableResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/TableNotFound'
+        '409':
+          description: Label already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: CONFLICT
+                  message: Table label already exists
+                  details: {}
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    delete:
+      tags: [admin]
+      operationId: deleteTable
+      summary: Soft-delete a table
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Table deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/TableNotFound'
+        '409':
+          description: Table is occupied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: CONFLICT
+                  message: Cannot delete an occupied table
+                  details: {}
+
+# ============================================================
+# ADMIN — RESET
+# ============================================================
+
+  /api/v1/admin/reset:
+    post:
+      tags: [admin]
+      operationId: resetData
+      summary: Reset all data (development only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetDataRequest'
+            example:
+              confirm: RESET
+      responses:
+        '204':
+          description: Data reset
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Not allowed in this environment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Reset is only allowed in development
+                  details: {}
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+# ============================================================
+# HEALTH
+# ============================================================
+
+  /health:
+    get:
+      tags: [health]
+      operationId: healthCheck
+      summary: Health check
+      security: []
+      responses:
+        '200':
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: ok
+                version: 0.1.0
+                env: development
+        '503':
+          description: Degraded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: degraded
+                version: 0.1.0
+                env: development
+
+# ============================================================
+# COMPONENTS — PARAMETERS
+# ============================================================
+
+components:
+  parameters:
+    BranchId:
+      name: branch_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        example: 1
+
+    QueueNumber:
+      name: queue_number
+      in: path
+      required: true
+      schema:
+        type: string
+        example: A001
+
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+        example: 5f7c1a9e-9a7b-4f1e-8e1a-1b2c3d4e5f60
+
+# ============================================================
+# COMPONENTS — RESPONSES
+# ============================================================
+
+  responses:
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: VALIDATION_ERROR
+              message: Validation failed
+              details:
+                fields:
+                  phone: Invalid format
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: AUTH_TOKEN_EXPIRED
+              message: Session expired. Please log in again.
+              details: {}
+
+    WaitlistNotFound:
+      description: Waitlist entry not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: WAITLIST_NOT_FOUND
+              message: Waitlist entry not found
+              details: {}
+
+    WaitlistInvalidStatus:
+      description: Invalid status for this action
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: WAITLIST_INVALID_STATUS
+              message: Invalid status for this action
+              details: {}
+
+    TableNotFound:
+      description: Table not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: TABLE_NOT_FOUND
+              message: Table not found
+              details: {}
+
+    BranchNotFound:
+      description: Branch not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: BRANCH_NOT_FOUND
+              message: Branch not found
+              details: {}
+
+    RateLimited:
+      description: Too many requests
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: RATE_LIMITED
+              message: Too many requests
+              details: {}
+
+# ============================================================
+# COMPONENTS — SCHEMAS
+# ============================================================
+
+  schemas:
+
+    # -------------------- Enums --------------------
+
+    WaitlistStatus:
+      type: string
+      enum: [WAITING, CALLED, SEATED, DONE, NO_SHOW, CANCELLED]
+
+    TableStatus:
+      type: string
+      enum: [AVAILABLE, OCCUPIED, CLEANING]
+
+    WaitlistSource:
+      type: string
+      enum: [CUSTOMER, STAFF]
+
+    CancelledReason:
+      type: string
+      enum: [CUSTOMER, STAFF, CLOSED_DAY, RESET]
+
+    WaitlistFilterStatus:
+      type: string
+      enum: [ACTIVE, CLOSED, ALL]
+
+    # -------------------- Error --------------------
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              example: WAITLIST_NOT_FOUND
+            message:
+              type: string
+              example: Waitlist entry not found
+            details:
+              type: object
+              additionalProperties: true
+              example: {}
+
+    # -------------------- Auth --------------------
+
+    StaffLoginRequest:
+      type: object
+      required: [pin]
+      properties:
+        pin:
+          type: string
+          pattern: '^\d{4,6}$'
+          example: '1234'
+
+    StaffLoginResponse:
+      type: object
+      required: [access_token, token_type, expires_in]
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          example: bearer
+        expires_in:
+          type: integer
+          example: 43200
+
+    ChangePinRequest:
+      type: object
+      required: [current_pin, new_pin, confirm_new_pin]
+      properties:
+        current_pin:
+          type: string
+          pattern: '^\d{4,6}$'
+        new_pin:
+          type: string
+          pattern: '^\d{4,6}$'
+        confirm_new_pin:
+          type: string
+          pattern: '^\d{4,6}$'
+
+    # -------------------- Waitlist — Request --------------------
+
+    JoinWaitlistRequest:
+      type: object
+      required: [name, phone, party_size]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+          example: John Smith
+        phone:
+          type: string
+          minLength: 9
+          maxLength: 15
+          example: 0900-000-001
+        party_size:
+          type: integer
+          minimum: 1
+          maximum: 20
+          example: 4
+        note:
+          type: string
+          maxLength: 200
+          example: Window seat
+
+    CancelWaitlistRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          example: abc123def456
+        phone_last3:
+          type: string
+          minLength: 3
+          maxLength: 3
+          example: '001'
+
+    SeatWaitlistRequest:
+      type: object
+      required: [table_id]
+      properties:
+        table_id:
+          type: string
+          format: uuid
+          example: 9c1b2d3e-4f5a-6b7c-8d9e-0f1a2b3c4d5e
+
+    EditWaitlistRequest:
+      type: object
+      properties:
+        party_size:
+          type: integer
+          minimum: 1
+          maximum: 20
+        note:
+          type: string
+          maxLength: 200
+
+    ReorderWaitlistRequest:
+      type: object
+      required: [ordered_ids]
+      properties:
+        ordered_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          example:
+            - 5f7c1a9e-9a7b-4f1e-8e1a-1b2c3d4e5f60
+            - 6a8d2b0f-1b8c-5e2f-9f2b-2c3d4e5f6a71
+
+    # -------------------- Waitlist — Response --------------------
+
+    WaitlistEntryResponse:
+      type: object
+      required:
+        - id
+        - queue_number
+        - full_queue_number
+        - status
+        - party_size
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        queue_number:
+          type: string
+          example: A001
+        full_queue_number:
+          type: string
+          example: A-20260910-001
+        status:
+          $ref: '#/components/schemas/WaitlistStatus'
+        name:
+          type: string
+          example: John Smith
+        phone_masked:
+          type: string
+          example: 0900-***-001
+        party_size:
+          type: integer
+          example: 4
+        note:
+          type: string
+          nullable: true
+          example: Window seat
+        created_at:
+          type: string
+          format: date-time
+          example: '2026-09-10T13:00:00+08:00'
+        called_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: '2026-09-10T13:10:00+08:00'
+        seated_at:
+          type: string
+          format: date-time
+          nullable: true
+        remaining_seconds:
+          type: integer
+          nullable: true
+          example: 600
+        hold_minutes_snapshot:
+          type: integer
+          nullable: true
+          example: 10
+        table_id:
+          type: string
+          format: uuid
+          nullable: true
+        table_label:
+          type: string
+          nullable: true
+          example: A1
+        status_token:
+          type: string
+          nullable: true
+          description: Only returned on join
+        status_url:
+          type: string
+          nullable: true
+          description: Only returned on join
+          example: /status/A001?token=abc123def456
+        updated_at:
+          type: string
+          format: date-time
+
+    WaitlistListResponse:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WaitlistEntryResponse'
+        total:
+          type: integer
+          example: 1
+
+    WaitlistStatusResponse:
+      type: object
+      required:
+        - queue_number
+        - status
+        - party_size
+        - created_at
+      properties:
+        queue_number:
+          type: string
+          example: A001
+        status:
+          $ref: '#/components/schemas/WaitlistStatus'
+        party_size:
+          type: integer
+          example: 4
+        waiting_ahead:
+          type: integer
+          nullable: true
+          example: 3
+        estimated_wait_minutes:
+          type: integer
+          nullable: true
+          example: 45
+        called_at:
+          type: string
+          format: date-time
+          nullable: true
+        remaining_seconds:
+          type: integer
+          nullable: true
+          example: 600
+        hold_minutes:
+          type: integer
+          nullable: true
+          example: 10
+        created_at:
+          type: string
+          format: date-time
+
+    # -------------------- Table — Request --------------------
+
+    UpdateTableStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [AVAILABLE, CLEANING]
+
+    CreateTableRequest:
+      type: object
+      required: [label, capacity]
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 10
+          example: A5
+        capacity:
+          type: integer
+          minimum: 1
+          maximum: 20
+          example: 2
+        section:
+          type: string
+          maxLength: 50
+          nullable: true
+          example: Patio
+        sort_order:
+          type: integer
+          nullable: true
+          example: 5000
+
+    UpdateTableRequest:
+      type: object
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 10
+        capacity:
+          type: integer
+          minimum: 1
+          maximum: 20
+        section:
+          type: string
+          maxLength: 50
+          nullable: true
+        sort_order:
+          type: integer
+          nullable: true
+        is_active:
+          type: boolean
+
+    # -------------------- Table — Response --------------------
+
+    TableResponse:
+      type: object
+      required: [id, label, capacity, status, is_active]
+      properties:
+        id:
+          type: string
+          format: uuid
+        label:
+          type: string
+          example: A1
+        capacity:
+          type: integer
+          example: 2
+        section:
+          type: string
+          nullable: true
+          example: Main Hall
+        status:
+          $ref: '#/components/schemas/TableStatus'
+        is_active:
+          type: boolean
+          example: true
+        sort_order:
+          type: integer
+          example: 1000
+        current_waitlist:
+          type: object
+          nullable: true
+          properties:
+            queue_number:
+              type: string
+              example: A005
+            party_size:
+              type: integer
+              example: 4
+            seated_at:
+              type: string
+              format: date-time
+            elapsed_minutes:
+              type: integer
+              example: 25
+
+    TableListResponse:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TableResponse'
+        total:
+          type: integer
+          example: 10
+
+    # -------------------- Dashboard --------------------
+
+    DashboardResponse:
+      type: object
+      required:
+        - waiting_count
+        - called_count
+        - seated_count
+        - available_table_count
+        - occupied_table_count
+        - cleaning_table_count
+      properties:
+        waiting_count:
+          type: integer
+          example: 5
+        called_count:
+          type: integer
+          example: 1
+        seated_count:
+          type: integer
+          example: 2
+        available_table_count:
+          type: integer
+          example: 4
+        occupied_table_count:
+          type: integer
+          example: 2
+        cleaning_table_count:
+          type: integer
+          example: 1
+        no_show_today:
+          type: integer
+          example: 1
+        cancelled_today:
+          type: integer
+          example: 2
+        seated_today:
+          type: integer
+          example: 8
+        avg_wait_minutes_today:
+          type: integer
+          nullable: true
+          example: 18
+
+    # -------------------- Public --------------------
+
+    PublicBranchResponse:
+      type: object
+      required:
+        - restaurant_name
+        - branch_name
+        - is_waitlist_open
+      properties:
+        restaurant_name:
+          type: string
+          example: Sunny Bistro
+        branch_name:
+          type: string
+          example: Taipei Xinyi
+        address:
+          type: string
+          example: No. 123, Example Rd., Xinyi Dist., Taipei City 110, Taiwan
+        phone:
+          type: string
+          example: 02-1234-5678
+        open_time:
+          type: string
+          example: '11:00'
+        close_time:
+          type: string
+          example: '21:00'
+        hours:
+          type: string
+          example: 11:00–21:00
+        is_waitlist_open:
+          type: boolean
+          example: true
+        timezone:
+          type: string
+          example: Asia/Taipei
+
+    BoardResponse:
+      type: object
+      required:
+        - restaurant_name
+        - branch_name
+        - is_waitlist_open
+        - waiting_count
+      properties:
+        restaurant_name:
+          type: string
+          example: Sunny Bistro
+        branch_name:
+          type: string
+          example: Taipei Xinyi
+        hours:
+          type: string
+          example: 11:00–21:00
+        is_waitlist_open:
+          type: boolean
+          example: true
+        current_called:
+          type: object
+          nullable: true
+          properties:
+            queue_number:
+              type: string
+              example: A012
+            party_size:
+              type: integer
+              example: 4
+        next_up:
+          type: object
+          nullable: true
+          properties:
+            queue_number:
+              type: string
+              example: A013
+            party_size:
+              type: integer
+              example: 2
+        recent_calls:
+          type: array
+          items:
+            type: object
+            properties:
+              queue_number:
+                type: string
+              party_size:
+                type: integer
+        waiting_count:
+          type: integer
+          example: 5
+
+    # -------------------- Settings --------------------
+
+    SettingsResponse:
+      type: object
+      required:
+        - restaurant_name
+        - branch_name
+        - hold_minutes
+        - avg_seat_minutes
+        - queue_prefix
+        - is_waitlist_open
+      properties:
+        restaurant_name:
+          type: string
+          example: Sunny Bistro
+        branch_name:
+          type: string
+          example: Taipei Xinyi
+        address:
+          type: string
+        phone:
+          type: string
+        open_time:
+          type: string
+          example: '11:00'
+        close_time:
+          type: string
+          example: '21:00'
+        hold_minutes:
+          type: integer
+          minimum: 5
+          maximum: 15
+          example: 10
+        avg_seat_minutes:
+          type: integer
+          minimum: 5
+          maximum: 60
+          example: 15
+        queue_prefix:
+          type: string
+          pattern: '^[A-Z]{1,3}$'
+          example: A
+        is_waitlist_open:
+          type: boolean
+          example: true
+        sound_enabled_default:
+          type: boolean
+          example: true
+        notification_templates:
+          type: object
+          properties:
+            joined:
+              type: string
+            called:
+              type: string
+            no_show:
+              type: string
+        has_pin:
+          type: boolean
+          example: true
+
+    UpdateSettingsRequest:
+      type: object
+      properties:
+        restaurant_name:
+          type: string
+        branch_name:
+          type: string
+        address:
+          type: string
+        phone:
+          type: string
+        open_time:
+          type: string
+          pattern: '^\d{2}:\d{2}$'
+        close_time:
+          type: string
+          pattern: '^\d{2}:\d{2}$'
+        hold_minutes:
+          type: integer
+          minimum: 5
+          maximum: 15
+        avg_seat_minutes:
+          type: integer
+          minimum: 5
+          maximum: 60
+        queue_prefix:
+          type: string
+          pattern: '^[A-Z]{1,3}$'
+        is_waitlist_open:
+          type: boolean
+        sound_enabled_default:
+          type: boolean
+        notification_templates:
+          type: object
+          properties:
+            joined:
+              type: string
+            called:
+              type: string
+            no_show:
+              type: string
+
+    ResetDataRequest:
+      type: object
+      required: [confirm]
+      properties:
+        confirm:
+          type: string
+          enum: [RESET]
+
+    # -------------------- Health --------------------
+
+    HealthResponse:
+      type: object
+      required: [status, version, env]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        version:
+          type: string
+          example: 0.1.0
+        env:
+          type: string
+          example: development
+
+  # ============================================================
+  # COMPONENTS — SECURITY SCHEMES
+  # ============================================================
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
