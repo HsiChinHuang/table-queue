@@ -84,6 +84,9 @@ Default: http://localhost:5173.
 Add local IP if testing on phone: http://192.168.x.x:5173.
 
 ## 2. Environment Variables
+
+The names and defaults below are the list `_docs/specs.md` section 18 owns; this table is reconciled towards it, never the other way round. The `Required` column is the one addition this file carries, and `backend/.env.example` is where it is consumed.
+
 ### Backend (backend/.env)
 Variable	Default	Required	Description
 DATABASE_URL	sqlite:///./dev.db	yes	DB connection string
@@ -101,13 +104,10 @@ VITE_BRANCH_ID	1	Default branch
 VITE_ENABLE_SOUND	true	Enable sound
 VITE_PUBLIC_BASE_URL	``	Public base URL (QR code, share links)
 ### Notes
-.env is gitignored.
-
-.env.example is committed.
-
-Frontend VITE_ vars are bundled into the client. Never put secrets there.
-
-ADMIN_PIN is not used in v1; single shared PIN.
+- `.env` is gitignored.
+- `.env.example` is committed.
+- Frontend `VITE_` vars are bundled into the client. Never put secrets there.
+- There is no per-admin PIN variable: `STAFF_PIN` is the single shared staff PIN in v1, stored as a bcrypt hash.
 
 ## 3. Database
 ### v1
