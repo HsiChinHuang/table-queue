@@ -7,6 +7,8 @@ Last updated: 2026-09-10
 
 ## 1. Local Development
 
+`Makefile`, `backend/` and `frontend/` do not exist in this repository yet; F-01 (Platform Issue 12) creates them. Every command in this section documents what those files will provide. None of them runs in this checkout today.
+
 ### Prerequisites
 - Python 3.11+
 - `uv` installed
@@ -20,70 +22,86 @@ make setup
 cd backend && uv sync
 cd frontend && npm install
 npm install
+```
 
-Run
-
-bash
+### Run
+```bash
 make dev
 # or manually:
 cd backend && uv run uvicorn app.main:app --reload --host 0.0.0.0
 cd frontend && npm run dev -- --host
+```
 
-Seed
-
-bash
+### Seed
+```bash
 make seed
 # or:
 cd backend && uv run python -m app.seed --reset
+```
 
-Test
-
-bash
+### Test
+```bash
 make test
 # or:
 cd backend && uv run pytest
 cd frontend && npm run test
+```
 
-Access
+- `make test-backend` runs the backend tests only, `make test-frontend` the frontend tests only.
+- The `uv run pytest` and `npm run test` lines are the commands `_docs/testing.md` section 8 documents, word for word.
 
-Frontend: http://localhost:5173
+### Lint and Format
+```bash
+make lint
+make format
+```
 
-Backend: http://localhost:8000
+### Makefile Targets
+The 10 targets below are the list `_docs/plan.md` requires of F-01. They belong to the `Makefile` that F-01 creates, not to this checkout:
 
-API docs: http://localhost:8000/docs
+- `make setup` install backend and frontend dependencies
+- `make dev` run backend and frontend together
+- `make backend` run the backend only
+- `make frontend` run the frontend only
+- `make seed` reset and seed the database
+- `make test` run all tests
+- `make test-backend` run backend tests only
+- `make test-frontend` run frontend tests only
+- `make lint` lint backend and frontend
+- `make format` format backend and frontend
 
-Health: http://localhost:8000/health
+### Access
+- Frontend: http://localhost:5173
+- Backend: http://localhost:8000
+- API docs: http://localhost:8000/docs
+- Health: http://localhost:8000/health
 
-Demo URLs
+### Demo URLs
+- Join: http://localhost:5173/join?branch=1
+- Board: http://localhost:5173/board/1
+- Staff login: http://localhost:5173/staff/login (PIN: 1234)
+- Staff waitlist, the page a successful login lands on: http://localhost:5173/staff/waitlist
+- Settings: http://localhost:5173/admin/settings
 
-Join: http://localhost:5173/join?branch=1
+`_docs/ui.md` section 6 owns the route list; the URLs above are the ones a reader needs for the demo walk-through.
 
-Board: http://localhost:5173/board/1
+### Mobile Testing
+- Start both dev servers bound to `0.0.0.0`: Vite with `--host`, uvicorn with `--host 0.0.0.0`.
+- Find your machine's LAN address (`ipconfig` on Windows, `ifconfig` on macOS or Linux).
+- Open `http://<your-ip>:5173/join?branch=1` on the phone.
+- Phone and computer must be on the same Wi-Fi.
 
-Staff: http://localhost:5173/staff/login (PIN: 1234)
+### CORS
+- The backend reads `CORS_ORIGINS`.
+- `CORS_ORIGINS` is a comma-separated list of allowed origins, so an extra origin is added to the value and does not replace it.
+- The default of `CORS_ORIGINS` is `http://localhost:5173`, the same default as the section 2 row and `_docs/specs.md` section 18.
+- Testing on a phone appends the LAN address, for example `CORS_ORIGINS=http://localhost:5173,http://192.168.x.x:5173`.
 
-Settings: http://localhost:5173/admin/settings
+## 2. Environment Variables
 
-Mobile Testing
+The names and defaults below are the list `_docs/specs.md` section 18 owns; this table is reconciled towards it, never the other way round. The `Required` column is the one addition this file carries, and `backend/.env.example` is where it is consumed.
 
-Start with --host to bind to 0.0.0.0.
-
-Find your local IP (ipconfig / ifconfig).
-
-Open http://<your-ip>:5173/join?branch=1 on phone.
-
-Phone and computer must be on the same Wi-Fi.
-
-CORS
-
-Backend reads CORS_ORIGINS.
-
-Default: http://localhost:5173.
-
-Add local IP if testing on phone: http://192.168.x.x:5173.
-
-2. Environment Variables
-Backend (backend/.env)
+### Backend (backend/.env)
 Variable	Default	Required	Description
 DATABASE_URL	sqlite:///./dev.db	yes	DB connection string
 JWT_SECRET	change-me-in-production	yes	JWT signing secret
@@ -92,181 +110,126 @@ STAFF_PIN	1234	yes	Initial staff PIN
 DEFAULT_BRANCH_ID	1	no	Default branch
 CORS_ORIGINS	http://localhost:5173	no	Comma-separated origins
 ENV	development	no	development / test / production
-Frontend (frontend/.env)
+### Frontend (frontend/.env)
 Variable	Default	Description
 VITE_API_BASE_URL	/api/v1	API base path
 VITE_USE_MOCK	true	Use mock API
 VITE_BRANCH_ID	1	Default branch
 VITE_ENABLE_SOUND	true	Enable sound
 VITE_PUBLIC_BASE_URL	``	Public base URL (QR code, share links)
-Notes
-.env is gitignored.
-
-.env.example is committed.
-
-Frontend VITE_ vars are bundled into the client. Never put secrets there.
-
-ADMIN_PIN is not used in v1; single shared PIN.
-
-3. Database
-v1
-SQLite file at backend/dev.db.
-
-Created automatically on first run.
-
-Schema created with Base.metadata.create_all.
-
-No Alembic in v1.
-
-Schema change: delete dev.db and re-run make seed.
-
-Default Data
-Restaurant(id=1, name="Sunny Bistro")
-
-Branch(id=1, name="Taipei Xinyi", timezone="Asia/Taipei", business_day_cutoff_hour=4)
-
-Settings(branch_id=1, hold_minutes=10, avg_seat_minutes=15, queue_prefix="A", is_waitlist_open=True)
-
-No tables created by default; use seed or Settings page.
-
-Future PostgreSQL
-Set DATABASE_URL=postgresql+psycopg://user:pass@host/db.
-
-No code changes needed.
-
-Add Alembic before production.
-
-Add pool_size=5, max_overflow=10.
-
-Backup
-v1: copy dev.db.
-
-Future: use managed DB snapshots.
-
-4. Future Deployment Notes
-Frontend
-Vercel / Netlify / Cloudflare Pages.
-
-Build command: npm run build.
-
-Output: dist/.
-
-Set VITE_API_BASE_URL to backend URL.
-
-Set VITE_PUBLIC_BASE_URL to frontend URL.
-
-Backend
-Railway / Render / Fly.io / VPS.
-
-Start command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2.
-
-Set all env vars.
-
-Set ENV=production.
-
-Set CORS_ORIGINS to frontend URL.
-
-Database
-Managed PostgreSQL.
-
-Add Alembic migrations.
-
-Enable backups.
-
-HTTPS
-Provided by hosting platform.
-
-Required for production.
-
-Reverse Proxy
-If behind proxy, read X-Forwarded-For for rate limit.
-
-Configure uvicorn --proxy-headers.
-
-Logging
-v1: stdout.
-
-Future: JSON logs with structlog, log rotation.
-
-Rate Limit
-v1: in-memory, single worker.
-
-Future: Redis-backed for multi-worker.
-
-Workers
-v1: 1 worker.
-
-Future: --workers 2 or more.
-
-5. Known Limitations
-SQLite concurrent writes limited.
-
-Single worker rate limit.
-
-No Alembic.
-
-No CI.
-
-No production deployment in v1.
-
-No structured logging.
-
-No audit log.
-
-No multi-branch UI.
-
-No external notifications.
-
-No reports page.
-
-No dark mode.
-
-No i18n.
-
-No E2E tests.
-
-No concurrency tests.
-
-No optimistic locking.
-
-No soft delete for waitlist entries.
-
-No status change history.
-
-6. Troubleshooting
-Frontend can't reach backend
-Check backend is running on port 8000.
-
-Check Vite proxy in vite.config.ts.
-
-Check VITE_API_BASE_URL.
-
-Check CORS.
-
-Phone can't reach local dev
-Use --host for both Vite and uvicorn.
-
-Add local IP to CORS_ORIGINS.
-
-Check firewall.
-
-DB locked
-SQLite issue under concurrent writes.
-
-Restart backend.
-
-Delete dev.db and re-seed if needed.
-
-JWT expired
-Frontend auto-redirects to login.
-
-Log in again with PIN.
-
-Forgot PIN
-Stop backend.
-
-Set STAFF_PIN in .env.
-
-Delete staff_pin_hash in DB, or reset DB.
-
-Restart backend.
+### Notes
+- `.env` is gitignored.
+- `.env.example` is committed.
+- Frontend `VITE_` vars are bundled into the client. Never put secrets there.
+- There is no per-admin PIN variable: `STAFF_PIN` is the single shared staff PIN in v1, stored as a bcrypt hash.
+
+## 3. Database
+### v1
+- SQLite file at `backend/dev.db`.
+- Created automatically on first run.
+- Schema created with `Base.metadata.create_all`.
+- No Alembic in v1.
+- Schema change: delete `dev.db` and re-run `make seed`.
+
+### Default Data
+- Restaurant(id=1, name="Sunny Bistro")
+- Branch(id=1, name="Taipei Xinyi", timezone="Asia/Taipei", business_day_cutoff_hour=4)
+- Settings(branch_id=1, hold_minutes=10, avg_seat_minutes=15, queue_prefix="A", is_waitlist_open=True)
+
+A database that has not been seeded holds those three rows and no table rows, so staff cannot seat anyone until `make seed` runs or tables are added in the Settings page. A seeded database holds the tables `_docs/specs.md` section 19 specifies: A1-A4 (2 pax), B1-B4 (4 pax), C1-C2 (6 pax).
+
+### Future PostgreSQL
+- Set `DATABASE_URL=postgresql+psycopg://user:pass@host/db`.
+- No code changes needed.
+- Add Alembic before production.
+- Add `pool_size=5`, `max_overflow=10`.
+
+### Backup
+- v1: copy `dev.db`.
+- Future: use managed database snapshots.
+
+## 4. Future Deployment Notes
+### Frontend
+- Vercel / Netlify / Cloudflare Pages.
+- Build command: `npm run build`.
+- Output: `dist/`.
+- Set `VITE_API_BASE_URL` to the backend URL.
+- Set `VITE_PUBLIC_BASE_URL` to the frontend URL.
+
+### Backend
+- Railway / Render / Fly.io / VPS.
+- Start command: `uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2`.
+- Set all env vars.
+- Set `ENV=production`.
+- Set `CORS_ORIGINS` to the frontend URL, keeping the comma-separated list form.
+
+### Database
+- Managed PostgreSQL.
+- Add Alembic migrations.
+- Enable backups.
+
+### HTTPS
+- Provided by the hosting platform.
+- Required for production.
+
+### Reverse Proxy
+- If behind a proxy, read `X-Forwarded-For` for the rate limit.
+- Configure `uvicorn --proxy-headers`.
+
+### Logging
+- v1: stdout.
+- Future: JSON logs with structlog, log rotation.
+
+### Rate Limit
+- v1: in-memory, single worker.
+- Future: Redis-backed for multi-worker.
+
+### Workers
+- v1: 1 worker.
+- Future: `--workers 2` or more.
+
+## 5. Known Limitations
+- SQLite concurrent writes limited.
+- Single worker rate limit.
+- No Alembic.
+- No CI.
+- No production deployment in v1.
+- No structured logging.
+- No audit log.
+- No multi-branch UI.
+- No external notifications.
+- No reports page.
+- No dark mode.
+- No i18n.
+- No E2E tests.
+- No concurrency tests.
+- No optimistic locking.
+- No soft delete for waitlist entries.
+- No status change history.
+
+## 6. Troubleshooting
+### Frontend can't reach backend
+- Check the backend is running on port 8000.
+- Check the Vite proxy in `vite.config.ts`.
+- Check `VITE_API_BASE_URL`.
+- Check `CORS_ORIGINS`.
+
+### Phone can't reach local dev
+- Use `--host` for both Vite and uvicorn.
+- Add the phone's LAN address to the `CORS_ORIGINS` list.
+- Check the firewall.
+
+### Database locked
+- SQLite issue under concurrent writes.
+- Restart the backend.
+- Delete `dev.db` and re-seed if needed.
+
+### JWT expired
+- The frontend redirects to the login page.
+- Log in again with the staff PIN.
+
+### Forgot PIN
+- Stop the backend.
+- Set `STAFF_PIN` in `.env`.
+- Delete `staff_pin_hash` in the database, or reset the database.
+- Restart the backend.
