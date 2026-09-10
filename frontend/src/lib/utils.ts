@@ -1,3 +1,7 @@
+/**
+ * Utility functions for TableQueue.
+ */
+
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
