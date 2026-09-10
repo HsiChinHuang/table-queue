@@ -23,6 +23,11 @@ function initMockHandlers(): void {
       restaurant_id: seedData.restaurant.id,
       timezone: seedData.branch.timezone,
       cutoff_hour: seedData.branch.cutoff_hour,
+      restaurant_name: seedData.restaurant.name,
+      branch_name: seedData.branch.name,
+      hours: '11:00 - 22:00',
+      waiting_count: seedData.waitlist.filter((e) => e.status === 'WAITING').length,
+      is_waitlist_open: true,
     };
   });
 
