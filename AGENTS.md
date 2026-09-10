@@ -27,7 +27,7 @@ Authority: `_docs/requirements.md` section 2. Any disagreement with `README.md` 
 
 The Orchestrator passes the role file path; the subagent reads it plus `AGENTS.md`. Before starting any task, read:
 
-1. Your role file: `_docs/team/<role>.md` (passed by Orchestrator)
+1. Your role file: `_docs/team/orchestrator.md`, `_docs/team/sa.md`, `_docs/team/pm.md`, `_docs/team/sw.md`, `_docs/team/qa.md` (passed by Orchestrator)
 2. `AGENTS.md` (this file)
 3. `_docs/specs.md` — full specification
 4. `_docs/ui.md` — UI guide
@@ -570,41 +570,3 @@ From `CONTRIBUTING.md` ## File Ownership (Platform #9, closed). `_docs/documents
 
 1. `_docs/documents.md:27` lists the agent guide as `_docs/AGENTS.md`, a path that does not exist; the real file is root `AGENTS.md`. **No owning issue exists** for `_docs/documents.md`.
 2. `_docs/documents.md:12` and `:14` grant SA and SW write/read access to `_docs/design-system.md`, which will not exist after the follow-up deletion. **No owning issue exists**.
-
----
-
-## Out of Scope
-
-Each item below names the open Platform Issue that owns the other file, or the exact words "no owning issue exists".
-
-- The deletion of `_docs/design-system.md` once its substance is merged into `AGENTS.md` by this issue: **no owning issue exists** for that follow-up. This branch leaves the file untouched (AC-11).
-- `_docs/documents.md:27` lists the agent guide as `_docs/AGENTS.md`, a path that does not exist; the real file is root `AGENTS.md`: **no owning issue exists** for `_docs/documents.md`. Recorded in File Ownership, not fixed.
-- `_docs/documents.md:12` and `:14` grant SA and SW write/read access to `_docs/design-system.md`, which will not exist after the follow-up deletion: **no owning issue exists**. Recorded, not fixed.
-- `_docs/ui.md` section-number drift and the 2 UI-document inconsistencies surfaced by the UI Rules anchor check: Platform Issue 2.
-- `_docs/testing.md` section 8 lists commands rather than requirements and leaves its `bash` block at line 291 unclosed (the 4 testing.md inconsistencies): Platform Issue 4.
-- `_docs/api-examples.md` (6 inconsistencies): Platform Issue 6.
-- The process documents (`_docs/process.md`, `_docs/commands.md`) whose command list predates `plan.md`'s tech-stack section: Platform Issue 7.
-- `README.md` tech-stack, project-structure and command wording, and any disagreement between it and the new `AGENTS.md`: Platform Issue 8 (in progress right now - route, never edit).
-- `_docs/plan.md`, including the `AGENTS.md#5-project-structure` anchor at `:1921` and the unnumbered-heading mismatch it implies: Platform Issue 11.
-- Creating `Makefile`, root `package.json`, `backend/`, `frontend/`, `.editorconfig`, `.gitignore`, `.nvmrc`, so that `make`, `uv`, `ruff`, `pytest`, `npm` and Vitest can actually run: Platform Issue 12 (F-01).
-- Vite / frontend tooling details beyond the tech-stack table: Platform Issue 13 (F-02).
-- Application code, tests, CI, labels, milestones and issue state: out of scope for a docs issue by `_docs/rules.md` and `_docs/team/pm.md`.
-
----
-
-## Dependencies
-
-- Blocked by: none open. `P0-01` (`_docs/specs.md`, Platform #1) and `P0-09` (`CONTRIBUTING.md`, Platform #9) are both CLOSED on `main` at `8572414`, so both prerequisites are met and no gate is missing.
-- Blocks: `F-01` Setup repo structure (Platform Issue 12) - `_docs/plan.md:1277` lists `P0-10` as a dependency of `F-01`, and `_docs/plan.md:1921` cites `AGENTS.md#5-project-structure` as the structure F-01 builds.
-- Related, not blocking: Platform Issue 8 (`README.md`) is in progress in parallel; this issue cites `_docs/requirements.md` as its tech-stack authority so the two do not block each other.
-
----
-
-## Constraints
-
-- File: `AGENTS.md` at the repo root is the only file this issue may change; `_docs/issues/P0-10.md` is the issue record itself.
-- `_docs/design-system.md`, `_docs/documents.md`, `README.md`, `CONTRIBUTING.md` and every `_docs/*.md` are read-only for this issue.
-- Line endings stay as found: `git ls-files --eol AGENTS.md` must keep reporting `i/lf w/crlf attr/text=auto eol=lf`.
-- English only: no CJK characters (AC-17). Em dashes (U+2014) are allowed and already appear in sibling docs.
-- No command may be added to `AGENTS.md` that does not exist in `_docs/requirements.md` section 6, `_docs/testing.md` section 8 or `_docs/plan.md` F-01.
-- Cite authorities by file and section; do not copy their content into a second copy that can drift.
