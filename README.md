@@ -35,6 +35,7 @@ All UI text is in English. Formats follow Taiwan localization (phone, timezone).
 
 ## Project Structure
 
+```
 table-queue/
 ├── backend/
 │ ├── pyproject.toml
@@ -140,6 +141,7 @@ table-queue/
 ├── .editorconfig
 ├── .gitignore
 └── .nvmrc
+```
 
 
 ---
@@ -161,39 +163,48 @@ make setup
 
 Or manually:
 
-bash
+```bash
 cd backend && uv sync
 cd frontend && npm install
 npm install
+```
 
 Run
-bash
+
+```bash
 make dev
+```
 
 Or in two terminals:
 
-bash
+```bash
 cd backend && uv run uvicorn app.main:app --reload --host 0.0.0.0
 cd frontend && npm run dev -- --host
+```
 
 Seed
 
-bash
+```bash
 make seed
+```
 
 Test
 
-bash
+```bash
 make test
+```
 
 Or separately:
 
-bash
+```bash
 cd backend && uv run pytest
 cd frontend && npm run test
+```
 
-Development
-Access
+## Development
+
+### Access
+
 Frontend: http://localhost:5173
 
 Backend: http://localhost:8000
@@ -202,7 +213,8 @@ API docs: http://localhost:8000/docs
 
 Health: http://localhost:8000/health
 
-Demo URLs
+### Demo URLs
+
 Join: http://localhost:5173/join?branch=1
 
 Board: http://localhost:5173/board/1
@@ -211,12 +223,14 @@ Staff login: http://localhost:5173/staff/login (PIN: 1234)
 
 Settings: http://localhost:5173/admin/settings
 
-Mobile Testing
+### Mobile Testing
+
 Start with --host to bind to 0.0.0.0. Find your local IP (ipconfig / ifconfig) and open http://<your-ip>:5173/join?branch=1 on your phone. Phone and computer must be on the same Wi-Fi.
 
 Add your local IP to CORS_ORIGINS in backend/.env.
 
-Makefile Targets
+### Makefile Targets
+
 Target	Description
 make setup	Install backend and frontend deps
 make dev	Run backend and frontend together
@@ -228,7 +242,8 @@ make test-backend	Run backend tests
 make test-frontend	Run frontend tests
 make lint	Lint frontend
 make format	Format frontend
-Environment Variables
+## Environment Variables
+
 Backend (backend/.env)
 Variable	Default	Description
 DATABASE_URL	sqlite:///./dev.db	DB connection
@@ -247,7 +262,8 @@ VITE_ENABLE_SOUND	true	Enable sound
 VITE_PUBLIC_BASE_URL	``	Public base URL
 Copy .env.example to .env in both backend/ and frontend/.
 
-Demo
+## Demo
+
 See _docs/demo.md for the full walkthrough.
 
 Quick demo:
@@ -260,55 +276,58 @@ Open http://localhost:5173/staff/login with PIN 1234
 
 Call, seat, release, close day
 
-Documentation
-_docs/specs.md — Full specification
+## Documentation
 
-_docs/ui.md — UI guide
+- _docs/specs.md — Full specification
 
-_docs/openapi.yaml — API contract
+- _docs/ui.md — UI guide
 
-_docs/testing.md — Testing guide
+- _docs/openapi.yaml — API contract
 
-_docs/deployment.md — Deployment guide
+- _docs/testing.md — Testing guide
 
-_docs/api-examples.md — curl examples
+- _docs/deployment.md — Deployment guide
 
-_docs/demo.md — Demo script
+- _docs/api-examples.md — curl examples
 
-Known Limitations
-SQLite concurrent writes limited
+- _docs/demo.md — Demo script
 
-Single worker rate limit
+## Known Limitations
 
-No Alembic
+- SQLite concurrent writes limited
 
-No CI
+- Single worker rate limit
 
-No production deployment in v1
+- No Alembic
 
-No structured logging
+- No CI
 
-No audit log
+- No production deployment in v1
 
-No multi-branch UI
+- No structured logging
 
-No external notifications
+- No audit log
 
-No reports page
+- No multi-branch UI
 
-No dark mode
+- No external notifications
 
-No i18n
+- No reports page
 
-No E2E tests
+- No dark mode
 
-No concurrency tests
+- No i18n
 
-No optimistic locking
+- No E2E tests
 
-No soft delete for waitlist entries
+- No concurrency tests
 
-No status change history
+- No optimistic locking
 
-License
+- No soft delete for waitlist entries
+
+- No status change history
+
+## License
+
 Private project. All rights reserved.
