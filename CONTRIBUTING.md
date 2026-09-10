@@ -231,7 +231,8 @@ No spaces
 
 Always reference the issue number
 
-Commit Convention
+## Commit Convention
+
 Use Conventional Commits.
 
 Format: <type>(<scope>): <subject>
@@ -288,10 +289,11 @@ No period at the end
 
 Max 72 characters
 
-Pull Request
+## Pull Request
+
 Every PR must:
 
-Reference the issue: Closes #12
+Reference the issue: Closes #<issue-number>
 
 Include a summary
 
@@ -303,15 +305,18 @@ Pass all tests
 
 Pass lint
 
-PR Template
-markdown
+### PR Template
+
+Copy this block into the PR body and replace the placeholder issue number.
+
+```markdown
 ## Summary
 
 Brief description of what changed.
 
 ## Related Issue
 
-Closes #12
+Closes #<issue-number>
 
 ## Changes
 
@@ -331,15 +336,25 @@ Before / after screenshots.
 ## Notes
 
 Anything reviewers should know.
-Merge Strategy
+```
+
+### Merge Strategy
+
 Squash and merge
 
 Delete branch after merge
 
 No CI in v1; reviewer runs tests manually
 
-Testing Requirements
-Backend
+## Testing Requirements
+
+These requirements are traceable to [`_docs/testing.md`](_docs/testing.md):
+`_docs/testing.md` sections 1, 2, 3, 5 and 6 state the rules and coverage goals,
+and `_docs/testing.md` section 8 lists the commands. Section 8 is a commands
+list only, so cite the numbered sections above when checking a rule.
+
+### Backend
+
 Every endpoint must have at least one success test and one failure test.
 
 State machine transitions must be tested.
@@ -348,7 +363,8 @@ Lazy no-show must be tested with fixed time.
 
 Run: cd backend && uv run pytest
 
-Frontend
+### Frontend
+
 API client must have unit tests.
 
 Key components must have tests:
