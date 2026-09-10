@@ -20,6 +20,8 @@ Last updated: 2026-09-10
 
 ## 2. Color Tokens
 
+Reused values: the token for `CALLED` is shared by `OCCUPIED`; the token for `SEATED` is shared by `AVAILABLE`. This is intentional re-use of one warm/orange "act now" hue and one green "ready" hue across two namespaces.
+
 ### Base
 | Token | Value | Usage |
 |---|---|---|
@@ -252,6 +254,8 @@ Last updated: 2026-09-10
 | Lookup | `No matching waitlist entry found.` |
 | Settings | `No templates configured.` |
 
+- Exception: Join, Login and Not Found have no empty state; an empty state is not applicable to a PIN-only form or a 404 page (design-system.md:90 four-state rule covers the six data pages).
+
 ---
 
 ## 8. Loading States
@@ -409,18 +413,18 @@ Use `lucide-react`:
 - On recovery: `Updated just now` for 3 seconds.
 - Does not block interaction.
 
-### EmptyState props
+### EmptyState
 - `icon`, `title`, `description`, `action` (optional).
 
-### LoadingSkeleton props
+### LoadingSkeleton
 - `variant`: `card` | `list` | `form` | `board`.
 - `count`: number.
 
-### ConfirmDialog props
+### ConfirmDialog
 - `title`, `description`, `confirmLabel`, `cancelLabel`, `variant`, `onConfirm`, `onCancel`.
 
-### QrCode props
-- `value`, `size=200`, `level=M`, `bgColor=#FFFFFF`, `fgColor=#1E293B`.
+### QrCode
+- `value`, `size=200`, `level=M`, `bgColor=#FFFFFF`, `fgColor=#1E293B` (exception: QR encoder takes literal hex strings, not Tailwind classes).
 
 ### SoundToggle
 - Reads `staffStore.soundEnabled`.
@@ -429,6 +433,5 @@ Use `lucide-react`:
 
 ### DevBadge
 - Fixed top-right.
-- `bg-yellow-400 text-black text-xs px-2 py-1 rounded`.
-- Text: `DEV`.
+- `bg-yellow-400 text-black text-xs px-2 py-1 rounded` (exception: no token defined for badge yellow).
 - Only when `import.meta.env.DEV`.
