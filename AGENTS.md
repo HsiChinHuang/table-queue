@@ -113,6 +113,7 @@ table-queue/
 │   └── issues/
 ├── Makefile
 ├── package.json
+├── README.md
 ├── CONTRIBUTING.md
 ├── AGENTS.md
 ├── .editorconfig
@@ -559,6 +560,7 @@ From `CONTRIBUTING.md` ## File Ownership (Platform #9, closed). `_docs/documents
 | `_docs/issues/` | PM |
 | `backend/` | backend |
 | `frontend/` | frontend |
+| `README.md` | PM |
 | `CONTRIBUTING.md` | PM |
 | `AGENTS.md` | PM |
 | `Makefile` | both |
