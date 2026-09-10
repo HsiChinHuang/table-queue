@@ -2,10 +2,6 @@
   "name": "table-queue",
   "version": "0.1.0",
   "private": true,
-  "workspaces": [
-    "backend",
-    "frontend"
-  ],
   "scripts": {
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd backend && uv run uvicorn app.main:app --reload --host 0.0.0.0",
