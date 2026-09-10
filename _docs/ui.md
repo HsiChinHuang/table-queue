@@ -409,17 +409,17 @@ Use `lucide-react`:
 - On recovery: `Updated just now` for 3 seconds.
 - Does not block interaction.
 
-### EmptyState props
+### EmptyState
 - `icon`, `title`, `description`, `action` (optional).
 
-### LoadingSkeleton props
+### LoadingSkeleton
 - `variant`: `card` | `list` | `form` | `board`.
 - `count`: number.
 
-### ConfirmDialog props
+### ConfirmDialog
 - `title`, `description`, `confirmLabel`, `cancelLabel`, `variant`, `onConfirm`, `onCancel`.
 
-### QrCode props
+### QrCode
 - `value`, `size=200`, `level=M`, `bgColor=#FFFFFF`, `fgColor=#1E293B`.
 
 ### SoundToggle
