@@ -7,10 +7,15 @@ Last updated: 2026-09-10
 
 ## Prerequisites
 
-- `make setup` completed
-- `make seed` completed
-- `make dev` running
-- Browser open
+Run the following commands:
+
+```bash
+make setup
+make seed
+make dev
+```
+
+Then open your browser.
 
 ---
 
