@@ -1,3 +1,4 @@
+// App shell - mounted by src/main.tsx as the main entry of the SPA.
 import { RouterProvider, createBrowserRouter } from 'react-router-dom';
 import PublicLayout from '@/layouts/PublicLayout';
 import StaffLayout from '@/layouts/StaffLayout';
