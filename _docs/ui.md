@@ -20,7 +20,7 @@ Last updated: 2026-09-10
 
 ## 2. Color Tokens
 
-Reused values: `CALLED` and `OCCUPIED` both use `#F97316`; `SEATED` and `AVAILABLE` both use `#22C55E`. This is intentional re-use of one warm/orange "act now" hue and one green "ready" hue across two namespaces.
+Reused values: the token for `CALLED` is shared by `OCCUPIED`; the token for `SEATED` is shared by `AVAILABLE`. This is intentional re-use of one warm/orange "act now" hue and one green "ready" hue across two namespaces.
 
 ### Base
 | Token | Value | Usage |
