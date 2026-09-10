@@ -328,7 +328,7 @@ Unique: `(branch_id, business_date, queue_prefix, seq)`
 }
 ```
 
-7. Business Rules
+## 7. Business Rules
 Phone must be unique among active statuses (WAITING, CALLED, SEATED).
 
 Name: 1–50 chars, trimmed.
@@ -369,7 +369,7 @@ queue_prefix change only affects future entries.
 
 hold_minutes change applies to future calls; existing calls use snapshot.
 
-8. Queue Number and Business Date
+## 8. Queue Number and Business Date
 business_date = (now_in_branch_tz - cutoff_hour).date().
 
 Example: cutoff=4, 2026-09-11 01:00 Taipei → business_date = 2026-09-10.
@@ -386,7 +386,7 @@ queue_number is not unique across days.
 
 Guest lookup without token only searches current business_date.
 
-9. Table Management
+## 9. Table Management
 Static table list maintained in Settings.
 
 Table fields: label, capacity, section, sort_order, is_active.
@@ -409,7 +409,7 @@ Inactive tables excluded from staff tables and suggestions.
 
 Inactive tables shown in admin list with (deleted).
 
-10. Notifications (in-app only)
+## 10. Notifications (in-app only)
 No external notifications in v1.
 
 In-app notification triggers:
@@ -424,7 +424,7 @@ Notification templates stored in Settings for future use.
 
 Templates use placeholders: {queue_number}, {branch_name}, {hold_minutes}.
 
-11. Error Codes
+## 11. Error Codes
 Code	HTTP	Meaning
 VALIDATION_ERROR	422	Field validation failed
 WAITLIST_DUPLICATE_PHONE	409	Phone already on active waitlist
@@ -452,7 +452,7 @@ Error response shape:
   }
 }
 
-12. API Summary
+## 12. API Summary
 Public
 GET /api/v1/public/branches/{branch_id}
 
@@ -512,7 +512,7 @@ POST /api/v1/admin/reset
 Health
 GET /health
 
-13. Time and Timezone
+## 13. Time and Timezone
 Store all timestamps in UTC.
 
 Display in Asia/Taipei.
@@ -529,7 +529,7 @@ remaining_seconds returned by backend for CALLED entries.
 
 Frontend does not compute time differences.
 
-14. Concurrency
+## 14. Concurrency
 DB unique index on (branch_id, business_date, queue_prefix, seq).
 
 DB unique index on (branch_id, label) for tables.
@@ -548,7 +548,7 @@ Close day: batch update in one transaction.
 
 Concurrent same action: second returns WAITLIST_INVALID_STATUS.
 
-15. Security and Privacy
+## 15. Security and Privacy
 Phone not logged.
 
 Name not logged.
@@ -575,7 +575,7 @@ Public endpoints do not require auth.
 
 CORS allows configured origins.
 
-16. Known Limitations
+## 16. Known Limitations
 SQLite concurrent writes limited.
 
 Single worker rate limit.
@@ -610,10 +610,10 @@ No soft delete for waitlist entries.
 
 No status change history.
 
-17. Non-Goals
+## 17. Non-Goals
 See Section 2.
 
-18. Environment Variables
+## 18. Environment Variables
 
 Backend
 Variable	Default	Description
@@ -633,7 +633,7 @@ VITE_BRANCH_ID	1	Default branch
 VITE_ENABLE_SOUND	true	Enable sound
 VITE_PUBLIC_BASE_URL	``	Public base URL
 
-19. Seed Data
+## 19. Seed Data
 Restaurant: Sunny Bistro
 
 Branch: Taipei Xinyi
@@ -664,7 +664,7 @@ Phones: 0900-000-001 to 0900-000-009
 
 Staff PIN: 1234
 
-20. Demo Script
+## 20. Demo Script
 make seed
 
 Open /join?branch=1
@@ -691,7 +691,7 @@ Click Release Table, A1 becomes AVAILABLE
 
 Open /admin/settings, change hold_minutes
 
-21. Definition of Done
+## 21. Definition of Done
 All acceptance criteria pass
 
 uv run pytest passes
