@@ -143,17 +143,21 @@ table-queue/
 └── .nvmrc
 ```
 
+This tree is the full v1 target layout: it is a superset of _docs/requirements.md section 5, which lists the 53-entry core subset of these 102 entries.
+
 
 ---
 
 ## Getting Started
+
+The `Makefile`, the `make` targets, `backend/`, `frontend/` and the root `package.json` are created by F-01 (Platform Issue 12). None of them exists in this checkout today, so the commands on this page document the toolchain F-01 delivers; none of them runs here yet.
 
 ### Prerequisites
 
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/)
 - Node.js 20+
-- `make` (optional)
+- `make` (optional; the targets below arrive with F-01, Platform Issue 12)
 
 ### Setup
 
@@ -201,6 +205,13 @@ cd backend && uv run pytest
 cd frontend && npm run test
 ```
 
+Lint and format
+
+```bash
+make lint
+make format
+```
+
 ## Development
 
 ### Access
@@ -217,9 +228,17 @@ Health: http://localhost:8000/health
 
 Join: http://localhost:5173/join?branch=1
 
+Status: http://localhost:5173/status/A001
+
+Lookup: http://localhost:5173/lookup
+
 Board: http://localhost:5173/board/1
 
-Staff login: http://localhost:5173/staff/login (PIN: 1234)
+Staff login: http://localhost:5173/staff/login (initial PIN: 1234)
+
+Staff waitlist: http://localhost:5173/staff/waitlist
+
+Staff tables: http://localhost:5173/staff/tables
 
 Settings: http://localhost:5173/admin/settings
 
@@ -242,17 +261,19 @@ make test-backend	Run backend tests
 make test-frontend	Run frontend tests
 make lint	Lint frontend
 make format	Format frontend
+
 ## Environment Variables
 
 Backend (backend/.env)
-Variable	Default	Description
-DATABASE_URL	sqlite:///./dev.db	DB connection
-JWT_SECRET	change-me-in-production	JWT signing secret
-JWT_EXPIRE_HOURS	12	JWT expiry
-STAFF_PIN	1234	Initial staff PIN
-DEFAULT_BRANCH_ID	1	Default branch
-CORS_ORIGINS	http://localhost:5173	Allowed origins
-ENV	development	Environment
+Variable	Default	Required	Description
+DATABASE_URL	sqlite:///./dev.db	yes	DB connection
+JWT_SECRET	change-me-in-production	yes	JWT signing secret
+JWT_EXPIRE_HOURS	12	no	JWT expiry
+STAFF_PIN	1234	yes	Initial staff PIN
+DEFAULT_BRANCH_ID	1	no	Default branch
+CORS_ORIGINS	http://localhost:5173	no	Allowed origins
+ENV	development	no	Environment
+
 Frontend (frontend/.env)
 Variable	Default	Description
 VITE_API_BASE_URL	/api/v1	API base path
@@ -260,6 +281,9 @@ VITE_USE_MOCK	true	Use mock API
 VITE_BRANCH_ID	1	Default branch
 VITE_ENABLE_SOUND	true	Enable sound
 VITE_PUBLIC_BASE_URL	``	Public base URL
+
+`STAFF_PIN` is the single shared staff PIN in v1 and is stored as a bcrypt hash; the `1234` default is the initial plaintext input, not the stored value.
+
 Copy .env.example to .env in both backend/ and frontend/.
 
 ## Demo
