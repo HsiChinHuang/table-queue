@@ -492,6 +492,8 @@ GET /api/v1/staff/tables
 
 PATCH /api/v1/staff/tables/{id}
 
+POST /api/v1/staff/tables/{id}/release
+
 GET /api/v1/staff/dashboard
 
 Admin
