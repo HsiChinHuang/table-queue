@@ -385,20 +385,33 @@ StatusPage
 
 Run: cd frontend && npm run test
 
-Both
-make test must pass before merging.
+### Both
 
-Definition of Done
+`make test` will be required before merging, but it does not run today: no
+`Makefile` exists in this repository yet, and neither `backend/` nor
+`frontend/` does. The `Makefile` and its `test` target are created later by
+Platform Issue #12 (`F-01 Setup repo structure`). Until then run the two
+commands above separately.
+
+## Definition of Done
+
 An issue is done when:
 
-□ All acceptance criteria pass
-□ uv run pytest passes
-□ npm run test passes
-□ No lint errors
-□ PR references the issue
-□ Manual verification completed
-□ Issue closed
-Rules for Coding Agents
+- [ ] All acceptance criteria pass
+- [ ] uv run pytest passes
+- [ ] npm run test passes
+- [ ] No lint errors
+- [ ] PR references the issue
+- [ ] Manual verification completed
+- [ ] Issue closed
+
+These six items are the Definition of Done in
+[`_docs/specs.md`](_docs/specs.md) section 21; `Issue closed` is the one
+addition this guide makes, because the reviewer closes the issue after the
+squash merge described under Merge Strategy.
+
+## Rules for Coding Agents
+
 Read first:
 
 AGENTS.md
