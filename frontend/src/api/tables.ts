@@ -3,8 +3,12 @@ import { get, patch, post, put, del } from './client';
 export interface Table {
   id: string;
   name: string;
+  /** Human-readable table label shown on staff cards (F-13). Falls back to name. */
+  label?: string;
   capacity: number;
   status: string;
+  /** Present when the table is occupied (staff tables endpoint). */
+  occupiedBy?: { queueNumber: string; partySize: number; occupiedMinutes: number };
 }
 
 export interface UpdateTableStatusRequest {
