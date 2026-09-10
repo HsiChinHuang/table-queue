@@ -6,6 +6,11 @@ export interface PublicBranch {
   restaurant_id: string;
   timezone: string;
   cutoff_hour: number;
+  restaurant_name: string;
+  branch_name: string;
+  hours: string;
+  waiting_count: number;
+  is_waitlist_open: boolean;
 }
 
 export interface JoinWaitlistRequest {
