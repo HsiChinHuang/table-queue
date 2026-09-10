@@ -315,10 +315,9 @@ paths:
       parameters:
         - name: status
           in: query
+          # Default ACTIVE lives in the referenced schema; specs.md:156 is its source.
           schema:
-            type: string
-            enum: [ACTIVE, CLOSED, ALL]
-            default: ACTIVE
+            $ref: '#/components/schemas/WaitlistFilterStatus'
         - name: search
           in: query
           schema:
@@ -1143,6 +1142,7 @@ components:
     WaitlistFilterStatus:
       type: string
       enum: [ACTIVE, CLOSED, ALL]
+      default: ACTIVE
 
     # -------------------- Error --------------------
 
