@@ -269,11 +269,13 @@ const JoinPage: React.FC = () => {
                 id="name"
                 type="text"
                 placeholder="Your name"
-                error={errors.name?.message}
                 {...register('name')}
                 disabled={isSubmitting}
               />
-            </div>
+
+              {errors.name?.message && (
+                <p id="name-error" className="mt-1 text-xs text-error">{errors.name?.message}</p>
+              )}            </div>
 
             {/* Phone field */}
             <div>
@@ -284,11 +286,13 @@ const JoinPage: React.FC = () => {
                 id="phone"
                 type="tel"
                 placeholder="09xx-xxx-xxx or 02-xxxx-xxxx"
-                error={errors.phone?.message}
                 {...register('phone')}
                 disabled={isSubmitting}
               />
-            </div>
+
+              {errors.phone?.message && (
+                <p id="phone-error" className="mt-1 text-xs text-error">{errors.phone?.message}</p>
+              )}            </div>
 
             {/* Party size field */}
             <div>
@@ -300,11 +304,13 @@ const JoinPage: React.FC = () => {
                 type="number"
                 min={1}
                 max={20}
-                error={errors.partySize?.message}
                 {...register('partySize', { valueAsNumber: true })}
                 disabled={isSubmitting}
               />
-            </div>
+
+              {errors.partySize?.message && (
+                <p id="partySize-error" className="mt-1 text-xs text-error">{errors.partySize?.message}</p>
+              )}            </div>
 
             {/* Note field (optional) */}
             <div>
@@ -315,11 +321,13 @@ const JoinPage: React.FC = () => {
                 id="note"
                 type="text"
                 placeholder="Any special requests..."
-                error={errors.note?.message}
                 {...register('note')}
                 disabled={isSubmitting}
               />
-            </div>
+
+              {errors.note?.message && (
+                <p id="note-error" className="mt-1 text-xs text-error">{errors.note?.message}</p>
+              )}            </div>
 
             {/* Submit button */}
             <Button
