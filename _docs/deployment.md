@@ -59,17 +59,16 @@ make format
 ### Makefile Targets
 The 10 targets below are the list `_docs/plan.md` requires of F-01. They belong to the `Makefile` that F-01 creates, not to this checkout:
 
-target	what it will do
-make setup	install backend and frontend dependencies
-make dev	run backend and frontend together
-make backend	run the backend only
-make frontend	run the frontend only
-make seed	reset and seed the database
-make test	run all tests
-make test-backend	run backend tests only
-make test-frontend	run frontend tests only
-make lint	lint backend and frontend
-make format	format backend and frontend
+- `make setup` install backend and frontend dependencies
+- `make dev` run backend and frontend together
+- `make backend` run the backend only
+- `make frontend` run the frontend only
+- `make seed` reset and seed the database
+- `make test` run all tests
+- `make test-backend` run backend tests only
+- `make test-frontend` run frontend tests only
+- `make lint` lint backend and frontend
+- `make format` format backend and frontend
 
 ### Access
 - Frontend: http://localhost:5173
