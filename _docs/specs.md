@@ -140,7 +140,7 @@ TableQueue is a restaurant waitlist manager.
 4. Frontend calls `POST /api/v1/staff/waitlist/{id}/call`.
 5. Backend sets status to `CALLED`, stores `called_at`, stores `hold_minutes_snapshot`.
 6. Backend returns updated entry with `remaining_seconds`.
-7. Guest status page shows `CALLED`, countdown, orange color, vibration, sound.
+7. Guest status page shows `CALLED`, countdown, the `CALLED` status colour (see `_docs/ui.md` section 2), vibration, sound.
 
 ### 4.3 Guest is seated
 1. Staff clicks `Seat` on a `CALLED` or `WAITING` entry.
@@ -412,13 +412,15 @@ Inactive tables shown in admin list with (deleted).
 ## 10. Notifications (in-app only)
 No external notifications in v1.
 
+Status colours are not restated in this document; `_docs/ui.md` section 2 is the single source of truth for every waitlist status and table status colour value.
+
 In-app notification triggers:
 
 Guest joins: show queue number and status URL.
 
-Guest called: status page turns orange, countdown, vibration, sound.
+Guest called: status page adopts the `CALLED` status colour (see `_docs/ui.md` section 2), countdown, vibration, sound.
 
-Guest no-show: status page turns red.
+Guest no-show: status page adopts the `NO_SHOW` status colour (see `_docs/ui.md` section 2).
 
 Notification templates stored in Settings for future use.
 
@@ -694,7 +696,7 @@ See A006 on waitlist
 
 Click Call
 
-Guest status page turns orange, countdown starts
+Guest status page adopts the `CALLED` status colour (see `_docs/ui.md` section 2), countdown starts
 
 Click Seat, select A1
 
