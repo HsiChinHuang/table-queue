@@ -72,42 +72,31 @@ make lint	lint backend and frontend
 make format	format backend and frontend
 
 ### Access
-
-Frontend: http://localhost:5173
-
-Backend: http://localhost:8000
-
-API docs: http://localhost:8000/docs
-
-Health: http://localhost:8000/health
+- Frontend: http://localhost:5173
+- Backend: http://localhost:8000
+- API docs: http://localhost:8000/docs
+- Health: http://localhost:8000/health
 
 ### Demo URLs
+- Join: http://localhost:5173/join?branch=1
+- Board: http://localhost:5173/board/1
+- Staff login: http://localhost:5173/staff/login (PIN: 1234)
+- Staff waitlist, the page a successful login lands on: http://localhost:5173/staff/waitlist
+- Settings: http://localhost:5173/admin/settings
 
-Join: http://localhost:5173/join?branch=1
-
-Board: http://localhost:5173/board/1
-
-Staff: http://localhost:5173/staff/login (PIN: 1234)
-
-Settings: http://localhost:5173/admin/settings
+`_docs/ui.md` section 6 owns the route list; the URLs above are the ones a reader needs for the demo walk-through.
 
 ### Mobile Testing
-
-Start with --host to bind to 0.0.0.0.
-
-Find your local IP (ipconfig / ifconfig).
-
-Open http://<your-ip>:5173/join?branch=1 on phone.
-
-Phone and computer must be on the same Wi-Fi.
+- Start both dev servers bound to `0.0.0.0`: Vite with `--host`, uvicorn with `--host 0.0.0.0`.
+- Find your machine's LAN address (`ipconfig` on Windows, `ifconfig` on macOS or Linux).
+- Open `http://<your-ip>:5173/join?branch=1` on the phone.
+- Phone and computer must be on the same Wi-Fi.
 
 ### CORS
-
-Backend reads CORS_ORIGINS.
-
-Default: http://localhost:5173.
-
-Add local IP if testing on phone: http://192.168.x.x:5173.
+- The backend reads `CORS_ORIGINS`.
+- `CORS_ORIGINS` is a comma-separated list of allowed origins, so an extra origin is added to the value and does not replace it.
+- The default of `CORS_ORIGINS` is `http://localhost:5173`, the same default as the section 2 row and `_docs/specs.md` section 18.
+- Testing on a phone appends the LAN address, for example `CORS_ORIGINS=http://localhost:5173,http://192.168.x.x:5173`.
 
 ## 2. Environment Variables
 
