@@ -17,6 +17,24 @@ TableQueue is a restaurant waitlist manager.
 - Single-store MVP, but data model keeps `restaurant_id` and `branch_id` for future expansion.
 - All UI text is in English. Formats follow Taiwan localization (phone, timezone).
 
+### Phase 0 decisions captured
+
+There is no Phase 0 Q&A transcript in this repository, so this list is the auditable record of the decisions taken in Phase 0. Each bullet points at the section of this document that encodes the decision.
+
+- All UI text is in English, with Taiwan phone formats (`09xx-xxx-xxx`, `02-xxxx-xxxx`) and Taiwan date formats; see [Section 1](#1-overview) and [Section 7](#7-business-rules).
+- Staff and admin authenticate with a single shared PIN that is exchanged for a JWT; see [Section 3](#3-roles-and-permissions).
+- The waitlist state machine is explicit and `NO_SHOW` is applied lazily on read as well as on timeout; see [Section 5](#5-state-machine) and [Section 4](#4-core-flows).
+- The deployment is a single store, but the data model keeps `restaurant_id` and `branch_id` for future expansion; see [Section 6](#6-data-model).
+- Timestamps are stored in UTC and displayed in `Asia/Taipei`, with the `2026-09-10 21:00` date-time format; see [Section 13](#13-time-and-timezone).
+- Notifications are in-app only in v1; no email, SMS or push; see [Section 10](#10-notifications-in-app-only).
+- Every API error travels in a single `error.code` envelope; see [Section 11](#11-error-codes).
+- Every HTTP operation is listed against `_docs/openapi.yaml`, which wins on operation existence; see [Section 12](#12-api-summary).
+- Tables are a static list with capacity-based suggestions and soft delete via `is_active=false`; see [Section 9](#9-table-management).
+- Queue numbers reset per `business_date`, which is derived from the branch timezone and the business day cutoff hour; see [Section 8](#8-queue-number-and-business-date).
+- Status colour tokens are owned by `_docs/ui.md` section 2 and are never restated here; see [Section 10](#10-notifications-in-app-only).
+- Concurrency is handled with DB unique indexes and single-transaction writes, without optimistic locking; see [Section 14](#14-concurrency).
+- Runtime configuration comes from environment variables; see [Section 18](#18-environment-variables).
+
 ---
 
 ## 2. Goals and Non-Goals
