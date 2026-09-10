@@ -130,6 +130,8 @@ paths:
                 phone_masked: 0900-***-001
                 party_size: 4
                 note: Window seat
+                source: CUSTOMER
+                cancelled_reason: null
                 created_at: '2026-09-10T13:00:00+08:00'
                 called_at: null
                 seated_at: null
@@ -223,6 +225,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WaitlistEntryResponse'
+              example:
+                id: 5f7c1a9e-9a7b-4f1e-8e1a-1b2c3d4e5f60
+                queue_number: A001
+                full_queue_number: A-20260910-001
+                status: CANCELLED
+                name: John Smith
+                phone_masked: 0900-***-001
+                party_size: 4
+                note: Window seat
+                source: CUSTOMER
+                cancelled_reason: CUSTOMER
+                created_at: '2026-09-10T13:00:00+08:00'
+                called_at: null
+                seated_at: null
+                remaining_seconds: null
+                table_id: null
+                table_label: null
+                updated_at: '2026-09-10T13:15:00+08:00'
         '404':
           $ref: '#/components/responses/WaitlistNotFound'
         '409':
@@ -315,10 +335,9 @@ paths:
       parameters:
         - name: status
           in: query
+          # Default ACTIVE lives in the referenced schema; specs.md:156 is its source.
           schema:
-            type: string
-            enum: [ACTIVE, CLOSED, ALL]
-            default: ACTIVE
+            $ref: '#/components/schemas/WaitlistFilterStatus'
         - name: search
           in: query
           schema:
@@ -357,6 +376,8 @@ paths:
                     party_size: 4
                     note: Window seat
                     status: WAITING
+                    source: CUSTOMER
+                    cancelled_reason: null
                     created_at: '2026-09-10T13:00:00+08:00'
                     called_at: null
                     seated_at: null
@@ -391,6 +412,8 @@ paths:
                 party_size: 4
                 note: Window seat
                 status: CALLED
+                source: CUSTOMER
+                cancelled_reason: null
                 created_at: '2026-09-10T13:00:00+08:00'
                 called_at: '2026-09-10T13:10:00+08:00'
                 seated_at: null
@@ -468,6 +491,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WaitlistEntryResponse'
+              example:
+                id: 5f7c1a9e-9a7b-4f1e-8e1a-1b2c3d4e5f60
+                queue_number: A001
+                full_queue_number: A-20260910-001
+                name: John Smith
+                phone_masked: 0900-***-001
+                party_size: 4
+                note: Window seat
+                status: NO_SHOW
+                source: CUSTOMER
+                cancelled_reason: null
+                created_at: '2026-09-10T13:00:00+08:00'
+                called_at: '2026-09-10T13:10:00+08:00'
+                seated_at: null
+                remaining_seconds: null
+                hold_minutes_snapshot: 10
+                table_id: null
+                table_label: null
+                updated_at: '2026-09-10T13:20:00+08:00'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -489,6 +531,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WaitlistEntryResponse'
+              example:
+                id: 5f7c1a9e-9a7b-4f1e-8e1a-1b2c3d4e5f60
+                queue_number: A001
+                full_queue_number: A-20260910-001
+                name: John Smith
+                phone_masked: 0900-***-001
+                party_size: 4
+                note: Window seat
+                status: WAITING
+                source: CUSTOMER
+                cancelled_reason: null
+                created_at: '2026-09-10T13:00:00+08:00'
+                called_at: '2026-09-10T13:10:00+08:00'
+                seated_at: null
+                remaining_seconds: null
+                hold_minutes_snapshot: 10
+                table_id: null
+                table_label: null
+                updated_at: '2026-09-10T13:25:00+08:00'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -510,6 +571,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WaitlistEntryResponse'
+              example:
+                id: 5f7c1a9e-9a7b-4f1e-8e1a-1b2c3d4e5f60
+                queue_number: A001
+                full_queue_number: A-20260910-001
+                name: John Smith
+                phone_masked: 0900-***-001
+                party_size: 4
+                note: Window seat
+                status: WAITING
+                source: CUSTOMER
+                cancelled_reason: null
+                created_at: '2026-09-10T13:00:00+08:00'
+                called_at: null
+                seated_at: null
+                remaining_seconds: null
+                hold_minutes_snapshot: null
+                table_id: null
+                table_label: null
+                updated_at: '2026-09-10T13:18:00+08:00'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -531,6 +611,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WaitlistEntryResponse'
+              example:
+                id: 5f7c1a9e-9a7b-4f1e-8e1a-1b2c3d4e5f60
+                queue_number: A001
+                full_queue_number: A-20260910-001
+                name: John Smith
+                phone_masked: 0900-***-001
+                party_size: 4
+                note: Window seat
+                status: CANCELLED
+                source: CUSTOMER
+                cancelled_reason: STAFF
+                created_at: '2026-09-10T13:00:00+08:00'
+                called_at: null
+                seated_at: null
+                remaining_seconds: null
+                table_id: null
+                table_label: null
+                updated_at: '2026-09-10T13:20:00+08:00'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -561,6 +659,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WaitlistEntryResponse'
+              example:
+                id: 5f7c1a9e-9a7b-4f1e-8e1a-1b2c3d4e5f60
+                queue_number: A001
+                full_queue_number: A-20260910-001
+                name: John Smith
+                phone_masked: 0900-***-001
+                party_size: 5
+                note: Needs high chair
+                status: WAITING
+                source: CUSTOMER
+                cancelled_reason: null
+                created_at: '2026-09-10T13:00:00+08:00'
+                called_at: null
+                seated_at: null
+                remaining_seconds: null
+                table_id: null
+                table_label: null
+                updated_at: '2026-09-10T13:12:00+08:00'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -592,6 +708,43 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WaitlistListResponse'
+              example:
+                items:
+                  - id: 5f7c1a9e-9a7b-4f1e-8e1a-1b2c3d4e5f60
+                    queue_number: A001
+                    full_queue_number: A-20260910-001
+                    name: John Smith
+                    phone_masked: 0900-***-001
+                    party_size: 4
+                    note: Window seat
+                    status: WAITING
+                    source: CUSTOMER
+                    cancelled_reason: null
+                    created_at: '2026-09-10T13:00:00+08:00'
+                    called_at: null
+                    seated_at: null
+                    remaining_seconds: null
+                    table_id: null
+                    table_label: null
+                    updated_at: '2026-09-10T13:00:00+08:00'
+                  - id: 6a8d2b0f-1b8c-5e2f-9f2b-2c3d4e5f6a71
+                    queue_number: A002
+                    full_queue_number: A-20260910-002
+                    name: John Smith
+                    phone_masked: 0900-***-002
+                    party_size: 2
+                    note: null
+                    status: WAITING
+                    source: STAFF
+                    cancelled_reason: null
+                    created_at: '2026-09-10T13:02:00+08:00'
+                    called_at: null
+                    seated_at: null
+                    remaining_seconds: null
+                    table_id: null
+                    table_label: null
+                    updated_at: '2026-09-10T13:02:00+08:00'
+                total: 2
         '401':
           $ref: '#/components/responses/Unauthorized'
         '422':
@@ -659,6 +812,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TableResponse'
+              example:
+                id: 9c1b2d3e-4f5a-6b7c-8d9e-0f1a2b3c4d5e
+                label: A1
+                capacity: 2
+                section: Main Hall
+                status: CLEANING
+                is_active: true
+                sort_order: 1000
+                current_waitlist: null
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -789,6 +951,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SettingsResponse'
+              example:
+                restaurant_name: Sunny Bistro
+                branch_name: Taipei Xinyi
+                address: No. 123, Example Rd., Xinyi Dist., Taipei City 110, Taiwan
+                phone: 02-1234-5678
+                open_time: '11:00'
+                close_time: '21:00'
+                hold_minutes: 12
+                avg_seat_minutes: 20
+                queue_prefix: B
+                is_waitlist_open: false
+                sound_enabled_default: false
+                notification_templates:
+                  joined: You're on the waitlist. Your number is {queue_number}.
+                  called: It's your turn! Please come to the counter within {hold_minutes} minutes.
+                  no_show: Your number has been called and marked as no-show.
+                has_pin: true
         '401':
           $ref: '#/components/responses/Unauthorized'
         '422':
@@ -816,6 +995,37 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TableListResponse'
+              example:
+                items:
+                  - id: 9c1b2d3e-4f5a-6b7c-8d9e-0f1a2b3c4d5e
+                    label: A1
+                    capacity: 2
+                    section: Main Hall
+                    status: AVAILABLE
+                    is_active: true
+                    sort_order: 1000
+                    current_waitlist: null
+                  - id: 0d2e3f4a-5b6c-7d8e-9f0a-1b2c3d4e5f6a
+                    label: B1
+                    capacity: 4
+                    section: Main Hall
+                    status: OCCUPIED
+                    is_active: true
+                    sort_order: 2000
+                    current_waitlist:
+                      queue_number: A005
+                      party_size: 4
+                      seated_at: '2026-09-10T13:05:00+08:00'
+                      elapsed_minutes: 25
+                  - id: 1e3f4a5b-6c7d-8e9f-0a1b-2c3d4e5f6a7b
+                    label: C1
+                    capacity: 6
+                    section: Main Hall
+                    status: AVAILABLE
+                    is_active: false
+                    sort_order: 3000
+                    current_waitlist: null
+                total: 3
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -1143,6 +1353,7 @@ components:
     WaitlistFilterStatus:
       type: string
       enum: [ACTIVE, CLOSED, ALL]
+      default: ACTIVE
 
     # -------------------- Error --------------------
 
@@ -1310,6 +1521,12 @@ components:
           type: string
           nullable: true
           example: Window seat
+        source:
+          $ref: '#/components/schemas/WaitlistSource'
+        cancelled_reason:
+          allOf:
+            - $ref: '#/components/schemas/CancelledReason'
+          nullable: true
         created_at:
           type: string
           format: date-time
