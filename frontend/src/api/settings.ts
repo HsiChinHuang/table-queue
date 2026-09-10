@@ -5,12 +5,28 @@ export interface Settings {
   waitlist_enabled: boolean;
   call_timeout_minutes: number;
   queue_prefix: string;
+  // optional fields per R-F14-4
+  restaurant_name?: string;
+  address?: string;
+  phone?: string;
+  open_time?: string;
+  close_time?: string;
+  avg_seat_minutes?: number;
+  sound_enabled_default?: boolean;
 }
 
 export interface UpdateSettingsRequest {
   waitlist_enabled?: boolean;
   call_timeout_minutes?: number;
   queue_prefix?: string;
+  // optional fields per R-F14-4
+  restaurant_name?: string;
+  address?: string;
+  phone?: string;
+  open_time?: string;
+  close_time?: string;
+  avg_seat_minutes?: number;
+  sound_enabled_default?: boolean;
 }
 
 // AC-6: getSettings endpoint
