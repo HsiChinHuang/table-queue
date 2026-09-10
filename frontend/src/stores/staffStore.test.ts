@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+// @vitest-environment jsdom
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { staffStore } from './staffStore';
 
 describe('staffStore', () => {
