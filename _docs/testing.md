@@ -244,6 +244,13 @@ frontend/src/
 
 ## 4. Test Data
 
+### Seed Data Mirror
+
+- Restaurant: `Sunny Bistro`
+- Branch: `Taipei Xinyi`
+- Tables: `A1–A4` (2 pax), `B1–B4` (4 pax), `C1–C2` (6 pax)
+- Phone range: `0900-000-001` to `0900-000-009`
+
 - Backend factories mirror seed data.
 - Frontend fixtures mirror backend response shapes.
 - Fixtures use the same queue numbers as seed (`A001`, `A012`).
