@@ -7,6 +7,8 @@ Last updated: 2026-09-10
 
 ## 1. Local Development
 
+`Makefile`, `backend/` and `frontend/` do not exist in this repository yet; F-01 (Platform Issue 12) creates them. Every command in this section documents what those files will provide. None of them runs in this checkout today.
+
 ### Prerequisites
 - Python 3.11+
 - `uv` installed
@@ -44,6 +46,30 @@ make test
 cd backend && uv run pytest
 cd frontend && npm run test
 ```
+
+- `make test-backend` runs the backend tests only, `make test-frontend` the frontend tests only.
+- The `uv run pytest` and `npm run test` lines are the commands `_docs/testing.md` section 8 documents, word for word.
+
+### Lint and Format
+```bash
+make lint
+make format
+```
+
+### Makefile Targets
+The 10 targets below are the list `_docs/plan.md` requires of F-01. They belong to the `Makefile` that F-01 creates, not to this checkout:
+
+target	what it will do
+make setup	install backend and frontend dependencies
+make dev	run backend and frontend together
+make backend	run the backend only
+make frontend	run the frontend only
+make seed	reset and seed the database
+make test	run all tests
+make test-backend	run backend tests only
+make test-frontend	run frontend tests only
+make lint	lint backend and frontend
+make format	format backend and frontend
 
 ### Access
 
