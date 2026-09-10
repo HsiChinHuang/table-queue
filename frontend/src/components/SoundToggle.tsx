@@ -6,11 +6,12 @@
  * @param className - Additional CSS classes
  */
 import React, { useEffect } from 'react';
-import { staffStore } from '@/api/staffStore';
+import { staffStore } from '@/stores/staffStore';
 import { Volume2, VolumeX } from 'lucide-react';
 
 export const SoundToggle: React.FC<{ className?: string }> = ({ className = '' }) => {
-  const { soundEnabled, toggleSound } = staffStore();
+  const soundEnabled = staffStore((s) => s.soundEnabled);
+  const toggleSound = () => staffStore.getState().setSoundEnabled(!soundEnabled);
 
   // Play beep sound when enabling
   useEffect(() => {
