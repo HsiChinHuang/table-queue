@@ -126,163 +126,111 @@ VITE_PUBLIC_BASE_URL	``	Public base URL (QR code, share links)
 
 ## 3. Database
 ### v1
-SQLite file at backend/dev.db.
-
-Created automatically on first run.
-
-Schema created with Base.metadata.create_all.
-
-No Alembic in v1.
-
-Schema change: delete dev.db and re-run make seed.
+- SQLite file at `backend/dev.db`.
+- Created automatically on first run.
+- Schema created with `Base.metadata.create_all`.
+- No Alembic in v1.
+- Schema change: delete `dev.db` and re-run `make seed`.
 
 ### Default Data
-Restaurant(id=1, name="Sunny Bistro")
+- Restaurant(id=1, name="Sunny Bistro")
+- Branch(id=1, name="Taipei Xinyi", timezone="Asia/Taipei", business_day_cutoff_hour=4)
+- Settings(branch_id=1, hold_minutes=10, avg_seat_minutes=15, queue_prefix="A", is_waitlist_open=True)
 
-Branch(id=1, name="Taipei Xinyi", timezone="Asia/Taipei", business_day_cutoff_hour=4)
-
-Settings(branch_id=1, hold_minutes=10, avg_seat_minutes=15, queue_prefix="A", is_waitlist_open=True)
-
-No tables created by default; use seed or Settings page.
+A database that has not been seeded holds those three rows and no table rows, so staff cannot seat anyone until `make seed` runs or tables are added in the Settings page. A seeded database holds the tables `_docs/specs.md` section 19 specifies: A1-A4 (2 pax), B1-B4 (4 pax), C1-C2 (6 pax).
 
 ### Future PostgreSQL
-Set DATABASE_URL=postgresql+psycopg://user:pass@host/db.
-
-No code changes needed.
-
-Add Alembic before production.
-
-Add pool_size=5, max_overflow=10.
+- Set `DATABASE_URL=postgresql+psycopg://user:pass@host/db`.
+- No code changes needed.
+- Add Alembic before production.
+- Add `pool_size=5`, `max_overflow=10`.
 
 ### Backup
-v1: copy dev.db.
-
-Future: use managed DB snapshots.
+- v1: copy `dev.db`.
+- Future: use managed database snapshots.
 
 ## 4. Future Deployment Notes
 ### Frontend
-Vercel / Netlify / Cloudflare Pages.
-
-Build command: npm run build.
-
-Output: dist/.
-
-Set VITE_API_BASE_URL to backend URL.
-
-Set VITE_PUBLIC_BASE_URL to frontend URL.
+- Vercel / Netlify / Cloudflare Pages.
+- Build command: `npm run build`.
+- Output: `dist/`.
+- Set `VITE_API_BASE_URL` to the backend URL.
+- Set `VITE_PUBLIC_BASE_URL` to the frontend URL.
 
 ### Backend
-Railway / Render / Fly.io / VPS.
-
-Start command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2.
-
-Set all env vars.
-
-Set ENV=production.
-
-Set CORS_ORIGINS to frontend URL.
+- Railway / Render / Fly.io / VPS.
+- Start command: `uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2`.
+- Set all env vars.
+- Set `ENV=production`.
+- Set `CORS_ORIGINS` to the frontend URL, keeping the comma-separated list form.
 
 ### Database
-Managed PostgreSQL.
-
-Add Alembic migrations.
-
-Enable backups.
+- Managed PostgreSQL.
+- Add Alembic migrations.
+- Enable backups.
 
 ### HTTPS
-Provided by hosting platform.
-
-Required for production.
+- Provided by the hosting platform.
+- Required for production.
 
 ### Reverse Proxy
-If behind proxy, read X-Forwarded-For for rate limit.
-
-Configure uvicorn --proxy-headers.
+- If behind a proxy, read `X-Forwarded-For` for the rate limit.
+- Configure `uvicorn --proxy-headers`.
 
 ### Logging
-v1: stdout.
-
-Future: JSON logs with structlog, log rotation.
+- v1: stdout.
+- Future: JSON logs with structlog, log rotation.
 
 ### Rate Limit
-v1: in-memory, single worker.
-
-Future: Redis-backed for multi-worker.
+- v1: in-memory, single worker.
+- Future: Redis-backed for multi-worker.
 
 ### Workers
-v1: 1 worker.
-
-Future: --workers 2 or more.
+- v1: 1 worker.
+- Future: `--workers 2` or more.
 
 ## 5. Known Limitations
-SQLite concurrent writes limited.
-
-Single worker rate limit.
-
-No Alembic.
-
-No CI.
-
-No production deployment in v1.
-
-No structured logging.
-
-No audit log.
-
-No multi-branch UI.
-
-No external notifications.
-
-No reports page.
-
-No dark mode.
-
-No i18n.
-
-No E2E tests.
-
-No concurrency tests.
-
-No optimistic locking.
-
-No soft delete for waitlist entries.
-
-No status change history.
+- SQLite concurrent writes limited.
+- Single worker rate limit.
+- No Alembic.
+- No CI.
+- No production deployment in v1.
+- No structured logging.
+- No audit log.
+- No multi-branch UI.
+- No external notifications.
+- No reports page.
+- No dark mode.
+- No i18n.
+- No E2E tests.
+- No concurrency tests.
+- No optimistic locking.
+- No soft delete for waitlist entries.
+- No status change history.
 
 ## 6. Troubleshooting
 ### Frontend can't reach backend
-Check backend is running on port 8000.
-
-Check Vite proxy in vite.config.ts.
-
-Check VITE_API_BASE_URL.
-
-Check CORS.
+- Check the backend is running on port 8000.
+- Check the Vite proxy in `vite.config.ts`.
+- Check `VITE_API_BASE_URL`.
+- Check `CORS_ORIGINS`.
 
 ### Phone can't reach local dev
-Use --host for both Vite and uvicorn.
-
-Add local IP to CORS_ORIGINS.
-
-Check firewall.
+- Use `--host` for both Vite and uvicorn.
+- Add the phone's LAN address to the `CORS_ORIGINS` list.
+- Check the firewall.
 
 ### Database locked
-SQLite issue under concurrent writes.
-
-Restart backend.
-
-Delete dev.db and re-seed if needed.
+- SQLite issue under concurrent writes.
+- Restart the backend.
+- Delete `dev.db` and re-seed if needed.
 
 ### JWT expired
-Frontend auto-redirects to login.
-
-Log in again with PIN.
+- The frontend redirects to the login page.
+- Log in again with the staff PIN.
 
 ### Forgot PIN
-Stop backend.
-
-Set STAFF_PIN in .env.
-
-Delete staff_pin_hash in DB, or reset DB.
-
-Restart backend.
+- Stop the backend.
+- Set `STAFF_PIN` in `.env`.
+- Delete `staff_pin_hash` in the database, or reset the database.
+- Restart the backend.
