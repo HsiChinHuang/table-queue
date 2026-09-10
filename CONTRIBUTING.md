@@ -55,7 +55,7 @@ the others.
 - **Type**: feature | test | chore | docs | bug
 - **Area**: frontend | backend | database | docs
 - **Size**: S | M | L
-- **Milestone**: Phase X — Name
+- **Milestone**: Phase X - Name
 - **Labels**: groomed, phase-X, frontend/backend, feature/test/chore/docs
 
 ## Goal
@@ -66,11 +66,13 @@ One or two sentences on what should be true when this is done.
 
 Why this task exists. Link to relevant sections.
 
+- Related: #TASK-NUMBER
+- Design: `_docs/design-system.md` (if UI)
+- Plan: `_docs/plan.md`
 - Specs: `_docs/specs.md#section-anchor`
 - UI: `_docs/ui.md#section-anchor`
 - API: `_docs/openapi.yaml#operationId`
 - Testing: `_docs/testing.md#section-anchor`
-- Related: #TASK-NUMBER
 
 ## Acceptance criteria
 
@@ -78,13 +80,11 @@ Why this task exists. Link to relevant sections.
 - [ ] One line per case, including the awkward ones
 - [ ] Error cases covered
 - [ ] Empty / loading / error states covered
-- [ ] All UI text in English
-- [ ] Date format `2026-09-10 21:00`; phone format Taiwan `09xx-xxx-xxx` / `02-xxxx-xxxx`
 
 ## Test requirements
 
 - [ ] Backend: `backend/tests/test_<name>.py`, list test names
-- [ ] Frontend: `frontend/src/**/<name>.test.tsx`, list test names
+- [ ] Frontend: `frontend/tests/<name>.test.tsx`, list test names
 - [ ] Manual verification steps
 
 ## Implementation notes
@@ -92,7 +92,6 @@ Why this task exists. Link to relevant sections.
 - Suggested files to create or touch
 - Key types / functions / endpoints
 - Do NOT over-engineer; keep it simple
-- Follow `_docs/specs.md` and `_docs/openapi.yaml` exactly
 
 ## Dependencies
 
@@ -109,13 +108,12 @@ Why this task exists. Link to relevant sections.
 - Files this should stay inside
 - Libraries to use
 - Guidelines to follow
-- Do not add features not listed in `_docs/specs.md`
 
 ## Definition of Done
 
 - [ ] All acceptance criteria pass
-- [ ] `uv run pytest` passes (backend)
-- [ ] `npm run test` passes (frontend)
+- [ ] Backend tests pass (`uv run pytest`)
+- [ ] Frontend tests pass (`npm run test`)
 - [ ] No lint errors
 - [ ] PR description references this issue
 - [ ] Manual verification completed
@@ -123,6 +121,7 @@ Why this task exists. Link to relevant sections.
 ---
 
 **PM Note**: After grooming, add label `groomed` to this issue.
+```
 
 Labels
 Workflow
