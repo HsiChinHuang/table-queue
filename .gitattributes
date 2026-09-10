@@ -1,0 +1,14 @@
+# Normalize line endings to LF in the repository (see AGENTS.md: LF only).
+* text=auto eol=lf
+
+# Never rewrite binary payloads.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
