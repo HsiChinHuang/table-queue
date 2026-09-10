@@ -456,12 +456,18 @@ If a dependency is not done, do not start the issue.
 
 If tests fail, fix them before opening a PR.
 
-File Ownership
+## File Ownership
+
+This table widens [`_docs/documents.md`](_docs/documents.md), which assigns no
+single owner to any file and lists `_docs/rules.md` as readable by all roles;
+where the two disagree, `_docs/documents.md` wins.
+
 Path	Owner
 _docs/specs.md	PM
 _docs/ui.md	PM
 _docs/openapi.yaml	PM + backend
-_docs/testing.md	PM + both
+_docs/testing.md	PM + both (content owned by Platform Issue #4)
+_docs/rules.md	PM (all roles may read)
 _docs/deployment.md	PM
 _docs/issues/	PM
 backend/	backend
@@ -469,9 +475,23 @@ frontend/	frontend
 README.md	PM
 CONTRIBUTING.md	PM
 AGENTS.md	PM
-Makefile	both
+Makefile	both (created later by Platform Issue #12)
 root package.json	both
-Getting Help
+
+### Inconsistencies deferred
+
+Each item below is a defect in another file, found by this guide's audit and
+routed to the Platform Issue that owns that file. None is fixed here.
+
+- `_docs/documents.md:27` points at `_docs/AGENTS.md`, a path that does not exist; the real file is `AGENTS.md` at the repo root, and `_docs/AGENTS.md` is never referenced anywhere else in the repository. `AGENTS.md` and the document index are owned by Platform #10.
+- `_docs/testing.md` section 8 lists commands rather than requirements, and its ` ```bash ` block at line 291 is never closed. Owned by Platform #4.
+- `make test` is stated as a mandatory command in `_docs/testing.md`, `README.md` and `_docs/deployment.md`, but no `Makefile` exists. Creating it is owned by Platform #12.
+- The 14 declared process labels do not exist on the Platform and the 5 phases have no GitHub milestone; the never-run `gh label create` and `gh milestone create` steps live in `_docs/plan.md`. Owned by Platform #11.
+- `_docs/plan.md:1319` passes a lowercase `--body-file` issue filename (`p0-01.md`), while every issue file in `_docs/issues/` uses an uppercase ID, so the command in that step cannot resolve. Owned by Platform #11.
+- `_docs/task-template.md` carries `Design:` and `Plan:` context lines while this guide's embedded example additionally keeps four placeholder context lines whose links are deliberately unresolved; converging the two files completely would delete those placeholders, which the template example needs to stay generic. Changing `_docs/task-template.md` itself is owned by Platform #11's document plan work.
+
+## Getting Help
+
 Read _docs/specs.md first.
 
 Read AGENTS.md.
