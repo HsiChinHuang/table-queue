@@ -433,15 +433,12 @@ WAITLIST_INVALID_STATUS	409	Action not allowed for current status
 WAITLIST_CLOSED	409	Waitlist is paused
 AUTH_INVALID_PIN	401	PIN incorrect
 AUTH_TOKEN_EXPIRED	401	JWT expired or invalid
-AUTH_RATE_LIMITED	429	Too many login attempts
 TABLE_NOT_FOUND	404	Table not found
 TABLE_NOT_AVAILABLE	409	Table not available
-SETTINGS_NOT_FOUND	404	Settings not found
 CONFLICT	409	Conflict with another change
 RATE_LIMITED	429	Too many requests
 INTERNAL_ERROR	500	Unhandled error
 BRANCH_NOT_FOUND	404	Branch not found
-NETWORK_ERROR	—	Frontend-only network error
 
 Error response shape:
 {
@@ -451,6 +448,22 @@ Error response shape:
     "details": { "queue_number": "A001" }
   }
 }
+
+This table lists exactly the `error.code` values that `_docs/openapi.yaml` returns. `_docs/openapi.yaml` is the contract of record for error codes, so a code that no operation returns must not appear in this table.
+
+### Codes outside the API contract
+
+These codes are still specified in this document and referenced by other docs, but no operation in `_docs/openapi.yaml` returns them today, so they are kept out of the contract table above. Each names the Platform Issue that owns introducing (or continuing to omit) it.
+
+- `AUTH_RATE_LIMITED` (429, too many login attempts) — the login rate limit of 5/minute per IP is specified in Platform Issue #31 (`B-05 Auth endpoints`), but `openapi.yaml` does not declare a 429 response for `POST /api/v1/auth/login` yet. Target issue: #31.
+- `SETTINGS_NOT_FOUND` (404, settings not found) — listed in the error list of Platform Issue #36 (`B-10 Admin settings endpoints`), but not declared in `openapi.yaml` `components.responses`. Target issue: #36.
+- `NETWORK_ERROR` (no HTTP status, frontend-only) — synthesised client-side by the API client when a request never reaches the backend, so no operation can return it. Target issue: #14 (`F-03 API client and mock layer`).
+
+### Inconsistencies deferred
+
+- `AUTH_RATE_LIMITED` and `SETTINGS_NOT_FOUND` have no `components.responses` entry in `_docs/openapi.yaml`; adding them belongs to Platform Issue #31 and Platform Issue #36, and the contract change itself to Platform Issue #3.
+- `INTERNAL_ERROR` is specified here but `openapi.yaml` `components.responses` has no generic 500 response; adding it belongs to Platform Issue #3.
+- Status colour values are owned by `_docs/ui.md` section 2; aligning the colour token table with this specification belongs to Platform Issue #2.
 
 ## 12. API Summary
 Public
