@@ -4026,30 +4026,30 @@ Final verification that everything passes and the app still works after the DB s
 - [ ] `make test` passes
 - [ ] Demo works
 - [ ] PR references this issue
-附錄：Phase 完成檢查清單
-Phase 0 完成條件
-□ P0-01 到 P0-11 全部關閉
-□ _docs/specs.md、_docs/ui.md、_docs/openapi.yaml、_docs/testing.md、_docs/deployment.md、_docs/api-examples.md、_docs/demo.md、README.md、CONTRIBUTING.md、AGENTS.md、_docs/plan.md 全部存在
-□ openapi.yaml 通過 lint
-Phase 1 完成條件
-□ F-01 到 F-15 全部關閉
-□ VITE_USE_MOCK=true 可操作所有主要功能
-□ npm run test 通過
-□ 所有頁面有空狀態、載入狀態、錯誤狀態
-Phase 2 完成條件
-□ B-01 到 B-14 全部關閉
-□ uv run pytest 通過
-□ Swagger UI 顯示所有端點
-□ make seed 產生示範資料
-□ 錯誤格式統一
-Phase 3 完成條件
-□ I-01、I-02 關閉
-□ VITE_USE_MOCK=false 可操作所有主要功能
-□ _docs/demo.md 全部步驟通過
-□ 前端用 /api/v1 打後端
-Phase 4 完成條件
-□ D-01、D-02、D-03 關閉
-□ make test 通過
-□ 重啟後資料仍在
-□ 換 DATABASE_URL 不需改程式碼
-□ 所有已知限制寫進 _docs/specs.md
+Appendix: Phase Completion Checklist
+Phase 0 completion criteria
+□ P0-01 through P0-11 all closed
+□ _docs/specs.md, _docs/ui.md, _docs/openapi.yaml, _docs/testing.md, _docs/deployment.md, _docs/api-examples.md, _docs/demo.md, README.md, CONTRIBUTING.md, AGENTS.md, _docs/plan.md all exist
+□ openapi.yaml passes lint
+Phase 1 completion criteria
+□ F-01 through F-15 all closed
+□ VITE_USE_MOCK=true drives all major features
+□ npm run test passes
+□ all pages have empty, loading and error states
+Phase 2 completion criteria
+□ B-01 through B-14 all closed
+□ uv run pytest passes
+□ Swagger UI shows every endpoint
+□ make seed produces demo data
+□ error format is uniform
+Phase 3 completion criteria
+□ I-01 and I-02 closed
+□ VITE_USE_MOCK=false drives all major features
+□ every step in _docs/demo.md passes
+□ frontend calls the backend via /api/v1
+Phase 4 completion criteria
+□ D-01, D-02 and D-03 closed
+□ make test passes
+□ data survives a restart
+□ changing DATABASE_URL needs no code change
+□ all known limitations are written into _docs/specs.md
