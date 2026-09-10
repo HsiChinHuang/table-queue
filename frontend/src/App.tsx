@@ -3,6 +3,7 @@ import { RouterProvider, createBrowserRouter } from 'react-router-dom';
 import PublicLayout from '@/layouts/PublicLayout';
 import StaffLayout from '@/layouts/StaffLayout';
 import NotFoundPage from '@/pages/NotFoundPage';
+import BoardPage from '@/pages/public/BoardPage';
 
 // Local route string constants with quoted literals (required for AC-2 grep)
 const JOIN = '/join';
@@ -18,7 +19,6 @@ const ADMIN_SETTINGS = '/admin/settings';
 const JoinPage = () => <div>JoinPage</div>;
 const StatusPage = () => <div>StatusPage</div>;
 const LookupPage = () => <div>LookupPage</div>;
-const BoardPage = () => <div>BoardPage</div>;
 const StaffLoginPage = () => <div>StaffLoginPage</div>;
 const StaffWaitlistPage = () => <div>StaffWaitlistPage</div>;
 const StaffTablesPage = () => <div>StaffTablesPage</div>;
