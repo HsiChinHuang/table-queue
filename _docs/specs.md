@@ -17,6 +17,24 @@ TableQueue is a restaurant waitlist manager.
 - Single-store MVP, but data model keeps `restaurant_id` and `branch_id` for future expansion.
 - All UI text is in English. Formats follow Taiwan localization (phone, timezone).
 
+### Phase 0 decisions captured
+
+There is no Phase 0 Q&A transcript in this repository, so this list is the auditable record of the decisions taken in Phase 0. Each bullet points at the section of this document that encodes the decision.
+
+- All UI text is in English, with Taiwan phone formats (`09xx-xxx-xxx`, `02-xxxx-xxxx`) and Taiwan date formats; see [Section 1](#1-overview) and [Section 7](#7-business-rules).
+- Staff and admin authenticate with a single shared PIN that is exchanged for a JWT; see [Section 3](#3-roles-and-permissions).
+- The waitlist state machine is explicit and `NO_SHOW` is applied lazily on read as well as on timeout; see [Section 5](#5-state-machine) and [Section 4](#4-core-flows).
+- The deployment is a single store, but the data model keeps `restaurant_id` and `branch_id` for future expansion; see [Section 6](#6-data-model).
+- Timestamps are stored in UTC and displayed in `Asia/Taipei`, with the `2026-09-10 21:00` date-time format; see [Section 13](#13-time-and-timezone).
+- Notifications are in-app only in v1; no email, SMS or push; see [Section 10](#10-notifications-in-app-only).
+- Every API error travels in a single `error.code` envelope; see [Section 11](#11-error-codes).
+- Every HTTP operation is listed against `_docs/openapi.yaml`, which wins on operation existence; see [Section 12](#12-api-summary).
+- Tables are a static list with capacity-based suggestions and soft delete via `is_active=false`; see [Section 9](#9-table-management).
+- Queue numbers reset per `business_date`, which is derived from the branch timezone and the business day cutoff hour; see [Section 8](#8-queue-number-and-business-date).
+- Status colour tokens are owned by `_docs/ui.md` section 2 and are never restated here; see [Section 10](#10-notifications-in-app-only).
+- Concurrency is handled with DB unique indexes and single-transaction writes, without optimistic locking; see [Section 14](#14-concurrency).
+- Runtime configuration comes from environment variables; see [Section 18](#18-environment-variables).
+
 ---
 
 ## 2. Goals and Non-Goals
@@ -140,7 +158,7 @@ TableQueue is a restaurant waitlist manager.
 4. Frontend calls `POST /api/v1/staff/waitlist/{id}/call`.
 5. Backend sets status to `CALLED`, stores `called_at`, stores `hold_minutes_snapshot`.
 6. Backend returns updated entry with `remaining_seconds`.
-7. Guest status page shows `CALLED`, countdown, orange color, vibration, sound.
+7. Guest status page shows `CALLED`, countdown, the `CALLED` status colour (see `_docs/ui.md` section 2), vibration, sound.
 
 ### 4.3 Guest is seated
 1. Staff clicks `Seat` on a `CALLED` or `WAITING` entry.
@@ -328,7 +346,7 @@ Unique: `(branch_id, business_date, queue_prefix, seq)`
 }
 ```
 
-7. Business Rules
+## 7. Business Rules
 Phone must be unique among active statuses (WAITING, CALLED, SEATED).
 
 Name: 1–50 chars, trimmed.
@@ -369,7 +387,7 @@ queue_prefix change only affects future entries.
 
 hold_minutes change applies to future calls; existing calls use snapshot.
 
-8. Queue Number and Business Date
+## 8. Queue Number and Business Date
 business_date = (now_in_branch_tz - cutoff_hour).date().
 
 Example: cutoff=4, 2026-09-11 01:00 Taipei → business_date = 2026-09-10.
@@ -386,7 +404,7 @@ queue_number is not unique across days.
 
 Guest lookup without token only searches current business_date.
 
-9. Table Management
+## 9. Table Management
 Static table list maintained in Settings.
 
 Table fields: label, capacity, section, sort_order, is_active.
@@ -409,22 +427,24 @@ Inactive tables excluded from staff tables and suggestions.
 
 Inactive tables shown in admin list with (deleted).
 
-10. Notifications (in-app only)
+## 10. Notifications (in-app only)
 No external notifications in v1.
+
+Status colours are not restated in this document; `_docs/ui.md` section 2 is the single source of truth for every waitlist status and table status colour value.
 
 In-app notification triggers:
 
 Guest joins: show queue number and status URL.
 
-Guest called: status page turns orange, countdown, vibration, sound.
+Guest called: status page adopts the `CALLED` status colour (see `_docs/ui.md` section 2), countdown, vibration, sound.
 
-Guest no-show: status page turns red.
+Guest no-show: status page adopts the `NO_SHOW` status colour (see `_docs/ui.md` section 2).
 
 Notification templates stored in Settings for future use.
 
 Templates use placeholders: {queue_number}, {branch_name}, {hold_minutes}.
 
-11. Error Codes
+## 11. Error Codes
 Code	HTTP	Meaning
 VALIDATION_ERROR	422	Field validation failed
 WAITLIST_DUPLICATE_PHONE	409	Phone already on active waitlist
@@ -433,15 +453,12 @@ WAITLIST_INVALID_STATUS	409	Action not allowed for current status
 WAITLIST_CLOSED	409	Waitlist is paused
 AUTH_INVALID_PIN	401	PIN incorrect
 AUTH_TOKEN_EXPIRED	401	JWT expired or invalid
-AUTH_RATE_LIMITED	429	Too many login attempts
 TABLE_NOT_FOUND	404	Table not found
 TABLE_NOT_AVAILABLE	409	Table not available
-SETTINGS_NOT_FOUND	404	Settings not found
 CONFLICT	409	Conflict with another change
 RATE_LIMITED	429	Too many requests
 INTERNAL_ERROR	500	Unhandled error
 BRANCH_NOT_FOUND	404	Branch not found
-NETWORK_ERROR	—	Frontend-only network error
 
 Error response shape:
 {
@@ -452,7 +469,23 @@ Error response shape:
   }
 }
 
-12. API Summary
+This table lists exactly the `error.code` values that `_docs/openapi.yaml` returns. `_docs/openapi.yaml` is the contract of record for error codes, so a code that no operation returns must not appear in this table.
+
+### Codes outside the API contract
+
+These codes are still specified in this document and referenced by other docs, but they are not part of the `openapi.yaml` error contract: no operation returns the literal `code:` value below (the `code:` values actually returned are the 13 in the table above). They are kept out of the contract table so that table stays equal to the contract. Each names the Platform Issue that owns introducing (or continuing to omit) it.
+
+- `AUTH_RATE_LIMITED` (429, too many login attempts) — `POST /api/v1/auth/login` does declare a 429 response, but it resolves through `components.responses.RateLimited` to the code `RATE_LIMITED`; the login-specific code required by Platform Issue #31 (`B-05 Auth endpoints`, "Rate limit: 5/minute per IP") is not in the contract. Target issue: #31.
+- `SETTINGS_NOT_FOUND` (404, settings not found) — named in the error list of Platform Issue #36 (`B-10 Admin settings endpoints`), but `GET/PATCH /api/v1/admin/settings` declare no 404 response and `components.responses` has no such entry. Target issue: #36.
+- `NETWORK_ERROR` (no HTTP status, frontend-only) — synthesised client-side by the API client when a request never reaches the backend, so no operation can return it. Target issue: #14 (`F-03 API client and mock layer`).
+
+### Inconsistencies deferred
+
+- `AUTH_RATE_LIMITED` and `SETTINGS_NOT_FOUND` have no `components.responses` entry in `_docs/openapi.yaml`; adding them belongs to Platform Issue #31 and Platform Issue #36, and the contract change itself to Platform Issue #3.
+- `INTERNAL_ERROR` is specified here but `openapi.yaml` declares no 500 response and no generic `components.responses` entry; adding one belongs to Platform Issue #3.
+- Status colour values are owned by `_docs/ui.md` section 2; aligning the colour token table with this specification belongs to Platform Issue #2.
+
+## 12. API Summary
 Public
 GET /api/v1/public/branches/{branch_id}
 
@@ -492,6 +525,8 @@ GET /api/v1/staff/tables
 
 PATCH /api/v1/staff/tables/{id}
 
+POST /api/v1/staff/tables/{id}/release
+
 GET /api/v1/staff/dashboard
 
 Admin
@@ -512,7 +547,7 @@ POST /api/v1/admin/reset
 Health
 GET /health
 
-13. Time and Timezone
+## 13. Time and Timezone
 Store all timestamps in UTC.
 
 Display in Asia/Taipei.
@@ -529,7 +564,7 @@ remaining_seconds returned by backend for CALLED entries.
 
 Frontend does not compute time differences.
 
-14. Concurrency
+## 14. Concurrency
 DB unique index on (branch_id, business_date, queue_prefix, seq).
 
 DB unique index on (branch_id, label) for tables.
@@ -548,7 +583,7 @@ Close day: batch update in one transaction.
 
 Concurrent same action: second returns WAITLIST_INVALID_STATUS.
 
-15. Security and Privacy
+## 15. Security and Privacy
 Phone not logged.
 
 Name not logged.
@@ -575,7 +610,7 @@ Public endpoints do not require auth.
 
 CORS allows configured origins.
 
-16. Known Limitations
+## 16. Known Limitations
 SQLite concurrent writes limited.
 
 Single worker rate limit.
@@ -610,10 +645,10 @@ No soft delete for waitlist entries.
 
 No status change history.
 
-17. Non-Goals
+## 17. Non-Goals
 See Section 2.
 
-18. Environment Variables
+## 18. Environment Variables
 
 Backend
 Variable	Default	Description
@@ -633,7 +668,7 @@ VITE_BRANCH_ID	1	Default branch
 VITE_ENABLE_SOUND	true	Enable sound
 VITE_PUBLIC_BASE_URL	``	Public base URL
 
-19. Seed Data
+## 19. Seed Data
 Restaurant: Sunny Bistro
 
 Branch: Taipei Xinyi
@@ -664,7 +699,7 @@ Phones: 0900-000-001 to 0900-000-009
 
 Staff PIN: 1234
 
-20. Demo Script
+## 20. Demo Script
 make seed
 
 Open /join?branch=1
@@ -679,7 +714,7 @@ See A006 on waitlist
 
 Click Call
 
-Guest status page turns orange, countdown starts
+Guest status page adopts the `CALLED` status colour (see `_docs/ui.md` section 2), countdown starts
 
 Click Seat, select A1
 
@@ -691,7 +726,7 @@ Click Release Table, A1 becomes AVAILABLE
 
 Open /admin/settings, change hold_minutes
 
-21. Definition of Done
+## 21. Definition of Done
 All acceptance criteria pass
 
 uv run pytest passes
