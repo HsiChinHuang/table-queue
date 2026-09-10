@@ -123,46 +123,73 @@ Why this task exists. Link to relevant sections.
 **PM Note**: After grooming, add label `groomed` to this issue.
 ```
 
-Labels
-Workflow
-groomed — issue is ready to be worked on
+## Labels
 
-in-progress — someone is working on it
+Sixteen process labels are declared by [`_docs/plan.md`](_docs/plan.md). The
+Platform is the source of truth for what is actually usable, and the live label
+list was read from it while this section was written: the repository has 17
+labels today. Only 2 of the 16 declared names exist on the Platform, `groomed`
+and `bug`; the other 14 are planned and do not exist. Six further labels are in
+live use by the Orchestrator yet declared by no process document. Creating the
+missing names is a Platform step (the `gh label create` list in
+`_docs/plan.md`), so until that runs, treat the labels below as documentation.
 
-blocked — waiting on another issue
+### Workflow
 
-Phase
-phase-0-specs
+- `groomed` — issue is ready to be worked on. Exists on the Platform.
+- `in-progress` — someone is working on it. Planned; does not exist on the Platform.
+- `blocked` — waiting on another issue. Planned; does not exist on the Platform.
 
-phase-1-frontend-mock
+### Phase
 
-phase-2-backend
+None of these five exists on the Platform; they are documentation until the
+label setup step runs.
 
-phase-3-integration
+- `phase-0-specs`
+- `phase-1-frontend-mock`
+- `phase-2-backend`
+- `phase-3-integration`
+- `phase-4-database`
 
-phase-4-database
+### Area
 
-Area
-frontend
+None of these four exists on the Platform; they are documentation.
 
-backend
+- `frontend`
+- `backend`
+- `database`
+- `docs`
 
-database
+### Type
 
-docs
+- `feature` — planned; does not exist on the Platform.
+- `test` — planned; does not exist on the Platform.
+- `chore` — planned; does not exist on the Platform.
+- `docs` — planned; does not exist on the Platform. `_docs/plan.md` reuses this name for both an Area and a Type label.
+- `bug` — bug report. Exists on the Platform.
 
-Type
-feature
+### In use but not declared
 
-test
+These six exist on the Platform and belong to the Orchestrator's workflow, yet
+no process document declares them, so no issue template lists them. The counts
+in brackets are the issues carrying each label today:
 
-chore
+- `backlog` [45 of 45] — applied to every open issue.
+- `qa-ready` [3] — implementation is pushed and waiting for QA review.
+- `qa-passed` [1] — QA accepted the work.
+- `qa-failed` [0] — QA sent the work back.
+- `blocker` [0] — an issue blocking others.
+- `closed` [1] — the issue has been merged and closed.
 
-docs
+The remaining Platform labels (`accessibility`, `documentation`, `duplicate`,
+`enhancement`, `good first issue`, `help wanted`, `invalid`, `question`,
+`wontfix`) are GitHub defaults; the workflow above does not use them.
 
-bug
+## Milestones
 
-Milestones
+Every issue belongs to exactly one phase. The five names below are the phases
+as `_docs/plan.md` spells them:
+
 Phase 0 — Specs & Docs
 
 Phase 1 — Frontend + Mock
@@ -173,9 +200,13 @@ Phase 3 — Integration
 
 Phase 4 — Database
 
-Every issue must belong to exactly one milestone.
+These five are documentation only. No GitHub milestone has been created for
+this repository and no milestone has ever been assigned to an issue, so the
+phase an issue belongs to is carried by its `phase-N-*` label, which is itself
+not yet created.
 
-Branch Naming
+## Branch Naming
+
 Format: <type>/<issue-number>-<short-description>
 
 Examples:
