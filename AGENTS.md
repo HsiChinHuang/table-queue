@@ -21,7 +21,7 @@ Single-store MVP, but data model keeps `restaurant_id` and `branch_id` for futur
 | Testing | pytest (backend), Vitest + RTL (frontend) |
 | Tooling | Makefile, concurrently, ruff, eslint, prettier |
 
-Authority: `_docs/requirements.md` section 2. Any disagreement with `README.md` (Platform Issue 8) is recorded in Out of scope, never fixed here.
+Authority: `_docs/requirements.md` section 2.
 
 ## 3. Read These Files First
 
@@ -113,7 +113,6 @@ table-queue/
 │   └── issues/
 ├── Makefile
 ├── package.json
-├── README.md
 ├── CONTRIBUTING.md
 ├── AGENTS.md
 ├── .editorconfig
@@ -560,7 +559,6 @@ From `CONTRIBUTING.md` ## File Ownership (Platform #9, closed). `_docs/documents
 | `_docs/issues/` | PM |
 | `backend/` | backend |
 | `frontend/` | frontend |
-| `README.md` | PM |
 | `CONTRIBUTING.md` | PM |
 | `AGENTS.md` | PM |
 | `Makefile` | both |
