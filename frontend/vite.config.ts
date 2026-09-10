@@ -24,6 +24,12 @@ export default defineConfig({
       reportsDirectory: './coverage',
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/**/*.test.*', 'src/test/**', 'src/main.tsx', 'src/vite-env.d.ts'],
+      // AC-6/AC-7 read statement coverage out of coverage/coverage-summary.json (that is what
+      // their bash blocks parse). No `thresholds` block here on purpose: vitest 2.1.9 has no
+      // per-file or glob-scoped thresholds (added in vitest 3), and a global threshold would
+      // fail the whole suite for files F-15 does not own - pages/hooks belonging to F-07..F-14
+      // are still untested. The kit also has no `test:coverage` script; AC-6/AC-7 call
+      // `npm test -- --run --coverage --coverage.reporter=json-summary` directly.
     },
   },
 });
