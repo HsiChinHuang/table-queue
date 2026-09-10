@@ -20,29 +20,30 @@ make setup
 cd backend && uv sync
 cd frontend && npm install
 npm install
+```
 
 ### Run
-
-bash
+```bash
 make dev
 # or manually:
 cd backend && uv run uvicorn app.main:app --reload --host 0.0.0.0
 cd frontend && npm run dev -- --host
+```
 
 ### Seed
-
-bash
+```bash
 make seed
 # or:
 cd backend && uv run python -m app.seed --reset
+```
 
 ### Test
-
-bash
+```bash
 make test
 # or:
 cd backend && uv run pytest
 cd frontend && npm run test
+```
 
 ### Access
 
