@@ -155,3 +155,27 @@ These came out of AC probes or QA cycles. Each one has already cost a worker cyc
 - `package.json` / lockfile edits are not part of a feature issue's scope.
 - Node work happens on ext4 (section 3); a `node_modules` symlink from a warm worktree saves a
   3-minute install.
+
+## 7. Harness tools (private scripts, specified so they can be rebuilt)
+
+The Orchestrator keeps its helpers outside the repo, alongside a token file that must never be
+committed. No credential, hostname or absolute path is recorded here. Their behaviour is specified so a rebuilt harness is equivalent to the lost one.
+
+| Tool | Contract |
+|---|---|
+| platform API helper | `<METHOD> <path> [json-body-file\|-]` against the REST API with an API-version header; prints the body then the HTTP status to stderr. Labels are set with `PATCH /repos/<repo>/issues/<n>` carrying `{"labels":[...]}` - the `/labels` subresource 404s. Responses can come back empty transiently: retry before concluding failure. Quote query strings containing `&`. |
+| AC harness | `runacs <issue-file> [--cwd DIR] [--only AC-n ...]`. Extracts one ```bash block per `- [ ] **AC-n**` heading, runs each in its own process from the repo root with a per-block timeout, and reports `green` / `red` / `silent` by scanning PRINTED verdict lines, never exit codes. Must FAIL CLOSED (non-zero, with heading/fence diagnostics) when zero blocks are extracted - an anchor corruption once made 41 headings invisible and the gate reported green. |
+| groom lint | `accheck <issue-file>`: heading sequence, one fence block per AC, cross-references resolvable, at least 8 level-2 sections. 0 findings required before a groom lands. |
+| mirror checker | `mirror-check <n>`: fetches the Platform Issue body and compares it to the LOCAL `_docs/issues/<ID>.md`. It takes one argument (the issue number) and reads the file from a fixed repo path - if pointed at a second copy it silently compares the wrong file. Sync the compared checkout to `origin/main` first. |
+| merge gate | `merge.sh <ID> <repo> <branch> "<test command>"`: refuses a dirty main checkout or any untracked file (maintainer exclusions live in `.git/info/exclude`, not the tracked `.gitignore`), fetches the branch, merges `--no-ff`, runs the suite on the MERGED tree, rolls back with `git reset --hard` on failure, pushes, then closes and labels the issue. Worktree cleanup output is cosmetic and may print a fatal while everything else succeeded. |
+| worktree helper | `worktree.sh create <ID> -b issue/<ID>-<slug>` with the repo dir and worktree root supplied by environment variables; creates the branch itself. |
+| slot ledger | tiny text ledger of in-flight issue ids plus a check that prints `SLOT_FREE n` against the ceiling of 3, merges excluded. Stale ids must be cleared by hand after a lane dies. |
+| docs suite gate | validator + issue-ledger anchors + English-only ratchet + fence parity, with a KNOWN-DEBT allowlist where a debt file that turns green while still listed also FAILs, so the ledger cannot rot. Deliberately no `set -o pipefail`: `cmd \| head` SIGPIPEs state-changing commands and has produced false FAILs. |
+| DAG readiness | reads `depends:` from each issue's YAML front matter (never the prose body) plus the closed set, prints READY/BLOCKED. |
+
+Machine layout, the part that is not guessable: the repo checkout lives on a Windows-mounted drive
+that cannot execute Linux toolchain binaries, so every worktree, `node_modules`, venv and test run
+belongs on a native Linux filesystem outside the repo. Worker briefs live INSIDE the worktree as
+untracked files (a worker cannot read outside it), which also keeps the main checkout clean for the
+merge gate's dirty-tree check. Windows-side helper processes cannot see that Linux filesystem, which
+is the whole write-hijack hazard described under Environment traps.
