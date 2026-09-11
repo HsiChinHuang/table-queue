@@ -405,8 +405,9 @@ the file: one correct `--no-index` call in `_docs/testing.md` does not license a
 hundred lines later in the same file, which is how `_docs/testing.md` itself shipped the defect it
 documents.
 
-The equivalent assertion without `--no-index` is `git ls-files -i -c --exclude-standard`,
-which lists tracked files that the ignore rules would exclude. Either form is acceptable when the
+The equivalent assertion, for the case where you want the offenders listed rather than one path
+branched on, is `git ls-files -i -c --exclude-standard`, which lists tracked files that the ignore
+rules would exclude. Either form is acceptable when the
 question is "does this rule match a path that may already be tracked". The ban is narrow: bare
 `git check-ignore -q` is wrong **only** on a possibly tracked path, and it stays the correct call
 for the ordinary question "is this untracked path ignored?". `F-16` AC-1 is the counter-example that
