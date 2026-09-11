@@ -209,7 +209,11 @@ def get_waitlist_status(
     queue position of any number someone types.
     """
     entry = resolve_entry(db, queue_number, token, phone_last3)
-    return service.build_status_payload(db, entry, service.utc_now())
+    payload = service.build_status_payload(db, entry, service.utc_now())
+    # The stored value again, unmasked: the response model carries the validator on its phone field
+    # and the payload is serialised through that model, so masking here would apply the rule twice.
+    payload["phone_masked"] = entry.phone
+    return payload
 
 
 def cancel_waitlist(
@@ -247,7 +251,13 @@ def resolve_entry(
     if token:
         return service.find_entry_by_token(db, queue_number, token)
     if not phone_tail:
-        raise AppError("WAITLIST_NOT_FOUND", message="Waitlist entry not found")
+        # A credential is the request itself, so its absence is a malformed request rather than an
+        # absent entry: answering 404 would tell a caller that a typed queue number is simply not
+        # in use, which is the information the credential exists to withhold.
+        raise AppError(
+            "VALIDATION_ERROR",
+            message="token or the last three digits of the phone are required",
+        )
     if for_cancel:
         return service.find_entry_for_cancel(db, queue_number, phone_tail, service.utc_now())
     return service.find_entry_by_tail(db, queue_number, phone_tail, service.utc_now())
@@ -261,6 +271,11 @@ def build_entry_response(entry: Any) -> WaitlistEntryResponse:
     entry did so with that guest's own token or phone tail, so the name is the caller's own, and a
     guest who joined is navigated to the status page where the number is shown (section 4.1 step 8).
     ``status_token`` is derived on the way out rather than read, since no column holds it (R-B06-4).
+
+    ``phone_masked`` is deliberately handed the stored value: the field's own validator applies the
+    mask, and the router must not pre-apply it. It would be idempotent, but reaching for
+    ``mask_phone`` from the router would duplicate a rule the schema owns, and the two would drift
+    the first time one of them changed.
     """
     return WaitlistEntryResponse(
         id=str(entry.id),

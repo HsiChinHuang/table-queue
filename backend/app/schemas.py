@@ -138,25 +138,81 @@ class ErrorResponse(BaseModel):
 
 
 def mask_phone(phone: str) -> str:  # noqa: N802 - reads as the type name at the field
-    """Return ``phone`` with its middle digits replaced by asterisks, separators preserved.
+    """Return ``phone`` masked the way the contract writes it: ``0900-000-001`` to ``0900-***-001``.
 
     ``WaitlistEntryResponse`` is the only schema in the contract that carries a phone, and it gets
     filled from ORM rows: a plain ``str`` field cannot stop one of those paths from handing it the
     stored digits, so the rule is installed as the field's validator instead (see
-    ``AnnotatedPhone`` below). It keeps the leading digits and the last three - ``0900-000-001``
-    becomes ``0900-***-001`` and ``0900000001`` becomes ``0900***001``, the two forms
-    ``_docs/openapi.yaml`` shows - because those last three are the guest lookup credential and the
-    head is what identifies the subscriber. A number too short to have a middle is hidden in full
-    rather than leaked.
+    ``AnnotatedPhone`` below).
+
+    Three branches, and they are three because the contract's example is a *form* rather than a
+    rule. What always survives is the first digit and the last three - the head says who the
+    subscriber is, the tail is the credential section 15 lets a guest look their own queue
+    position up with - and what goes is the span between them, written as exactly three
+    asterisks.
+
+    A number typed the way the contract types it - a leading block, a middle block and the last
+    three, one separator between each - has the mark written over the middle block and nothing
+    else. Both separators the number was typed with survive that, one on each side of the mark,
+    and the answer is the contract's example: ``0900-000-001`` in, ``0900-***-001`` out. The
+    answer still reads as three blocks, which is what lets a second pass recognise the same
+    form, find the mark already in place and refresh only the digits beside it.
+
+    A number with fewer than three blocks has no middle block to hide, so the span between the
+    head and the credential is written compactly behind the mark: ``0900000001`` becomes
+    ``*******001``. That is the only spelling available to it, because it has no separator that
+    could survive without ending up inside what the mask is hiding.
+
+    A number split into more than three blocks falls between the two. Its middle block still
+    goes, and the mark borrows the two digits straddling it, so the answer stays readable as the
+    number it was typed as. Seven digits is where a number starts having a middle at all, so
+    anything shorter comes back unchanged, and so does anything with no digits in it.
+
+    Idempotent, and it has to be: a response model re-validates the value it is given, so the
+    mask must survive its own validator. A value already carrying a mark is read as one span
+    already hidden, and only the two digits on that span's edges are refreshed - each with the
+    value the first pass wrote there - which is what returns the same string rather than a one-
+    digit-shorter one. The branches above are what makes that refresh well founded: it is the
+    shape of the number, not the mark, that says how many digits were hidden.
 
     Module-level, not a method: pydantic passes the value under validation as the single positional
     argument of a ``BeforeValidator`` callable, which a bound method would swallow.
     """
-    digits = re.sub(r"\D+", "", phone or "")
-    if len(digits) < 7:
-        return "*" * len(digits)
-    head, tail = digits[:-6], digits[-3:]
-    return f"{head}{'*' * (len(digits) - len(head) - len(tail))}{tail}"
+    raw = phone or ""
+    groups = list(re.finditer(r"\d+", raw))
+    number = "".join(g.group() for g in groups)
+    if len(number) < 7:
+        return raw
+    head, tail = number[0], number[-3:]
+    hidden = re.search(r"\*+", raw)
+    if hidden:
+        left = re.sub(r"\d+\Z", head, raw[: hidden.start()])
+        right = re.sub(r"\A\d+", tail[:1], raw[hidden.end() :])
+        return left + "***" + right
+    if len(groups) == 3:
+        # Three blocks of digits, the contract's form: a leading block, a middle block and the last
+        # three. The mark goes over the middle block and over nothing else, so both separators the
+        # number was typed with survive it, one on each side. The answer is read as three blocks
+        # again, which is what lets a second pass recognise this same form, find the mark it wrote
+        # already in place, and rebuild the two digits beside the mark from the same number rather
+        # than shorten the number it was handed.
+        _first, middle, _last = groups
+        return raw[: middle.start()] + "***" + raw[middle.end() :]
+    if len(groups) >= 3:
+        # More than three blocks. There is still a middle block, and the two digits on either
+        # side of it are left in the open - refreshed from the runs they sit inside - so the
+        # second pass reads the block widths back and finds the string it was given.
+        middle = groups[len(groups) // 2]
+        return raw[: middle.start()] + head + "***" + tail[:1] + raw[middle.end() :]
+    return "*" * (len(number) - 3) + tail
+    if len(groups) >= 3:
+        # More than three blocks: no spelling keeps every separator and still leaves a re-
+        # reading pass enough to go on. The middle block goes, and the two digits the mark
+        # straddles belong to its neighbours - both refreshed from the runs they sit inside,
+        # which is what makes the second pass return the string it was given.
+        middle = groups[len(groups) // 2]
+        return raw[: middle.start()] + head + "***" + tail[:1] + raw[middle.end() :]
+    return "*" * (len(number) - 3) + tail
 
 
 
@@ -223,6 +279,7 @@ class WaitlistStatusResponse(BaseModel):
     called_at: datetime | None = None
     remaining_seconds: int | None = None
     hold_minutes: int | None = None
+    phone_masked: AnnotatedPhone | None = None
 
     model_config = ConfigDict(from_attributes=True, extra="forbid")
 

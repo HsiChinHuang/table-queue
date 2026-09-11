@@ -110,18 +110,29 @@ def normalize_phone(phone: str) -> str:
 
 
 def mask_phone(phone: str) -> str:
-    """Mask the middle three digits of a phone number, keeping the caller's separators.
+    """Return the masked form of a stored phone, deferring the rule to the response schema.
 
-    ``0900-000-001`` becomes ``0900-***-001`` and ``0900000001`` becomes ``0900***001``, which is
-    the
-    contract example. Short or malformed input is masked in full rather than leaked.
+    ``app.schemas.mask_phone`` is the single implementation of the mask rule, because it is also the
+    ``BeforeValidator`` on ``phone_masked``: a router that masked differently would have its value
+    re-masked by pydantic anyway, and two spellings of one rule is how a leak comes back. Imported
+    inside the function - ``app.schemas`` imports this module's neighbours at module level, and a
+    service should not need the schema layer to answer a display question at import time.
     """
-    digits = normalize_phone(phone)
-    if len(digits) < 7:
-        return "*" * len(digits)
-    head = digits[: len(digits) - 6]
-    tail = digits[-3:]
-    return f"{head}{'*' * (len(digits) - len(head) - len(tail))}{tail}"
+    from app.schemas import mask_phone as _mask
+
+    return _mask(phone)
+
+
+def mask_last3(phone: str) -> str:
+    """Return the three-asterisk mask of the digits before a phone's last three.
+
+    ``0900-000-001`` gives ``***001``. ``phone_masked`` on a status response is deliberately this
+    shape rather than ``mask_phone``'s: the status lookup may be answered with only the last three
+    digits (AC-10), and echoing a number that still shows four or more leading digits would pair a
+    partial number with a queue position - a lead a caller is not entitled to. Separators are
+    dropped because a hyphen inside a four-character tail reads as a fifth digit.
+    """
+    return "***" + _DIGITS.sub("", phone or "")[-3:]
 
 
 def phone_last3(phone: str) -> str:
@@ -672,8 +683,8 @@ def recent_calls(rows: list[WaitlistEntry], limit: int = 3) -> list[WaitlistEntr
     AC-6's rows carry no timestamps at all: ``created_at``, ``called_at`` and ``closed_at`` are all
     null there, so ``seq`` is the only order those rows state, and ``sort_order`` is the same order
     with the ``WAITING`` rows interleaved. Two readings of "recent" are therefore compatible with
-    the probe: the highest queue positions today, or the most recent status transition (which a later
-    issue with real timestamps can re-measure). What is NOT compatible is the AC-6 prose's own
+    the probe: the highest queue positions today, or the most recent status transition (which a
+    later issue with real timestamps can re-measure). What is NOT compatible is the AC-6 prose's own
     ``[A012, A011, A010]`` - see the delivery note; the code follows the probe's list, not the
     sentence describing it.
     """
