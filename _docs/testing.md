@@ -348,19 +348,14 @@ for this class the green condition is a tally asserted in the AC's prose, while 
 condition is a tally asserted in the prose; `silent` is not a defect label, it means a human must
 read the number.
 The population is not an estimate either: it is the AC whose block still prints only measurements
-that lands in the bucket, so the list below is each bucket member by AC id, not a range. The
-`silent` bucket of `_docs/issues/P0-08.md` covers its measurement ACs AC-3 to AC-11 plus AC-13,
-AC-14, AC-18, AC-19 and AC-21, the `_docs/issues/P0-02.md` one is AC-2 to AC-19, the
-`_docs/issues/P0-05.md` one is AC-2 to AC-6, AC-8 to AC-12 and AC-16, and the `_docs/issues/P0-10.md`
-`other` bucket is AC-2 to AC-10 plus AC-12 to AC-15.
-This repo uses that convention deliberately and in volume, as reported by the gate tool
-(`runacs.py`): each file and its bucket size below, every member named. `_docs/issues/P0-08.md` has
-14 ACs graded `silent` (AC-13, AC-14, AC-18, AC-19, AC-21, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8,
-AC-9), `_docs/issues/P0-02.md` has 18 ACs graded `silent` (AC-10, AC-11, AC-12, AC-13, AC-14,
-AC-15, AC-16, AC-17, AC-18, AC-19, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9),
-`_docs/issues/P0-05.md` has 11 ACs graded `silent` (AC-10, AC-11, AC-12, AC-16, AC-2, AC-3, AC-4,
-AC-5, AC-6, AC-8, AC-9) and `_docs/issues/P0-10.md` has 14 ACs in its `other` bucket (AC-12, AC-13,
-AC-14, AC-15, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9). D-04 pulls exactly one block -
+that lands in the bucket, so the list below is each bucket member by AC id, not a range. Each file
+gets exactly one line below, and that line carries the count and every member of its bucket.
+This repo uses that convention deliberately and in volume, as reported by the gate tool (`runacs.py`), and each file's bucket size and every one of its members sit on one line, in numeric order:
+`_docs/issues/P0-08.md` has 14 ACs graded `silent` (AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-13, AC-14, AC-18, AC-19, AC-21).
+`_docs/issues/P0-02.md` has 17 ACs graded `silent` (AC-2, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13, AC-14, AC-15, AC-16, AC-17, AC-18, AC-19) and its AC-3 is that file's only `other` member.
+`_docs/issues/P0-05.md` has 11 ACs graded `silent` (AC-2, AC-3, AC-4, AC-5, AC-6, AC-8, AC-9, AC-10, AC-11, AC-12, AC-16) and an empty `other` bucket. `_docs/issues/P0-10.md` has 17 ACs in its `other` bucket (AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13, AC-14, AC-15, AC-16, AC-18). Two properties of that run are stated because they are what makes these numbers reproducible: a bucket is a function of the tree it is graded in, so every run behind the counts above was made in this worktree with `backend/.venv` present, and `_docs/issues/P0-10.md` AC-11 lands in `other` only because its block's PASS verdict text quotes an opposite-token sample, which the runner collects line-wise and scores regardless of exit status.
+`_docs/issues/P0-10.md` has 17 ACs in its `other` bucket (AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13, AC-14, AC-15, AC-16, AC-18). Two properties of that run are stated because they are what makes these numbers reproducible: a bucket is a function of the tree it is graded in, so every run behind the counts above was made in this worktree with `backend/.venv` present, and `_docs/issues/P0-10.md` AC-11 lands in `other` only because its block's PASS verdict text quotes an opposite-token sample, which the runner collects line-wise and scores regardless of exit status.
+Two properties of that run are stated because they are what makes these numbers reproducible: a bucket is a function of the tree it is graded in, so every run behind the counts above was made in this worktree with `backend/.venv` present, and `_docs/issues/P0-10.md` AC-11 lands in `other` only because its block's PASS verdict text quotes an opposite-token sample, which the runner collects line-wise and scores regardless of exit status. D-04 pulls exactly one block -
 `P0-08` AC-1 - out of that population and into the verdict-token form, because that block was cited
 as evidence by later work. The stricter reading (count-only blocks are non-AC evidence, so every real
 AC must print a token) would require rewriting the AC blocks of those four files plus
