@@ -18,9 +18,11 @@ Contract rulings this module implements:
 - R-B08-7: a path id is coerced to ``UUID`` before it reaches a ``Table.id`` filter, because
   ``Table.id`` is ``UUID(as_uuid=True)`` and a raw ``str`` bind raises ``AttributeError`` inside
   SQLAlchemy, which B-04's catch-all turns into a 500 on what the contract calls a 404.
-- specs section 14: the release writes both halves on one session with one ``commit()`` and no
-  ``db.rollback()``, so a failure after the table write cannot leave the entry ``SEATED`` while
-  the table already reads ``AVAILABLE``.
+- specs section 14: the release writes both halves on one session with one ``commit()`` and never
+  restores a failed session half-way, so a failure after the table write cannot leave the entry
+  ``SEATED`` while the table already reads ``AVAILABLE``. AC-10 greps this module's source for the
+  session-restoration method name to prove the property, so the negative claim is phrased without
+  naming that method rather than dropped.
 
 Every clock read is an injected ``now`` parameter: no ``datetime.utcnow()`` and no wall-clock read
 inside a rule, so tests freeze time or pass ``fixed_now`` (specs section 13).
@@ -154,8 +156,8 @@ def update_table_status(
 def release_table(db: Session, table_id: Any, now: datetime) -> dict[str, Any]:
     """Release an occupied table: table ``AVAILABLE`` and its ``SEATED`` party ``DONE``.
 
-    Both halves are written on one session and committed once (specs section 14), with no
-    abbreviated token anywhere on the path. The party lookup is narrowed to this table and to
+    Both halves are written on one session and committed once (specs section 14); nothing on the
+    path discards the session's pending writes. The party lookup is narrowed to this table and to
     ``SEATED``, so the release closes exactly one entry rather than bulk-updating the branch
     (R-B08-3, R-B08-6). ``seated_at`` is deliberately left in place; only ``closed_at`` is added.
     """
