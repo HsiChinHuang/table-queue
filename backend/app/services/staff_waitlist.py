@@ -309,14 +309,6 @@ def queue_rows(
     if party_size is not None:
         query = query.filter(WaitlistEntry.party_size == party_size)
     rows = query.order_by(*_queue_order()).all()
-    try:
-        with open("/tmp/b07rows.txt", "a") as _h:
-            for _r in rows:
-                _h.write("ROW %s sort=%r created=%r status=%r day=%s phone=%r\n" % (
-                    _r.queue_number, _r.sort_order, _r.created_at,
-                    _r.status.value if _r.status else None, _r.business_date, _r.phone))
-    except Exception:
-        pass
     if search:
         rows = [row for row in rows if _matches_search(row, search)]
     return rows
@@ -401,30 +393,6 @@ def _branch_id(db: Any) -> int:
 def _day_clause(day: str | None):
     """Return the ``business_date`` predicate for a day, or ``None`` when there is no day."""
     return WaitlistEntry.business_date == day if day is not None else None
-
-
-def _probe_day(db: Any, clock: datetime | None = None) -> str:
-    """Diagnostic: every day the branch holds rows on, plus the two readings of "today".
-
-    Written to a file rather than printed, because the AC block pipes the probe's stderr through
-    ``tail``, which is exactly where a diagnosis gets lost.
-    """
-    import json
-
-    record = {
-        "days": sorted(
-            str(row[0])
-            for row in db.query(WaitlistEntry.business_date)
-            .filter(WaitlistEntry.branch_id == _branch_id(db))
-            .distinct()
-            .all()
-        ),
-        "clock": clock.isoformat() if clock else _utc_now().isoformat(),
-        "resolved": _queue_day(db, clock),
-    }
-    with open("/tmp/b07day.json", "a") as handle:
-        handle.write(json.dumps(record) + chr(10))
-    return record["resolved"]
 
 
 def _queue_day(db: Any, now: datetime | None = None) -> str:
