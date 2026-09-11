@@ -26,6 +26,7 @@ from app.config import get_settings
 from app.database import Base, engine
 from app.errors import register_error_handlers
 from app.routers import auth as auth_router
+from app.routers import staff as staff_router
 
 settings = get_settings()
 
@@ -160,6 +161,8 @@ async def add_headers(request: Request, call_next: Callable[[Request], Response]
 register_error_handlers(app)
 auth_router.configure_limiter(limiter)
 app.include_router(auth_router.router)
+staff_router.configure_limiter(limiter)
+app.include_router(staff_router.router)
 
 # ---------------------------------------------------------------------------
 # Probe routes for test ACs.
