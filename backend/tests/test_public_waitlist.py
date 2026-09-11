@@ -409,7 +409,8 @@ def test_status_phone_tail_searches_only_todays_rows(seeded):
     ``getWaitlistStatus`` - ``WaitlistStatusParams`` declares the queue number plus ``token`` and
     ``phone_last3`` only - so a request that sends it is answered by the same today-bounded search
     as one that does not, and honouring it would expose any past-day row to anyone who guesses one
-    (AC-10 asserts the same thing from the other side). The answer is therefore identified as
+    (the delivered ``find_entry_by_tail`` is the today-bounded search). The answer is therefore
+    identified as
     today's row - 200, ``WAITING``, and none of the previous day's identity in the payload - rather
     than by a 404 the contract cannot produce.
     """
@@ -445,8 +446,8 @@ def test_status_phone_tail_searches_only_todays_rows(seeded):
     assert token_for(stale_row) not in todays.text
     stamp = todays_row.created_at.strftime("%Y-%m-%dT%H:%M:%S")
     assert todays.json()["created_at"].startswith(stamp)
-    # Undeclared keys are not part of the credential either: sending one changes nothing about the
-    # answer, because the handler never reads it (see the AC-10 probe for the refusal direction).
+    # Undeclared keys are not part of the credential either, and the AC-10 probe is what pins that
+    # the server never honours one; here the shape check is that this call sends only declared ones.
     with freeze_time(NOW):
         unfiltered = status(client, "A014", phone_last3="014")
     assert unfiltered.json() == todays.json()
