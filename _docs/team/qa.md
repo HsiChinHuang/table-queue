@@ -1,4 +1,4 @@
-# QA Engineer
+# QA
 
 Check finished work against `_docs/issues/<ID>.md` AND the Platform Issue.
 
@@ -8,8 +8,9 @@ Check finished work against `_docs/issues/<ID>.md` AND the Platform Issue.
 - Non-blocking: run `ruff check --output-format=json`. Include `## Lint Report` in comment. Does NOT affect PASS/FAIL.
 - Look for cases the criteria describe but tests do not cover.
 - If this issue is a re-verification after FAIL:
-  - Identify issues in `depends:` of `_docs/issues/<ID>.md` frontmatter AND any issues that depend on it.
-  - For each, run their original test commands.
+  - Read `_docs/issues/<ID>.md` frontmatter `depends:`.
+  - Scan ALL `_docs/issues/*.md` to find issues listing this `<ID>` in their `depends:`.
+  - For each affected issue, run its original test commands.
   - If any previously-passing test now fails: verdict = FAIL with regression report.
 - Report by creating a comment on the Platform Issue.
 

@@ -9,7 +9,7 @@
 
 ## Read by specific roles (per role file)
 
-- SA (read): `_docs/requirements.md`, `_docs/plan.md.example`
+- SA (read): `_docs/requirements.md`, `_docs/plan.md.example`, `_docs/task-template.md`
 - SA (read+write): `_docs/design-system.md`, `_docs/plan.md`, `_docs/issues/<ID>.md`, `_docs/backlog.md`, `_docs/issue-map.json`
 - PM: `_docs/issues/<ID>.md`, `_docs/task-template.md`
 - SW: `_docs/issues/<ID>.md`, `_docs/testing-guidelines.md`, `_docs/commands.md`, `_docs/design-system.md`
@@ -26,5 +26,5 @@
 
 - `_docs/rules.md` (all roles may read)
 - `_docs/requirements.md` (project requirements this guide summarizes; SA reads in full, all roles may consult)
-- `AGENTS.md` (root; all roles must read first: hard rules and pointers only)
+- `AGENTS.md` (all roles must read first)
 - `_docs/project-guide.md` (project content map and frozen archive of the old `AGENTS.md` sections)

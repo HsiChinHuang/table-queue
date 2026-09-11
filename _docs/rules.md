@@ -23,6 +23,22 @@
 - Platform Issue body is a mirror, not authoritative.
 - AC source of truth: `_docs/issues/<ID>.md`.
 
+## Role boundaries (hard)
+
+- Orchestrator: schedule, spawn, track, merge. NEVER edit content, code, or verdicts.
+- SA: parse plan, generate issues. NEVER code.
+- PM: edit `issues/<ID>.md`, groom AC. NEVER code, NEVER test.
+- SW: write code, push branch. NEVER edit AC, NEVER close issues.
+- QA: verify, post verdict. NEVER fix code.
+
+When a role fails: re-run the SAME role. Never substitute.
+
+If tempted to do another role's job: STOP. Re-run that role.
+
+- SA is an initialization role, not a per-issue role.
+- SA does NOT declare `reached_state`.
+- SA runs once per project setup, not per issue.
+
 ## Process enforcement (4 layers)
 
 1. State machine: every transition declares `reached_state`. Mismatch = rejected.
@@ -41,6 +57,7 @@ Violating any layer = output rejected, subagent re-run.
 - Merge uses `--no-ff` (preserve merge commit).
 - Remote branches are NOT deleted after merge.
 - Merge conflicts / post-rebase test failures: assigned to the issue's own SW via `MERGE-FIX: <ID>` issue.
+- Orchestrator NEVER resolves conflicts. Only the issue's own SW does.
 
 ## Other
 
