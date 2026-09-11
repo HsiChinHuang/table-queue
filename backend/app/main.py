@@ -29,6 +29,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.config import get_settings
 from app.database import Base, engine
 from app.errors import register_error_handlers
+from app.routers import admin as admin_router
 from app.routers import auth as auth_router
 from app.routers import public as public_router
 
@@ -378,6 +379,8 @@ auth_router.configure_limiter(limiter)
 mount(auth_router.router)
 public_router.configure_limiter(limiter)
 mount(public_router.router)
+admin_router.configure_limiter(limiter)
+mount(admin_router.router)
 
 # ---------------------------------------------------------------------------
 # Probe routes for test ACs.
