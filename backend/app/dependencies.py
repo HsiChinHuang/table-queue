@@ -33,6 +33,23 @@ bearer_scheme = HTTPBearer(auto_error=False)
 # ---------------------------------------------------------------------------
 
 DbSession = Annotated[Session, Depends(get_db)]
+"""Every router's database parameter, unchanged from the shipped alias.
+
+It is worth naming what that means for a caller, because B-10's settings surface is reached in two
+ways and this is the seam between them. A handler reached through the application that owns its
+router gets the session ``get_db`` yields, opened on ``app.database.engine``, and closed by
+``get_db``'s own ``finally`` when the response is written - which is the same session the response
+was read from, the property AC-4's "PATCH then GET sees it" and AC-11's "one session per request"
+both measure. A caller that reaches the handler some other way has one supported route to the same
+outcome and no other: ``app.dependency_overrides[get_db]``, which replaces ``get_db`` for the
+application and therefore for this alias too, so the caller's session is the session the handler
+sees and the caller's teardown is what closes it. That is what ``backend/tests`` does - every
+module that owns an engine overrides this name rather than passing a session beside it - and it is
+why the alias carries no wrapper of its own: a wrapper would give an override a second dependency
+to know about, and a handler that resolved one and not the other would read a database its caller
+never wrote to.
+"""
+
 
 # ---------------------------------------------------------------------------
 # Current staff extraction

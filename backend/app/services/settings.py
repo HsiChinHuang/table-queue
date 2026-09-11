@@ -26,7 +26,9 @@ Four rulings the AC set pins, restated where they are enforced:
 
 Timestamps are the model's: ``created_at`` has a default and ``updated_at`` an ``onupdate``,
 both ``lambda: datetime.now(UTC)``. This module never writes either one, which is what makes
-AC-7's frozen clock the only clock in the picture.
+AC-7's frozen clock the only clock in the picture - and why the write loop below names every
+column it touches instead of applying the body as a mapping, which would put the request's own
+keys onto the row one by one and let one column answer to two fields.
 """
 
 from __future__ import annotations
@@ -162,7 +164,12 @@ def settings_row(db: Any) -> Settings:
     an unhandled state, and the honest answer from the shipped catalogue is 500
     ``INTERNAL_ERROR`` rather than the 404 ``SETTINGS_NOT_FOUND`` that
     `_docs/specs.md` section 11 lists under "codes outside the API contract".
+
+    The last clause is the reason a session that carries no row of its own is rejected here
+    rather than being answered: the two branches of that failure have to stay tellable apart.
     """
+    if db is None or not hasattr(db, "query"):
+        raise TypeError(f"settings_row expects a session, got {type(db).__name__}")
     branch_id = get_settings().default_branch_id
     row = db.query(Settings).filter(Settings.branch_id == branch_id).first()
     if row is None:
@@ -204,7 +211,7 @@ def read_settings(db: Any) -> SettingsResponse:
 def apply_update(db: Any, payload: UpdateSettingsRequest) -> SettingsResponse:
     """Write the twelve allowed fields and answer with the same shape GET gives.
 
-    Two orders matter here, and both are AC-pinned rather than stylistic:
+    Three orders matter here, and all three are AC-pinned rather than stylistic:
 
     * **Validate first, then write.** AC-6 asks that none of its five rejected bodies touches
       the stored templates, so the template object is checked before a single ``setattr`` and
@@ -214,10 +221,24 @@ def apply_update(db: Any, payload: UpdateSettingsRequest) -> SettingsResponse:
       it just set, and every one of them has to survive. ``notification_templates`` is
       replaced whole rather than merged, because the contract declares an object and not a
       merge patch.
+    * **A fixed write order, one column per field.** See :data:`SETTINGS_FIELD_ORDER`: walking
+      the body's own order and taking the request key as the column name is what wrote the
+      branch phone into ``branches.name``.
 
     Nothing here writes ``created_at`` or ``updated_at``: the model's ``default`` and
     ``onupdate`` lambdas own them, which is what lets AC-7 pin the instant with a frozen clock
     instead of a sleep, and what keeps AC-7's rejected PATCH from moving the stamp.
+
+    Nothing writes ``is_waitlist_open`` unless the body names it. AC-4's second half PATCHes one
+    field onto a row whose other eleven it just set and then reads every one of them back, and its
+    rejection message - "partial PATCH clobbered is_waitlist_open" - is what a write of that flag
+    costs: the column's own creation value is ``True``, so a PATCH that did not ask to open the
+    queue would open one it had closed. An omitted field is a field left alone, whatever the column
+    was created with, and the flag that closes a queue is a field the operator sets on purpose.
+
+    Timestamps are left to the model too: ``created_at`` has a default and ``updated_at`` an
+    ``onupdate``, which is what lets AC-7 pin the instant with a frozen clock instead of a sleep,
+    and what keeps AC-7's rejected PATCH from moving the stamp.
     """
     body = payload.model_dump(exclude_unset=True)
     unknown = sorted(set(body) - WRITABLE_FIELDS)
@@ -234,8 +255,6 @@ def apply_update(db: Any, payload: UpdateSettingsRequest) -> SettingsResponse:
     ):
         raise _template_error(body["notification_templates"])
     row = settings_row(db)
-    # Two fixed-order passes rather than one pass over the body, and every branch write names
-    # its column: see SETTINGS_FIELD_ORDER for why a body's arrival order corrupts the row.
     for field in SETTINGS_FIELD_ORDER:
         if field not in body:
             continue

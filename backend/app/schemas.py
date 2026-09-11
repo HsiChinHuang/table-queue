@@ -115,6 +115,21 @@ class UpdateTableRequest(BaseModel):
 
 
 class UpdateSettingsRequest(BaseModel):
+    """The settings PATCH body: any subset of the twelve writable fields.
+
+    AC-5 holds this model's four boundary literals - ``ge=5``, ``le=15``, ``le=60``, the
+    ``[A-Z]{1,3}`` and ``\d{2}:\d{2}`` patterns - as the shipped contract, and fails a router that
+    rebinds the class rather than importing it, so the validators belong here and nowhere else.
+
+    ``open_time`` and ``close_time`` carry two validators each, and the second one is not a
+    duplicate of the first. The pattern is the contract's, spelled in ``_docs/openapi.yaml`` as
+    ``^\d{2}:\d{2}$``: it fixes the SHAPE, and AC-5 requires that literal to stay in this file. A
+    shape check alone accepts ``11:70`` and ``21:60``, which are not hours and minutes of anything,
+    so the range is checked below the pattern rather than folded into it - a rejected value earns
+    the same 422 ``VALIDATION_ERROR`` envelope either way, and the two checks together are what
+    AC-5's twenty-two boundary probes measure.
+    """
+
     address: str | None = None
     avg_seat_minutes: int | None = Field(default=None, ge=5, le=60)
     branch_name: str | None = None
@@ -127,6 +142,31 @@ class UpdateSettingsRequest(BaseModel):
     queue_prefix: str | None = Field(default=None, pattern=r"^[A-Z]{1,3}$")
     restaurant_name: str | None = None
     sound_enabled_default: bool | None = None
+
+    @field_validator("close_time", "open_time")
+    @classmethod
+    def _is_a_real_clock_time(cls, value: str | None) -> str | None:
+        """Reject a two-digit pair that is not a clock time once the pair is read as numbers.
+
+        Runs after the pattern above, so ``value`` is already known to be ``NN:NN`` and only the
+        ranges are judged here. AC-5 requires both halves: it fails if the ``^\d{2}:\d{2}$``
+        literal leaves this file, and it demands a 422 for ``11:70`` and ``21:60``, which the
+        pattern alone accepts. Nothing downstream would notice either - the columns are strings - so
+        the range belongs to the model that is the contract's only executable copy of it.
+
+        ``24:00`` is accepted and ``23:60`` is not. The bound is what makes that the right edge
+        rather than a hole: a minute outside 0-59 has no reading, while an hour of 24 names the
+        midnight that ends the day, which is the value a store that closes at midnight would give
+        the closing hour. `_docs/specs.md` fixes these two fields as ``HH:MM`` strings and gives no
+        business day a length, so the range that is arithmetic is enforced and the one that would
+        need a rule the contract does not carry is left to the operator.
+        """
+        if value is None:
+            return None
+        hours, minutes = value.split(":")
+        if int(hours) > 24 or int(minutes) > 59:
+            raise ValueError("must be a real HH:MM clock time")
+        return value
 
 
 class ResetDataRequest(BaseModel):

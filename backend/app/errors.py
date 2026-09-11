@@ -218,6 +218,10 @@ def _handle_generic_exception(request: Request, exc: Exception) -> JSONResponse:
     capitalisation as well as the key, so a 500 that reads like a different framework's default is
     a 500 that leaked ``detail`` through the envelope the rest of the application renders.
     """
+    # The exception is logged against the request path so a 500 stays findable in a deployment, and
+    # never into a response body: B-04's test for this handler feeds the handler a canary message and
+    # asserts the rendered text does not carry it. The path, not the URL, because a query string is
+    # caller-supplied and this is the one log line an unhandled failure is allowed to write.
     log.error("Unhandled exception while serving %s", request.url.path, exc_info=exc)
     generic = AppError("INTERNAL_ERROR", message=INTERNAL_ERROR_MESSAGE)
     return JSONResponse(
