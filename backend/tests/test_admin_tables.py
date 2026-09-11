@@ -354,19 +354,29 @@ def test_admin_errors_never_leak_the_fastapi_detail_shape(client):
     """
     missing = str(uuid.uuid4())
     headers = staff_headers()
+
+    def post(body: dict):
+        return client.post(TABLES, headers=headers, json=body)
+
     cases = [
         ("GET unauthenticated", client.get(TABLES)),
         ("POST unauthenticated", client.post(TABLES, json={"label": "A1", "capacity": 2})),
         ("PATCH unauthenticated", client.patch(f"{TABLES}/{missing}", json={"capacity": 3})),
         ("DELETE unauthenticated", client.delete(f"{TABLES}/{missing}")),
-        ("PATCH malformed uuid", client.patch(f"{TABLES}/not-a-uuid", headers=headers, json={"capacity": 3})),
+        (
+            "PATCH malformed uuid",
+            client.patch(f"{TABLES}/not-a-uuid", headers=headers, json={"capacity": 3}),
+        ),
         ("DELETE malformed uuid", client.delete(f"{TABLES}/not-a-uuid", headers=headers)),
-        ("PATCH unknown id", client.patch(f"{TABLES}/{missing}", headers=headers, json={"capacity": 3})),
+        (
+            "PATCH unknown id",
+            client.patch(f"{TABLES}/{missing}", headers=headers, json={"capacity": 3}),
+        ),
         ("DELETE unknown id", client.delete(f"{TABLES}/{missing}", headers=headers)),
-        ("POST empty body", client.post(TABLES, headers=headers, json={})),
-        ("POST string capacity", client.post(TABLES, headers=headers, json={"label": "S1", "capacity": "two"})),
-        ("POST short label", client.post(TABLES, headers=headers, json={"label": "", "capacity": 2})),
-        ("POST capacity 21", client.post(TABLES, headers=headers, json={"label": "S2", "capacity": 21})),
+        ("POST empty body", post({})),
+        ("POST string capacity", post({"label": "S1", "capacity": "two"})),
+        ("POST empty label", post({"label": "", "capacity": 2})),
+        ("POST capacity 21", post({"label": "S2", "capacity": 21})),
     ]
     for tag, res in cases:
         assert 400 <= res.status_code < 500, f"{tag}: {res.status_code} {res.text}"
