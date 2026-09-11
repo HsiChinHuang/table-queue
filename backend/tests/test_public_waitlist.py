@@ -262,12 +262,20 @@ def test_join_uses_the_injected_clock_for_the_business_date(seeded):
     The instants are UTC, which is why the one that *names* the 11th in its own spelling is still
     the 10th's service: 04:30 UTC on the 11th is 12:30 Taipei, four hours of Taipei already behind
     it, and that is what the subtraction lands on.
+
+    Each join is read back through the day it belongs to rather than through the queue number alone.
+    Section 8 makes ``queue_number`` unique only WITHIN a business date - the table's own UNIQUE key
+    is ``branch_id + business_date + queue_prefix + seq`` - so joining under two injected clocks
+    stores two rows both numbered ``A001``, and a bare ``queue_number`` read answers that with
+    ``MultipleResultsFound`` instead of with the row the test means.
     """
     client = client_of(seeded)
     # 03:59 UTC is 11:59 Taipei: still the 10th's service, four hours of it left to run.
     with freeze_time(datetime(2026, 9, 10, 3, 59, tzinfo=UTC)):
         body = join(client).json()
-        row = seeded.query(service.WaitlistEntry).one()
+        row = seeded.query(service.WaitlistEntry).filter_by(
+            business_date="2026-09-10", queue_number="A001"
+        ).one()
     assert row.business_date == "2026-09-10"
     assert body["full_queue_number"] == "A-20260910-001"
 
@@ -275,8 +283,11 @@ def test_join_uses_the_injected_clock_for_the_business_date(seeded):
     # that closes the 10th, so the day has rolled and the numbering starts again.
     with freeze_time(datetime(2026, 9, 11, 4, 30, tzinfo=UTC)):
         later = join(client, phone="0900-000-003").json()
-        day = seeded.query(service.WaitlistEntry).order_by(service.WaitlistEntry.seq.desc()).one()
+        day = seeded.query(service.WaitlistEntry).filter_by(
+            business_date="2026-09-11", queue_number="A001"
+        ).one()
     assert day.business_date == "2026-09-11"
+    assert day.queue_number == "A001"
     assert later["queue_number"] == "A001"  # a new day restarts the sequence
 
 
@@ -394,12 +405,15 @@ def test_status_phone_tail_searches_only_todays_rows(seeded):
     date would find it too, and a caller could then be handed some other party's queue position
     from a previous day.
 
-    Naming a date is refused rather than honoured. ``business_date`` is declared as a query
-    parameter and deliberately never read, because a public caller that could choose the day
-    could widen the match window at will; the 9th's row therefore answers with the same 404 the
-    bare wrong tail gets.
+    Naming a date is not a credential a caller gets to use. ``business_date`` is not a parameter of
+    ``getWaitlistStatus`` - ``WaitlistStatusParams`` declares the queue number plus ``token`` and
+    ``phone_last3`` only - so a request that sends it is answered by the same today-bounded search
+    as one that does not, and honouring it would expose any past-day row to anyone who guesses one
+    (AC-10 asserts the same thing from the other side). The answer is therefore identified as
+    today's row - 200, ``WAITING``, and none of the previous day's identity in the payload - rather
+    than by a 404 the contract cannot produce.
     """
-    seed_entry(
+    todays_row = seed_entry(
         seeded,
         queue_number="A014",
         seq=14,
@@ -407,7 +421,7 @@ def test_status_phone_tail_searches_only_todays_rows(seeded):
         sort_order=1,
         phone="0900-000-014",
     )
-    seed_entry(
+    stale_row = seed_entry(
         seeded,
         queue_number="A014",
         seq=14,
@@ -420,10 +434,22 @@ def test_status_phone_tail_searches_only_todays_rows(seeded):
     client = client_of(seeded)
     with freeze_time(NOW):
         todays = status(client, "A014", phone_last3="014")
-        stale = status(client, "A014", phone_last3="014", business_date="2026-09-09")
     assert todays.status_code == 200
     assert todays.json()["status"] == "WAITING"
-    assert stale.status_code == 404
+    # Today's row is the answer, and the 9th's row is demonstrably not in it: its date, its own
+    # full number and its derived credential are all absent from a payload that shares the tail
+    # and the queue number with it. An assertion the stale row would also satisfy (a tail-only
+    # mask check, for instance) is not this assertion - both rows end in 014.
+    assert "2026-09-09" not in todays.text
+    assert "20260909" not in todays.text
+    assert token_for(stale_row) not in todays.text
+    stamp = todays_row.created_at.strftime("%Y-%m-%dT%H:%M:%S")
+    assert todays.json()["created_at"].startswith(stamp)
+    # Undeclared keys are not part of the credential either: sending one changes nothing about the
+    # answer, because the handler never reads it (see the AC-10 probe for the refusal direction).
+    with freeze_time(NOW):
+        unfiltered = status(client, "A014", phone_last3="014")
+    assert unfiltered.json() == todays.json()
 
 
 def test_status_carries_no_name_and_no_phone(seeded):
