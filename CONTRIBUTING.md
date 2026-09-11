@@ -463,6 +463,7 @@ single owner to any file and lists `_docs/rules.md` as readable by all roles;
 where the two disagree, `_docs/documents.md` wins.
 
 Path	Owner
+_docs/documents.md	PM
 _docs/specs.md	PM
 _docs/ui.md	PM
 _docs/openapi.yaml	PM + backend
