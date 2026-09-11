@@ -396,6 +396,13 @@ paths:
       summary: Call a waitlist entry
       parameters:
         - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              maxProperties: 0
       responses:
         '200':
           description: Entry called
@@ -437,7 +444,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -484,6 +491,13 @@ paths:
       summary: Mark a waitlist entry as no-show
       parameters:
         - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              maxProperties: 0
       responses:
         '200':
           description: Entry marked no-show
@@ -524,6 +538,13 @@ paths:
       summary: Restore a no-show entry to waiting
       parameters:
         - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              maxProperties: 0
       responses:
         '200':
           description: Entry restored
@@ -564,6 +585,13 @@ paths:
       summary: Revert a called entry back to waiting
       parameters:
         - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              maxProperties: 0
       responses:
         '200':
           description: Entry reverted
@@ -604,6 +632,13 @@ paths:
       summary: Cancel a waitlist entry (staff)
       parameters:
         - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              maxProperties: 0
       responses:
         '200':
           description: Entry cancelled
@@ -636,8 +671,8 @@ paths:
         '409':
           $ref: '#/components/responses/WaitlistInvalidStatus'
 
-  /api/v1/staff/waitlist/{id}/edit:
-    post:
+  /api/v1/staff/waitlist/{id}:
+    put:
       tags: [staff]
       operationId: editWaitlist
       summary: Edit party size or note

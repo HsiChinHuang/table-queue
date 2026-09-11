@@ -517,9 +517,16 @@ POST /api/v1/staff/waitlist/{id}/revert
 
 POST /api/v1/staff/waitlist/{id}/cancel
 
-POST /api/v1/staff/waitlist/{id}/edit
+PUT /api/v1/staff/waitlist/{id}
 
 POST /api/v1/staff/waitlist/reorder
+
+The two staff waitlist operations that are not state transitions carry a body and are
+named by their method rather than by a path suffix, so the surface is nine operations,
+not sixteen: `PUT /api/v1/staff/waitlist/{id}` edits `party_size` and `note`, and `POST /api/v1/staff/waitlist/reorder`
+takes `ordered_ids` - the complete current active set, the entry ids in the order the
+staff user asked for. `ordered_ids` that is not exactly the current `WAITING` plus
+`CALLED` set is 409 `CONFLICT`, per section 11.
 
 GET /api/v1/staff/tables
 
