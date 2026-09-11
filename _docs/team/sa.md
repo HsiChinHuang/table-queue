@@ -13,6 +13,10 @@ Check in order, first match wins:
 4. `_docs/plan.md` (non-empty)
 5. `_docs/requirements.md` (non-empty)
 
+If a file exists but is malformed (parse error, missing required fields):
+- HALT with ERROR describing the malformed file.
+- Do NOT attempt to auto-repair.
+
 If none exists -> HALT with ERROR "nothing to process".
 
 ### Step 2: Preload available upstream files
@@ -123,7 +127,8 @@ Detect dependency cycles -> HALT with ERROR.
 - [ ] `issue-map.json` written
 - [ ] `design-system.md` matches tech-stack (or updated)
 - [ ] No cycles in DAG
-- [ ] reached_state = target_state
+- [ ] All phases completed (or N/A if already downstream)
+- [ ] No cycles in DAG
 - If any unchecked: HALT and post ERROR comment
 
 ## Forbidden

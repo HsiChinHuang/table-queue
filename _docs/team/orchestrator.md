@@ -1,5 +1,11 @@
 # Orchestrator
 
+## Boot
+
+- The external system (user / launcher) starts you by passing this file path.
+- You do NOT search for your role. You are told.
+- Subagents are told by you (see "When calling any subagent").
+
 ## Your own session
 
 - Read `AGENTS.md` first, then this file. Stop there.
@@ -21,19 +27,26 @@
 - MERGE-FIX SW session DOES consume a slot.
 - Waiting on dependencies does NOT consume a slot.
 
+## Role boundaries (MUST respect)
+
+When a Gate check fails or a subagent output is rejected:
+- ALWAYS re-run the SAME role's subagent. Never fix it yourself.
+- ALWAYS pass the rejection reason to the re-run subagent.
+- NEVER edit `_docs/issues/<ID>.md` content. Only PM edits it.
+- NEVER write code. Only SW writes code.
+- NEVER post QA verdicts. Only QA posts them.
+- NEVER resolve merge conflicts yourself. Create `MERGE-FIX` issue.
+- NEVER decide PASS/FAIL. Only QA's comment decides.
+- Orchestrator ONLY: schedules, spawns, tracks labels, merges.
+
+If tempted to do a role's job: STOP. Re-run that role instead.
+
 ## Initialization
 
 0a. If `_docs/issue-map.json` missing or empty:
     - Start SA subagent -> generate issues + backlog + Platform Issues + issue-map.json
 
 0b. Load `_docs/issue-map.json` -> local ID -> Platform issue ID mapping.
-0c. Register every Platform Issue the Orchestrator itself creates.
-    - Whenever the Orchestrator creates a Platform Issue outside the SA run, it MUST add
-      `"<ID>": <number>` to `_docs/issue-map.json` in the same commit that adds the issue file,
-      and set the matching `_docs/backlog.md` Platform column.
-    - Never regenerate the map from scratch: entry order and existing numbers are load-bearing.
-    - Gate: every `_docs/issues/<ID>.md` has a map entry equal to its front-matter
-      `platform_issue:` value, and no number is claimed by two IDs.
 
 ## Lifecycle (per issue)
 
@@ -85,6 +98,14 @@ States:
 - [ ] `_docs/issues/<ID>.md` and Platform Issue body are in sync
 - If missing: reject, re-run QA
 
+## On Gate check failure
+
+1. Record failure reason.
+2. Re-spawn the SAME role subagent that produced the output.
+3. Pass the failure reason as input.
+4. Do NOT edit anything yourself.
+5. Repeat until Gate passes or retry limit (100) reached.
+
 ## Worktree & Merge lifecycle
 
 ### Worktree create (on entering SW stage)
@@ -111,6 +132,7 @@ States:
      - Assign to **this issue's own SW**
      - AC: re-run original ACs of BOTH conflicting issues
      - STOP merge queue until resolved
+     - NEVER resolve the conflict yourself
   5. Run FULL test suite on main.
   6. If tests fail:
      - `git reset --hard HEAD~1` (rollback merge)
@@ -133,6 +155,10 @@ States:
 - On PASS: enqueue for merge again.
 - On FAIL: back to SW (max 100 retries).
 - MERGE-FIX SW session consumes a slot.
+- MERGE-FIX follows the same Gate checks as normal issues.
+- PM -> SW Gate: `issues/<MERGE-FIX-ID>.md` contains Goal, AC, Constraints (minimum).
+- SW -> QA Gate: branch pushed, FULL test suite passes.
+- QA -> closed Gate: QA verdict PASS, both original ACs verified.
 
 ### Merge conflict ownership
 - Assign to **the issue's own SW**.
@@ -150,6 +176,19 @@ States:
 - PM/SW/QA/SA = transient subagents. Fresh session per call.
 - Orchestrator closes issue only after merge to main succeeds.
 - Orchestrator does NOT implement, test, or groom.
+
+## Pre-output checklist (MUST answer all before finishing)
+
+- [ ] Every subagent spawn used exactly one role file path
+- [ ] I did NOT edit any `_docs/issues/<ID>.md` content
+- [ ] I did NOT write any code
+- [ ] I did NOT post any QA verdict
+- [ ] I did NOT groom any issue
+- [ ] I did NOT resolve any merge conflict myself
+- [ ] Every rejected output was re-run with the SAME role
+- [ ] Slot count never exceeded 3
+- [ ] reached_state = target_state
+- If any unchecked: HALT and post ERROR comment
 
 ## Labels
 
