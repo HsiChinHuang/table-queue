@@ -55,4 +55,7 @@ Work order is topological: every issue appears after all of its `depends`.
 | P0-16 | Register P0-13 in issue-map.json | [P0-11] | #49 | backlog |
 | D-04 | Prove every AC can fail: vacuity detector for the AC gate | [P0-04] | #50 | backlog |
 | D-05 | Slim AGENTS.md to Hard rules + Pointers, relocate project content | [P0-09] | #51 | backlog |
-| D-06 | Fix AC-gate defects found grooming D-04/D-05: merge-blind scope checks, silent failure paths, unpinable rate-limit claims | [D-04, D-05] | #54 | groomed |
+| D-06 | Fix AC-gate defects found grooming D-04/D-05: merge-blind scope checks, silent failure paths, unpinable rate-limit claims | [D-04, D-05] | #54 | gclosed |
+| D-07 | Re-spec B-05 AC-3 into independently decided assertions | [D-06] | #55 | groomed |
+| D-08 | Route QA FAIL on docs-type issues to PM, not SW | [P0-04] | #56 | closed |
+| D-09 | Make the document index truthful: real grants, guide rows, resolvable paths, ownership rows | [P0-09] | #57 | closed |
