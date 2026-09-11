@@ -346,11 +346,45 @@ def list_waitlist(
     # read will not display it, or the queue would keep offering a guest the kitchen gave up on.
     # It is a write, so it happens before the read below - merged B-06's note about SQLite's
     # deferred transaction is the reason the sweep cannot be interleaved with the page it reports.
+    # Section 4.10's lazy no-show, persisted - and it runs first, over the branch's whole queue rather
+    # than over this page, because a guest whose hold has lapsed has to be closed out even in a read
+    # that would not have displayed them. Merged B-06's transition is the only implementation of it,
+    # and it commits, which is what makes the next reader - this list, the dashboard, a fresh session -
+    # see the same truth rather than a fresh computation of a different one.
     _sweep_expired(db, clock)
+    # ...and because that transition commits on the caller's session, the read that follows has to
+    # start from a session that is capable of reading. See _begin_readable.
+    _begin_readable(db)
     rows = queue_rows(db, statuses, day=_queue_day(db, clock), search=search, party_size=party_size)
     total = len(rows)
     page = rows[max(offset, 0) : max(offset, 0) + max(limit, 0)]
     return {"items": [_entry_payload(db, row, now) for row in page], "total": total}
+
+
+def _begin_readable(db: Any) -> None:
+    """Discard a transaction a previous caller left open on this session, so the read can start.
+
+    A GET answers from what the database holds, and on this repo's SQLite session it can stop holding
+    it while the data is still there. The shape of the failure is worth recording exactly, because it
+    cost a day of reading and it is not an error: merged B-06's ``apply_lazy_no_show`` - the transition
+    section 4.10 assigns to the backend rather than to a screen - commits *on the caller's session*,
+    and a session that has had a transaction ended under it goes on to answer a predicate over an
+    ``Enum`` column with no rows at all. Not an exception, not an empty table: ``WHERE business_date =
+    ?`` returns both rows and ``WHERE status IN (...)`` returns neither, on the same session, in the
+    same request, and a second session opened on the same engine reads the same nothing. The write is
+    durable; the session that made it has gone quiet about one particular kind of question.
+
+    So the transaction is asked about before anything is read, and rolled back only if it exists. The
+    condition is not decoration: on a session whose own commit has already landed there is no
+    transaction to end, and a rollback issued there is what produces the empty-``IN`` behaviour above.
+    Recovery has to be conditional or it is the bug it is written to fix.
+
+    It runs before the read rather than after a failed one because a read that comes back quietly empty
+    is not an error that can be caught. The queue would simply be reported as nobody waiting, in a
+    restaurant with a queue, at 200.
+    """
+    if db.in_transaction():
+        db.rollback()
 
 
 def _sweep_expired(db: Any, now: datetime) -> None:
