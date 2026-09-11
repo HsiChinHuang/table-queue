@@ -50,3 +50,6 @@ Work order is topological: every issue appears after all of its `depends`.
 | D-01 | Swap mock store for real SQLAlchemy DB | [I-02] | #43 | backlog |
 | D-02 | Add more tests | [D-01] | #44 | backlog |
 | D-03 | Verify all tests pass | [D-02] | #45 | backlog |
+| B-15 | Fix the settings bootstrap INSERT | [B-02, B-04] | #47 | backlog |
+| F-16 | Ignore pytest artifacts in .gitignore | [F-01] | #48 | backlog |
+| P0-16 | Register P0-13 in issue-map.json | [P0-11] | #49 | backlog |
