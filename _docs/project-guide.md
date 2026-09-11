@@ -29,7 +29,7 @@ archive-sha256: 43fbf4cf2009a2772bb227c12dfbdf3abde94e5ad00ca01efc1cd1d4284f33ce
 | AGENTS.md section 7 | `_docs/requirements.md` section 7, `_docs/specs.md`, `_docs/testing.md` | Backend Guidelines: routers/services/models/schemas/errors/dependencies, UTC, `AppError`; cited as `AGENTS.md#7-backend-guidelines` (redirect row F-04). |
 | AGENTS.md section 8 | `_docs/requirements.md` section 8, `_docs/ui.md`, `_docs/testing.md` | Frontend Guidelines: api/stores/layouts/pages/components/hooks/lib, polling and query keys; cited as `AGENTS.md#8-frontend-guidelines` (redirect row F-06). |
 | AGENTS.md section 9 | `_docs/ui.md`, `_docs/design-system.md`, `_docs/specs.md` | UI Rules pointer map; `_docs/ui.md` wins on any conflict. |
-| AGENTS.md section 10 | `_docs/specs.md` section 5 | State machine: 6 waitlist and 3 table states, 23 transition rules. |
+| AGENTS.md section 10 | `_docs/specs.md` section 5 | State machine: 6 waitlist and 3 table states; 15 waitlist transition rows and 4 table transition rows in the two `Allowed transitions` / `Table transitions` tables of `_docs/specs.md` section 5. |
 | AGENTS.md section 11 | `_docs/specs.md` section 13 | Time and timezone: store UTC, display `Asia/Taipei`, `business_date` cutoff. |
 | AGENTS.md section 12 | `_docs/specs.md` section 8 | Queue number: `seq`, `A001` display, `A-20260910-001` full form, daily reset. |
 | AGENTS.md section 13 | `_docs/specs.md` section 11, `_docs/openapi.yaml` | Error codes and the `error.code/message/details` shape; `_docs/api-examples.md` shows rendered payloads. |
