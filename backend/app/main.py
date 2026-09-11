@@ -84,9 +84,9 @@ def bootstrap_defaults(db: Any) -> None:
             db.execute(
                 text(
                     "INSERT INTO settings (id, branch_id, hold_minutes, avg_seat_minutes, "
-                    "queue_prefix, is_waitlist_open, notification_templates, staff_pin_hash, "
-                    "created_at, updated_at) "
-                    "VALUES (1, 1, 10, 15, 'A', true, '{}', null, :now, :now)"
+                    "queue_prefix, is_waitlist_open, sound_enabled_default, "
+                    "notification_templates, staff_pin_hash, created_at, updated_at) "
+                    "VALUES (1, 1, 10, 15, 'A', true, true, '{}', null, :now, :now)"
                 ),
                 {"now": "2026-01-01 00:00:00"},
             )
