@@ -341,17 +341,33 @@ measured non-falsifiable anti-patterns and their remedies are below.
 to be an AC: such a block must print exactly one verdict token. A block that instead prints a
 deterministic numeric line (`lines=441`, `missing=2 of 10`, a population count) and whose green
 condition is a tally asserted in the AC's prose is a measurement, not a broken gate, and the gate
-tooling grades it `silent` to say "a machine did not decide this, a human must read it". This repo
-uses that convention deliberately and in volume: `_docs/issues/P0-08.md` has 14 ACs graded `silent`
-(AC-3..AC-11, AC-13, AC-14, AC-18, AC-19, AC-21), `_docs/issues/P0-02.md` has 18 (AC-2..AC-19),
-`_docs/issues/P0-05.md` has 11 (AC-2..AC-6, AC-8..AC-12, AC-16) and `_docs/issues/P0-10.md` has 14
-in its `other` bucket (AC-2..AC-10, AC-12..AC-16). D-04 pulls exactly one block - `P0-08` AC-1 - out
-of that population and into the verdict-token form, because that block was cited as evidence by
-later work. The stricter reading (count-only blocks are non-AC evidence, so every real AC must print
-a token) would require rewriting the AC blocks of those four files plus `_docs/issues/P0-01.md` and
-the measurement ACs of `_docs/issues/F-16.md` - roughly 60 blocks across six already-merged issues -
-and would re-open work the Orchestrator has accepted. So `silent` is informational, and Rule 1
-applies only to blocks presented as ACs; the `P0-08` AC-1 repair is the exception, not the new rule.
+tooling grades it `silent` to say "a machine did not decide this, a human must read it". The two gate tools describe the same block with two different labels, and both are right: the
+signal checker (`accheck.py`) marks such a block `count-only(ok if prose states Green =)`, because
+for this class the green condition is a tally asserted in the AC's prose, while the runner
+(`runacs.py`) files it under `silent`. So a block is graded `silent` **and** exempt when its green
+condition is a tally asserted in the prose; `silent` is not a defect label, it means a human must
+read the number.
+The population is not an estimate either: it is the AC whose block still prints only measurements
+that lands in the bucket, so the list below is each bucket member by AC id, not a range. The
+`silent` bucket of `_docs/issues/P0-08.md` covers its measurement ACs AC-3 to AC-11 plus AC-13,
+AC-14, AC-18, AC-19 and AC-21, the `_docs/issues/P0-02.md` one is AC-2 to AC-19, the
+`_docs/issues/P0-05.md` one is AC-2 to AC-6, AC-8 to AC-12 and AC-16, and the `_docs/issues/P0-10.md`
+`other` bucket is AC-2 to AC-10 plus AC-12 to AC-15.
+This repo uses that convention deliberately and in volume, as reported by the gate tool
+(`runacs.py`): each file and its bucket size below, every member named. `_docs/issues/P0-08.md` has
+14 ACs graded `silent` (AC-13, AC-14, AC-18, AC-19, AC-21, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8,
+AC-9), `_docs/issues/P0-02.md` has 18 ACs graded `silent` (AC-10, AC-11, AC-12, AC-13, AC-14,
+AC-15, AC-16, AC-17, AC-18, AC-19, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9),
+`_docs/issues/P0-05.md` has 11 ACs graded `silent` (AC-10, AC-11, AC-12, AC-16, AC-2, AC-3, AC-4,
+AC-5, AC-6, AC-8, AC-9) and `_docs/issues/P0-10.md` has 14 ACs in its `other` bucket (AC-12, AC-13,
+AC-14, AC-15, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9). D-04 pulls exactly one block -
+`P0-08` AC-1 - out of that population and into the verdict-token form, because that block was cited
+as evidence by later work. The stricter reading (count-only blocks are non-AC evidence, so every real
+AC must print a token) would require rewriting the AC blocks of those four files plus
+`_docs/issues/P0-01.md` and the measurement ACs of `_docs/issues/F-16.md`, a measured count: 51 such
+blocks today across those six already-merged issues, and it would re-open work the Orchestrator has
+accepted. So `silent` is informational, and Rule 1 applies only to blocks presented as ACs; the
+`P0-08` AC-1 repair is the exception, not the new rule.
 
 ### Rule 2 - a guard must be able to reach the failing path
 
@@ -454,9 +470,15 @@ Two supported shapes, then. Where the `PIPESTATUS` array is available, keep the 
 POSIX `sh`, or a block that may be pasted into one - drop the pipe inside the capture entirely
 (`OUT=$(some-tool 2>&1); RC=$?`): the substituted command's status becomes the assignment's status,
 so `$?` is the checker's own and no `pipefail` is needed. If the pipe is only for display, run it as
-a bare pipeline and read `RC=${PIPESTATUS[0]}` on the next line, which needs no capture at all.
-Never branch on `$?` after a pipe that has no `pipefail`, and never print only a failure branch: a
-checker exit status check must emit a verdict token both ways.
+a bare pipeline and read `RC=${PIPESTATUS[0]}` on the next line, which needs no capture at all. That
+display pipe is for display only: it discards everything the checker printed except the last two
+lines, so a checker that exits 0 while explaining a problem reports PASS with the reason hidden -
+keep the full output somewhere (a log file, or echo the captured variable) before triaging a failure
+from it. Never branch on `$?` after a pipe that has no `pipefail`, and never print only a failure
+branch: a checker exit status check must emit a verdict token both ways. One portability caveat on
+the shapes above: `set -o pipefail` is not in POSIX and `dash` rejects it, so the `pipefail` form is
+bash-only, exactly like the `PIPESTATUS` array it reads - a block that may be pasted into a POSIX
+`sh` must use the no-pipe capture instead.
 
 ### Falsification procedure for a new or repaired gate
 
