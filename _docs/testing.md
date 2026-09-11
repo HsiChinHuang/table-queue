@@ -309,4 +309,161 @@ npm run test -- --coverage
 npm run test -- WaitlistCard
 
 # Both
-make test
+make test```
+
+---
+
+## 9. Falsifiable Acceptance Gates
+
+Every `AC-n` bash block in `_docs/issues/*.md` is a gate, not documentation. A gate is only
+useful if it **can fail**: a block that prints PASS on every input, or that stays silent when
+the condition does not hold, proves nothing and must be repaired before it is trusted. Before
+an AC block is shipped, or re-used as a merge gate, it must be falsified by running it against
+a deliberately broken or absent target and observing a FAIL line.
+
+### Rule 1 - every AC block emits exactly one verdict token
+
+Each AC block ends with an explicit verdict in both branches. The PASS branch must echo a
+literal verdict token, and the FAIL branch must name the AC and the missing condition:
+
+```bash
+if [ -z "$MISSING" ]; then
+  echo "PASS AC-n: what was checked"
+else
+  echo "FAIL AC-n: missing ${MISSING}"
+fi
+```
+
+A block with no `else` branch, or with an `else` that prints nothing, cannot fail. The three
+measured non-falsifiable anti-patterns and their remedies are below.
+
+**Count-only blocks are accepted evidence, not defective ACs.** Rule 1 binds a block that claims
+to be an AC: such a block must print exactly one verdict token. A block that instead prints a
+deterministic numeric line (`lines=441`, `missing=2 of 10`, a population count) and whose green
+condition is a tally asserted in the AC's prose is a measurement, not a broken gate, and the gate
+tooling grades it `silent` to say "a machine did not decide this, a human must read it". This repo
+uses that convention deliberately and in volume: `_docs/issues/P0-08.md` has 14 ACs graded `silent`
+(AC-3..AC-11, AC-13, AC-14, AC-18, AC-19, AC-21), `_docs/issues/P0-02.md` has 18 (AC-2..AC-19),
+`_docs/issues/P0-05.md` has 11 (AC-2..AC-6, AC-8..AC-12, AC-16) and `_docs/issues/P0-10.md` has 14
+in its `other` bucket (AC-2..AC-10, AC-12..AC-16). D-04 pulls exactly one block - `P0-08` AC-1 - out
+of that population and into the verdict-token form, because that block was cited as evidence by
+later work. The stricter reading (count-only blocks are non-AC evidence, so every real AC must print
+a token) would require rewriting the AC blocks of those four files plus `_docs/issues/P0-01.md` and
+the measurement ACs of `_docs/issues/F-16.md` - roughly 60 blocks across six already-merged issues -
+and would re-open work the Orchestrator has accepted. So `silent` is informational, and Rule 1
+applies only to blocks presented as ACs; the `P0-08` AC-1 repair is the exception, not the new rule.
+
+### Rule 2 - a guard must be able to reach the failing path
+
+A guard command that structurally cannot report the condition it claims to test makes the whole
+gate decorative, even when the verdict branches are well formed. Two measured instances are
+`git check-ignore` on a tracked path (Anti-pattern 1 below) and a pipeline whose exit status is
+read from the wrong element (Anti-pattern 3 below).
+
+### Rule 3 - the gate's own exit status must be checked, not inferred from prose
+
+When an AC block wraps a test run or any external tool, the block must capture that tool's exit
+status explicitly and branch on the captured variable. A printed summary line, a line count, or
+the wrapper's own exit code is not evidence that the tool passed.
+
+### Anti-pattern 1 - `git check-ignore` on a tracked path (the guard never reaches the tested path)
+
+`git check-ignore` consults the exclude patterns but skips any path already present in the
+index, so a tracked file always looks "not ignored". A gate written as
+`git check-ignore -q "$f" && echo "$f"` therefore reports PASS even when the new rule does
+match the tracked file, and can never fire. The remedy is to pass `--no-index`, which makes
+`git check-ignore` evaluate the pattern against the path regardless of index state:
+
+```bash
+# red: a tracked .db file that the new rule matches is reported as PASS
+hidden=$(git ls-files | while read -r f; do case "$f" in *.db) git check-ignore -q "$f" && echo "$f";; esac; done)
+
+# green: --no-index sees the match, so the gate can actually fail
+hidden=$(git ls-files | while read -r f; do case "$f" in *.db) git check-ignore -q --no-index "$f" && echo "$f";; esac; done)
+```
+
+The equivalent assertion without `--no-index` is `git ls-files -i -c --exclude-standard`,
+which lists tracked files that the ignore rules would exclude. Either form is acceptable when the
+question is "does this rule match a path that may already be tracked". The ban is narrow: bare
+`git check-ignore -q` is wrong **only** on a possibly tracked path, and it stays the correct call
+for the ordinary question "is this untracked path ignored?". `F-16` AC-1 is the counter-example that
+stops this rule from being over-read - a path a working ignore rule catches cannot be in the index,
+so no `--no-index` is needed there:
+
+```bash
+if git check-ignore -q backend/test.db; then   # F-16 AC-1: correct as written
+```
+
+`F-16` AC-2 (`git check-ignore -q _acprobe.db`) is the same correct shape on a scratch probe file.
+Both stay bare; adding `--no-index` to them would change nothing, because the flag matters only when
+the path is already tracked.
+
+### Anti-pattern 2 - a silent verdict branch (missing PASS token)
+
+A gate that only echoes on failure prints nothing when everything is fine, so "no output" is
+read as success by a reviewer and as an unknown by a machine parser. A missing verdict token
+is indistinguishable from a gate that never ran. Always print both:
+
+```bash
+# red: silent on success - an automated run cannot tell "passed" from "never executed"
+if [ -n "$VIOLATIONS" ]; then echo "FAIL: $VIOLATIONS violation(s)"; fi
+
+# green: exactly one verdict token either way
+if [ -z "$VIOLATIONS" ]; then
+  echo "PASS AC-n: no violations found"
+else
+  echo "FAIL AC-n: $VIOLATIONS violation(s) found"
+fi
+```
+
+### Anti-pattern 3 - a piped command whose exit status is read from the wrong element (`$?`)
+
+`OUT=$(some-tool 2>&1 | tail -2)` followed by `if [ $? -ne 0 ]` tests the exit status of
+`tail`, not of `some-tool`, so a failing tool still reports success. Turn on `pipefail` so the
+assignment propagates the pipeline's failure, then read the first element's status in the statement
+after it and branch on the captured variable:
+
+```bash
+set -o pipefail
+OUT=$(pytest -q 2>&1 | tail -2)
+RC=${PIPESTATUS[0]}
+if [ "$RC" -eq 0 ]; then
+  echo "PASS AC-n: checker exit status 0"
+else
+  echo "FAIL AC-n: checker exit status ${RC} - the gate can fail"
+fi
+```
+
+```bash
+# same gate as an if one-liner (machine-detector form); pipefail stays in effect
+set -o pipefail
+OUT=$(pytest -q 2>&1 | tail -2); RC=${PIPESTATUS[0]}
+if [ "$RC" -eq 0 ]; then echo "PASS AC-n: checker exit status 0"; else echo "FAIL AC-n: checker exit status ${RC}"; fi
+```
+
+Do not "simplify" the `set -o pipefail` line away, and do not swap it for an `||` fallback: inside a
+command substitution the assignment's own status replaces the pipeline's, so without `pipefail` a
+checker that exits 3 still measures `rc=0`. Measured against a checker that exits 3: `OUT=$(cmd 2>&1
+| tail -2)` followed by `RC=${PIPESTATUS[0]}`, and the one-statement `RC=${PIPESTATUS[0]} || RC=$?`
+variant, both print `PASS rc=0`; the `set -o pipefail` form above prints `FAIL rc=3`. The same trap
+sits one level down - `$?` read after a pipe is the status of the pipeline's **last** element
+(`tail`, always 0 here), never of the checker.
+
+Two supported shapes, then. Where the `PIPESTATUS` array is available, keep the pipe only with
+`set -o pipefail` in effect and read `RC=${PIPESTATUS[0]}` in its own statement. Where it is not -
+POSIX `sh`, or a block that may be pasted into one - drop the pipe inside the capture entirely
+(`OUT=$(some-tool 2>&1); RC=$?`): the substituted command's status becomes the assignment's status,
+so `$?` is the checker's own and no `pipefail` is needed. If the pipe is only for display, run it as
+a bare pipeline and read `RC=${PIPESTATUS[0]}` on the next line, which needs no capture at all.
+Never branch on `$?` after a pipe that has no `pipefail`, and never print only a failure branch: a
+checker exit status check must emit a verdict token both ways.
+
+### Falsification procedure for a new or repaired gate
+
+1. Run the block from the repo root against a tree where the requirement is **not** met
+   (scratch worktree, `git stash`, or a temporary file with the opposite content).
+2. Confirm the output contains a `FAIL AC-n:` line. Silent output is a FAIL of this rule.
+3. Run it against the tree that satisfies the requirement and confirm the matching
+   `PASS AC-n:` line.
+4. Never conclude "it passed" from exit code alone: AC blocks exit 0 by design so that a
+   failing verdict still runs cleanly, which means the verdict token is the only signal.
