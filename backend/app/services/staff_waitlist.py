@@ -42,6 +42,11 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
+# Where a session caches the uuid key shape its column actually binds. See :func:`_lookup`.
+_SHAPE_CACHE = "_b07_key_shape"
+
+
+
 from app.errors import AppError
 from app.models import (
     Branch,
@@ -133,38 +138,49 @@ def _text_key(key: Any) -> str | None:
         return None
 
 
-def _lookup(get, model, key: Any) -> Any:
+def _lookup(db, model, key: Any) -> Any:
     """Return ``model``'s row ``key`` names, binding the key the way this session's column needs.
 
     ``_bind`` is the story in this module's docstring: the shipped ``sqlalchemy.UUID`` column has no
-    bind processor that speaks to SQLite, so a ``uuid.UUID`` reaches the driver as a REAL. Which
-    shape *does* travel is a property of the column and the driver, not of the caller, so it is
-    measured once here rather than guessed at by every lookup - and the two shapes are tried in the
-    order the probe harness's own evidence puts them, with the transaction rolled back between
-    attempts so a failed probe cannot poison the write the caller is about to make.
+    bind processor that speaks to SQLite, so a ``uuid.UUID`` reaches the driver as a REAL. Which shape
+    *does* travel is a property of the column and the driver rather than of the caller, so it is
+    measured once per session here instead of guessed at by every lookup.
+
+    The measurement is cached on the session, and the session is the only thing it can be cached on.
+    A bound method - which is what ``db.get`` is - is rebuilt on every attribute access, so assigning
+    a discovered shape onto it succeeds nowhere and raises ``AttributeError`` on a session whose
+    ``get`` is a plain method: the answer is thrown away and the next lookup starts over. The session
+    outlives the request, is one object per request, and is the thing whose column definition decided
+    the answer, so it is where the answer belongs.
     """
-    if not hasattr(get, "_b07_shape"):
+    cached = getattr(db, _SHAPE_CACHE, None)
+    if cached is None:
         for shape in (_text_key, _uuid_key):
             probe_key = shape(key)
             if probe_key is None:
                 continue
             try:
-                get(model, probe_key)
+                db.get(model, probe_key)
             except Exception:  # noqa: BLE001 - the shape is wrong, not the request
-                _rollback_quietly(get)
+                # A failed probe leaves the transaction poisoned for the write the caller is about to
+                # make, and the caller cannot see that: it only sees a row it did not find.
+                _rollback_quietly(db)
                 continue
-            get._b07_shape = shape  # type: ignore[attr-defined]
+            cached = shape
+            try:
+                setattr(db, _SHAPE_CACHE, shape)
+            except Exception:  # noqa: BLE001 - a session that cannot cache simply re-probes
+                cached = shape
             break
         else:
             return None
-    return get(model, get._b07_shape(key))  # type: ignore[attr-defined]
+    return db.get(model, cached(key))
 
 
-def _rollback_quietly(get) -> None:
-    """Undo a failed probe read, if the session behind ``get`` can be reached at all."""
-    session = getattr(get, "__self__", None)
-    if session is not None and hasattr(session, "rollback"):
-        session.rollback()
+def _rollback_quietly(db: Any) -> None:
+    """Undo a failed probe read, if the session behind it can be reached at all."""
+    if hasattr(db, "rollback"):
+        db.rollback()
 
 
 def get_entry(db: Any, entry_id: Any) -> WaitlistEntry:
@@ -173,7 +189,7 @@ def get_entry(db: Any, entry_id: Any) -> WaitlistEntry:
     The 404 is the section 11 answer for "this branch has no such entry" on every one of the nine
     operations, and it is also what a malformed UUID reaches.
     """
-    entry = _lookup(db.get, WaitlistEntry, entry_id)
+    entry = _lookup(db, WaitlistEntry, entry_id)
     if entry is None:
         raise AppError("WAITLIST_NOT_FOUND", message="Waitlist entry not found")
     return entry
@@ -187,7 +203,7 @@ def get_table_for_seat(db: Any, table_id: Any) -> Table:
     taken one is the 409 (section 4.3 step 5: "validates table is AVAILABLE"). A malformed id names
     no row and therefore takes the 404 branch.
     """
-    table = _lookup(db.get, Table, table_id)
+    table = _lookup(db, Table, table_id)
     if table is None:
         raise AppError("TABLE_NOT_FOUND", message="Table not found")
     if table.status is not TableStatus.AVAILABLE or not table.is_active:
@@ -648,7 +664,7 @@ def release_held_table(db: Any, entry: WaitlistEntry) -> None:
     """
     if entry.table_id is None:
         return
-    table = _lookup(db.get, Table, entry.table_id)
+    table = _lookup(db, Table, entry.table_id)
     if table is not None:
         table.status = TableStatus.AVAILABLE
     entry.table_id = None
