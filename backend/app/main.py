@@ -26,6 +26,7 @@ from app.config import get_settings
 from app.database import Base, engine
 from app.errors import register_error_handlers
 from app.routers import auth as auth_router
+from app.routers import public as public_router
 
 settings = get_settings()
 
@@ -156,10 +157,18 @@ async def add_headers(request: Request, call_next: Callable[[Request], Response]
     _add_security_headers(response)
     return response
 
-# Register global error handlers and include the auth router (B-05).
+# Register global error handlers, then the routers that need the shared limiter (B-05, B-06).
+#
+# Both routers take the ONE limiter above through their own ``configure_limiter`` hook, called
+# immediately before their ``include_router`` line: each builds its rate-limited routes inside that
+# call, from the limiter's own wrapper. Neither may import ``app.main`` for it (``app.main`` imports
+# them, so a top-level read of ``limiter`` here would see a half-built module), and neither may
+# build a second ``Limiter`` - ``app.state.limiter`` has to stay the only instance in the process.
 register_error_handlers(app)
 auth_router.configure_limiter(limiter)
 app.include_router(auth_router.router)
+public_router.configure_limiter(limiter)
+app.include_router(public_router.router)
 
 # ---------------------------------------------------------------------------
 # Probe routes for test ACs.

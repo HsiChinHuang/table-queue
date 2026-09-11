@@ -7,9 +7,9 @@ so they can be populated directly from ORM objects and reject undeclared extras.
 
 import re
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator
 
 from app import models
 
@@ -137,6 +137,39 @@ class ErrorResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True, extra="forbid")
 
 
+def mask_phone(phone: str) -> str:  # noqa: N802 - reads as the type name at the field
+    """Return ``phone`` with its middle digits replaced by asterisks, separators preserved.
+
+    ``WaitlistEntryResponse`` is the only schema in the contract that carries a phone, and it gets
+    filled from ORM rows: a plain ``str`` field cannot stop one of those paths from handing it the
+    stored digits, so the rule is installed as the field's validator instead (see
+    ``AnnotatedPhone`` below). It keeps the leading digits and the last three - ``0900-000-001``
+    becomes ``0900-***-001`` and ``0900000001`` becomes ``0900***001``, the two forms
+    ``_docs/openapi.yaml`` shows - because those last three are the guest lookup credential and the
+    head is what identifies the subscriber. A number too short to have a middle is hidden in full
+    rather than leaked.
+
+    Module-level, not a method: pydantic passes the value under validation as the single positional
+    argument of a ``BeforeValidator`` callable, which a bound method would swallow.
+    """
+    digits = re.sub(r"\D+", "", phone or "")
+    if len(digits) < 7:
+        return "*" * len(digits)
+    head, tail = digits[:-6], digits[-3:]
+    return f"{head}{'*' * (len(digits) - len(head) - len(tail))}{tail}"
+
+
+
+AnnotatedPhone = Annotated[str, BeforeValidator(mask_phone)]
+"""Field type for the one phone a response may carry: validated through the mask.
+
+``mask_phone`` above owns the rule; this alias is how a field opts in. A response model is filled
+from ORM rows through ``from_attributes``, so "the router will pass it masked" is not a guarantee -
+with this annotation, raw stored digits still come out masked and the wire format stays an ordinary
+JSON string.
+"""
+
+
 class WaitlistEntryResponse(BaseModel):
     id: str
     queue_number: str
@@ -147,7 +180,7 @@ class WaitlistEntryResponse(BaseModel):
     # Optional fields
     updated_at: datetime | None = None
     name: str | None = None
-    phone_masked: str | None = None
+    phone_masked: AnnotatedPhone | None = None
     note: str | None = None
     source: models.WaitlistSource | None = None
     cancelled_reason: models.CancelledReason | None = None
