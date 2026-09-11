@@ -94,19 +94,27 @@ def test_board_names_the_called_and_the_next_guest(db, client):
 
 
 def test_recent_calls_are_three_rows_that_left_waiting(db, client):
-    """The cap of 3 is this issue's ruling (R-B06-1), so it has to be measurable (AC-6).
+    """AC-6, exactly as its probe reads the seeded queue: three call-reached rows, newest first.
 
-    Which three is deliberately not pinned: AC-6's sentence lists ``[A012, A011, A010]`` while its
-    own probe asserts ``['A014', 'A013', 'A012']``, and the probe is the part that runs. Ordering is
-    tested as the invariant the ruling does state - a member of the left-WAITING pool, never a
-    WAITING row, never a fourth row - which holds under either reading.
+    AC-6 seeds four rows that reached a call - ``SEATED``, ``DONE``, ``NO_SHOW``, ``CANCELLED`` -
+    one row that is being called (``A014``) and five still waiting, and its own assertion asks for
+    ``[A012, A011, A010]`` out of those four. The earlier version of this test read the same seed
+    the other way round, claimed the probe wanted ``[A014, A013, A012]``, and settled for an
+    invariant loose enough to pass either. It wanted ``[A012, A011, A010]``; that reading is the
+    binding one, and it is what ``recent_calls`` implements. Two consequences are worth their own
+    assertion because they are the whole difference between the two readings: the ``CANCELLED`` row
+    is the oldest call and falls off the cap, and the live ``CALLED`` row is not in the pool at all,
+    because it is already on the screen as ``current_called``.
     """
     seed_queue(db)
     with freeze_time(NOW):
-        got = [item["queue_number"] for item in client.get(BOARD).json()["recent_calls"]]
-    assert len(got) == 3
-    assert len(set(got)) == 3
-    assert set(got) <= {"A010", "A011", "A012", "A013", "A014"}
+        body = client.get(BOARD).json()
+    got = [item["queue_number"] for item in body["recent_calls"]]
+    assert got == ["A012", "A011", "A010"]
+    assert "A014" not in got
+    assert body["current_called"]["queue_number"] == "A014"
+    still_waiting = {qn for qn, _, _ in WAITING}
+    assert all(item["queue_number"] not in still_waiting for item in body["recent_calls"])
 
 
 def test_board_exposes_no_name_and_no_phone(db, client):

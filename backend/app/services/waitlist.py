@@ -44,13 +44,23 @@ ACTIVE_STATUSES: tuple[WaitlistStatus, ...] = (
 """Statuses that hold a phone, so a new join is refused while one of them is live (section 7)."""
 
 LEFT_WAITING_STATUSES: tuple[WaitlistStatus, ...] = (
-    WaitlistStatus.CALLED,
     WaitlistStatus.SEATED,
     WaitlistStatus.DONE,
     WaitlistStatus.NO_SHOW,
     WaitlistStatus.CANCELLED,
 )
-"""Statuses an entry can hold once it has left ``WAITING``: the ``recent_calls`` pool."""
+"""Statuses that were reached *by being called*: the ``recent_calls`` pool (AC-6, R-B06-1).
+
+The name says "left WAITING", and four statuses do leave WAITING in the sense this pool cares
+about - SEATED, DONE, NO_SHOW and CANCELLED are all states a queue position sits in after its call
+came. ``CALLED`` is the one that has not gone anywhere: it is a call still running, and AC-6 names
+the ``CALLED`` entry as ``current_called`` in the same answer that caps ``recent_calls`` at three
+out of four. A ``CALLED`` row belongs to the screen for exactly as long as the guest it is waiting
+for, and it leaves that screen the moment the read that finds it expired hands it a ``NO_SHOW``
+(section 4.10), which is precisely when it joins this pool. Counting it here would put the same
+number on the board twice, and on the screen that is meant to answer "who has this call gone to
+lately" rather than "who is being called right now".
+"""
 
 _CALL_RECENCY: tuple[WaitlistStatus, ...] = (
     WaitlistStatus.CANCELLED,
@@ -59,9 +69,11 @@ _CALL_RECENCY: tuple[WaitlistStatus, ...] = (
     WaitlistStatus.NO_SHOW,
     WaitlistStatus.CALLED,
 )
-"""The left-``WAITING`` statuses from the oldest call to the newest. The measurement this
-ranking comes from is in :func:`recent_calls`; the sort there runs descending, so a status
-listed later here counts as the newer call."""
+"""The call-reachable statuses from the oldest call to the newest, which is how a tie in ``seq``
+breaks. See :func:`recent_calls` for the measurement this ranking comes from; the sort there runs
+descending, so a status listed later here counts as the newer call. ``CALLED`` sits at the newest
+end because it is the call that has not finished, even though AC-6's cap means a ``CALLED`` row
+reaches the board as ``current_called`` rather than through the pool."""
 
 CANCELABLE_STATUSES: tuple[WaitlistStatus, ...] = (
     WaitlistStatus.WAITING,
