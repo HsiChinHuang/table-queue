@@ -53,6 +53,32 @@ Rules that keep ACs honest:
   Skipping (b) hides green-UNREACHABLE ACs; skipping (a) hides green-BY-ACCIDENT ACs. Both have
   happened. Groom-time `Measured today:` lines record the honest red baseline; two ACs may be
   green by design (e.g. a CJK-only guard) and must say so explicitly instead of faking red.
+- **The throwaway side of the two-sided probe must be CONTRACT-VISIBLE, not merely mounted.** A
+  block that registers a probe under its own namespace and "prefers the contract route when
+  mounted" can print PASS on the groomer's tree while the contract route is invisible through the
+  venv's editable-install `sys.path` (the long-lived checkout answers the import). Three shapes
+  have bitten us, all groom defects: (i) the block fires the contract route first and asserts the
+  probe route's view of the same row, so a spec-correct 409-on-replay can never go green (B-07
+  AC-8/11/12); (ii) the block builds `TestClient(app)` with no `lifespan=`, so `bootstrap_defaults`
+  never runs and its own probe answers 500 before any handler exists - baseline-pass /
+  feature-fail is the tell (B-10 AC-8/11); (iii) `getattr(obj, 'x', DEFAULT)` where the stub's
+  `__getattr__` raises never reaches DEFAULT - Python evaluates the default eagerly, then the call
+  raises - so the fallback branch is dead code and the AC is permanently red on any tree (B-10
+  AC-1/AC-5). After (b), read the block's own PASS string, not only its verdict token: a PASS
+  carrying a scope disclaimer (`answered 404 on this tree`, `not measured here`,
+  `probe-namespaced`) measured nothing about production.
+- **Do not pin source-text LOCATIONS in a file another open issue touches.** An AC that greps "no
+  `CONFLICT` token appears in `services/tables.py`" and a sibling AC that greps "the refusal lives
+  in `services/tables.py`" are unsatisfiable-by-construction once both branches merge (B-08 AC-12
+  vs B-11 AC-5/8/9; the SW resolved it only by relocating the code string into helper modules).
+  Grep BEHAVIOR (status/code/envelope), not where a literal sits. A Constraints block whose file
+  list says "Nothing else" must allow `services/*` whenever the ACs force file-collision
+  gymnastics (B-08, B-10 and B-12 all exceeded their lists while their ACs stayed green).
+- **Do not assert exact error-message text** unless the message appears in `openapi.yaml` or
+  `specs.md`. An AC literal for a 500 message no contract documents (`Internal server error`)
+  silently overrode the shipped render path (B-10 AC-10). Codes and statuses are contract; prose
+  is not. When a frozen AC already carries such a literal, the AC wins and the groom defect is
+  logged, not argued.
 
 ## 3. Environment traps (harness, not product)
 
