@@ -170,6 +170,21 @@ These came out of AC probes or QA cycles. Each one has already cost a worker cyc
   already merged and its test passed on the groom's own tree. Verify blockers against `origin/main`
   before dispatching an SW on the strength of them, and route the correction to a PM child: an issue
   file's prose is PM-owned even when the Orchestrator caught the error.
+- **A child's `write`/`edit` tools are Windows-rooted even when its bash runs in WSL:** a tool call
+  to `/home/te/...` silently lands at `C:\home\te\...` (a ghost tree; the call returns "Successfully
+  wrote", the child's own bash cannot see it, so it re-reads empty dirs and starts `find /mnt`).
+  All child-visible WORKTREES must live on drvfs (`<repo>/../wt/<ID>`: bash sees `/mnt/c/...`, tools
+  see `C:/...` - one file, verified by writing through one view and reading through the other).
+  `/home/te/...` stays valid for bash-only needs: DATABASE_URL, TMPDIR, scratch, invoking runacs.py.
+  When a child reports "I wrote the file but it is not there", suspect this before suspecting the
+  child. Ghost output is recoverable under `/mnt/c/home/te/tq/...` - recover and migrate; never make
+  the child rewrite from memory.
+- **Test-model children drift; watch the model name.** Both children in one session ran on a
+  Qwen-flash test model via ollama: 60-123 tool calls, minutes of exploration, zero file output,
+  `find /mnt`-class commands, heavy steering needed. A weak child is still useful as a pair of
+  hands - run the ACs, commit when told - but the Orchestrator must pre-resolve its open questions
+  into the steer as measured facts, and must read "file not found" + one very long bash tool as a
+  path-migration event, not as idleness.
 - Provider failures look like agent deaths. Verify the worktree for leftovers, probe the model
   endpoint directly, then re-dispatch citing the dead run id. Do not switch a governed pipeline to
   an ad-hoc CLI fallback without the owner's approval.
