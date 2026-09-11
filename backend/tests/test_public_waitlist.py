@@ -446,10 +446,9 @@ def test_status_phone_tail_searches_only_todays_rows(seeded):
     assert token_for(stale_row) not in todays.text  # its own derived credential
     stamp = todays_row.created_at.strftime("%Y-%m-%dT%H:%M:%S")
     assert todays.json()["created_at"].startswith(stamp)
-    # Undeclared keys are not part of the credential either, and the AC-10 probe is what pins that
-    # the server never honours one; here the shape check is that this call sends only declared ones.
-    # The shape gate measures the call site, and this one sends only declared parameters; whether
-    # the server honours an undeclared one is AC-10's probe to pin.
+    # ``business_date`` is not a parameter of this operation, so the call above sends only declared
+    # credentials; whether the server honours an undeclared one is AC-10's probe to pin. The shape
+    # gate measures this call site, so the check here is on the call site itself.
     source = inspect.getsource(test_status_phone_tail_searches_only_todays_rows)
     assert 'phone_last3="014"' in source
     assert "business_date=" not in source.split('"""')[-1]
