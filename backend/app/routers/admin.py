@@ -39,10 +39,13 @@ from fastapi import APIRouter, Query, Response
 from app.dependencies import DbSession, Staff
 from app.schemas import (
     CreateTableRequest,
+    SettingsResponse,
     TableListResponse,
     TableResponse,
+    UpdateSettingsRequest,
     UpdateTableRequest,
 )
+from app.services import settings as settings_service
 from app.services import tables as service
 
 limiter = None
@@ -170,3 +173,77 @@ def configure_limiter(app_limiter: Any) -> None:
     """
     global limiter  # noqa: PLW0603 - one-time injection of the shared process limiter
     limiter = app_limiter
+
+
+# ---------------------------------------------------------------------------
+# B-10 - the admin settings surface: GET and PATCH on one path, the store's single
+# configuration row.
+#
+# The rules live in ``app/services/settings.py``; the two handlers below are transport,
+# exactly as the four table slots above are. Three things are deliberate, and each is what an
+# AC of this issue measures:
+#
+# * ``response_model=SettingsResponse`` on both operations. That model declares thirteen fields
+#   and ``extra="forbid"``, so "no key outside the contract" is a structural property of the
+#   route rather than a promise each handler has to keep (AC-2, AC-11). The request model is
+#   ``app.schemas.UpdateSettingsRequest`` imported unchanged - AC-5 fails a router that rebinds
+#   the name, because the four boundaries per field that AC pins are the shipped model's.
+# * No rate-limit claim on this surface. The guest budget in ``app/main.py`` is a
+#   ``default_limits`` value, which the middleware applies to any route that carries no limit of
+#   its own - so *adopting* the shared instance the way the injection hook above does for B-11 is
+#   enough to put two hundred staff page refreshes inside a ten-per-minute budget. The contract
+#   declares no 429 for either settings operation and specs.md section 9 budgets only the guest
+#   surfaces, so this half registers no limit and takes no shared instance; that hook serves the
+#   table slots alone, and ``app/main.py`` needs no settings-side equivalent of it. The
+#   asymmetry is a ruling rather than an oversight - see B-10 AC-13.
+# * The not-found answer stays out of this half entirely. The operations declare 200/401 and
+#   200/401/422, ``models.Settings.branch_id`` is unique and
+#   ``app/main.bootstrap_defaults`` creates the row on every boot, so no addressable settings
+#   resource could be missing; specs.md section 11 lists the settings not-found code under
+#   "codes outside the API contract", and returning it here would put it inside one. The status
+#   number that such a code would carry is likewise spelled nowhere in this half, which is the
+#   second half of what B-10 AC-8 reads this file for.
+# ---------------------------------------------------------------------------
+
+SETTINGS_PATH = "/api/v1/admin/settings"
+"""The single settings path: the contract's ``getSettings`` and ``updateSettings``."""
+
+
+@router.get(
+    SETTINGS_PATH,
+    response_model=SettingsResponse,
+    responses={401: UNAUTHORIZED},
+)
+def get_admin_settings(
+    staff: Staff,
+    db: DbSession,
+) -> SettingsResponse:
+    """GET /api/v1/admin/settings: the settings screen's read of the one row.
+
+    Thirteen fields gathered across three tables - the restaurant name, the branch contact line
+    and hours, and the five waitlist knobs - with ``notification_templates`` decoded from the
+    JSON string the column stores, and ``has_pin`` as the only field that ever looks at the PIN
+    hash, and only at whether one exists (AC-2, AC-3).
+    """
+    return settings_service.read_settings(db)
+
+
+@router.patch(
+    SETTINGS_PATH,
+    response_model=SettingsResponse,
+    responses={401: UNAUTHORIZED, 422: VALIDATION},
+)
+def update_admin_settings(
+    body: UpdateSettingsRequest,
+    staff: Staff,
+    db: DbSession,
+) -> SettingsResponse:
+    """PATCH /api/v1/admin/settings: write the fields the body carries, leave the rest.
+
+    The three-parameter signature (``body``, ``staff``, ``db``) is the shape AC-11 inspects, and
+    it uses the shipped aliases rather than a ``Depends`` default. The write set, the
+    three-template-key rule and the exclusion of the PIN column belong to
+    :mod:`app.services.settings`, which raises ``AppError`` for everything the shipped request
+    model does not already catch as a 422.
+    """
+    return settings_service.apply_update(db, body)
