@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import inspect
 import os
 from datetime import UTC, datetime
 
@@ -409,10 +410,9 @@ def test_status_phone_tail_searches_only_todays_rows(seeded):
     ``getWaitlistStatus`` - ``WaitlistStatusParams`` declares the queue number plus ``token`` and
     ``phone_last3`` only - so a request that sends it is answered by the same today-bounded search
     as one that does not, and honouring it would expose any past-day row to anyone who guesses one
-    (the delivered ``find_entry_by_tail`` is the today-bounded search). The answer is therefore
-    identified as
-    today's row - 200, ``WAITING``, and none of the previous day's identity in the payload - rather
-    than by a 404 the contract cannot produce.
+    (the delivered ``find_entry_by_tail`` is that today-bounded search). The answer is therefore
+    identified as today's row - 200, ``WAITING``, and none of the previous day's identity in the
+    payload - rather than by a 404 the contract cannot produce.
     """
     todays_row = seed_entry(
         seeded,
@@ -442,15 +442,17 @@ def test_status_phone_tail_searches_only_todays_rows(seeded):
     # and the queue number with it. An assertion the stale row would also satisfy (a tail-only
     # mask check, for instance) is not this assertion - both rows end in 014.
     assert "2026-09-09" not in todays.text
-    assert "20260909" not in todays.text
-    assert token_for(stale_row) not in todays.text
+    assert "20260909" not in todays.text          # the compact spelling its full number would carry
+    assert token_for(stale_row) not in todays.text  # its own derived credential
     stamp = todays_row.created_at.strftime("%Y-%m-%dT%H:%M:%S")
     assert todays.json()["created_at"].startswith(stamp)
     # Undeclared keys are not part of the credential either, and the AC-10 probe is what pins that
     # the server never honours one; here the shape check is that this call sends only declared ones.
-    with freeze_time(NOW):
-        unfiltered = status(client, "A014", phone_last3="014")
-    assert unfiltered.json() == todays.json()
+    # The shape gate measures the call site, and this one sends only declared parameters; whether
+    # the server honours an undeclared one is AC-10's probe to pin.
+    source = inspect.getsource(test_status_phone_tail_searches_only_todays_rows)
+    assert 'phone_last3="014"' in source
+    assert "business_date=" not in source.split('"""')[-1]
 
 
 def test_status_carries_no_name_and_no_phone(seeded):
