@@ -42,11 +42,6 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-# Where a session caches the uuid key shape its column actually binds. See :func:`_lookup`.
-_SHAPE_CACHE = "_b07_key_shape"
-
-
-
 from app.errors import AppError
 from app.models import (
     Branch,
@@ -64,6 +59,9 @@ from app.services.waitlist import (
     _stamp,
     phone_last3,
 )
+
+# Where a session caches the uuid key shape its column actually binds. See :func:`_lookup`.
+_SHAPE_CACHE = "_b07_key_shape"
 
 CLOSED_STATUSES: tuple[WaitlistStatus, ...] = (
     WaitlistStatus.NO_SHOW,
@@ -142,15 +140,18 @@ def _lookup(db, model, key: Any) -> Any:
     """Return ``model``'s row ``key`` names, binding the key the way this session's column needs.
 
     ``_bind`` is the story in this module's docstring: the shipped ``sqlalchemy.UUID`` column has no
-    bind processor that speaks to SQLite, so a ``uuid.UUID`` reaches the driver as a REAL. Which shape
+    bind processor that speaks to SQLite, so a ``uuid.UUID`` reaches the driver as a REAL. Which
+    shape
     *does* travel is a property of the column and the driver rather than of the caller, so it is
     measured once per session here instead of guessed at by every lookup.
 
     The measurement is cached on the session, and the session is the only thing it can be cached on.
-    A bound method - which is what ``db.get`` is - is rebuilt on every attribute access, so assigning
+    A bound method - which is what ``db.get`` is - is rebuilt on every attribute access, so
+    assigning
     a discovered shape onto it succeeds nowhere and raises ``AttributeError`` on a session whose
-    ``get`` is a plain method: the answer is thrown away and the next lookup starts over. The session
-    outlives the request, is one object per request, and is the thing whose column definition decided
+    ``get`` is a plain method: the answer is thrown away and the next lookup starts over. The
+    session outlives the request, is one object per request, and is the thing whose column
+    definition decided
     the answer, so it is where the answer belongs.
     """
     cached = getattr(db, _SHAPE_CACHE, None)
@@ -162,7 +163,8 @@ def _lookup(db, model, key: Any) -> Any:
             try:
                 db.get(model, probe_key)
             except Exception:  # noqa: BLE001 - the shape is wrong, not the request
-                # A failed probe leaves the transaction poisoned for the write the caller is about to
+                # A failed probe leaves the transaction poisoned for the write the caller is about
+                # to
                 # make, and the caller cannot see that: it only sees a row it did not find.
                 _rollback_quietly(db)
                 continue
@@ -309,7 +311,8 @@ def queue_rows(
     """Return this branch's queue rows in order, before paging.
 
     ``day`` is the business date the read is scoped to - see :func:`_queue_day` for why a staff list
-    is a day's list - and ``None`` means the branch cannot name a day, which answers no rows at all rather
+    is a day's list - and ``None`` means the branch cannot name a day, which answers no rows at all
+    rather
     than guessing at every day in the table. The status group, the day and the party size are SQL
     predicates; ``search`` is not, because a three-digit tail is a comparison over normalized digits
     (see :func:`_matches_search`) and no column stores that.
@@ -361,10 +364,12 @@ def list_waitlist(
     # read will not display it, or the queue would keep offering a guest the kitchen gave up on.
     # It is a write, so it happens before the read below - merged B-06's note about SQLite's
     # deferred transaction is the reason the sweep cannot be interleaved with the page it reports.
-    # Section 4.10's lazy no-show, persisted - and it runs first, over the branch's whole queue rather
+    # Section 4.10's lazy no-show, persisted - and it runs first, over the branch's whole queue
+    # rather
     # than over this page, because a guest whose hold has lapsed has to be closed out even in a read
     # that would not have displayed them. Merged B-06's transition is the only implementation of it,
-    # and it commits, which is what makes the next reader - this list, the dashboard, a fresh session -
+    # and it commits, which is what makes the next reader - this list, the dashboard, a fresh
+    # session -
     # see the same truth rather than a fresh computation of a different one.
     _sweep_expired(db, clock)
     # ...and because that transition commits on the caller's session, the read that follows has to
@@ -379,22 +384,28 @@ def list_waitlist(
 def _begin_readable(db: Any) -> None:
     """Discard a transaction a previous caller left open on this session, so the read can start.
 
-    A GET answers from what the database holds, and on this repo's SQLite session it can stop holding
-    it while the data is still there. The shape of the failure is worth recording exactly, because it
-    cost a day of reading and it is not an error: merged B-06's ``apply_lazy_no_show`` - the transition
+    A GET answers from what the database holds, and on this repo's SQLite session it can stop
+    holding it while the data is still there. The shape of the failure is worth recording exactly,
+    because it cost a day of reading and it is not an error: merged B-06's ``apply_lazy_no_show`` -
+    the transition
     section 4.10 assigns to the backend rather than to a screen - commits *on the caller's session*,
     and a session that has had a transaction ended under it goes on to answer a predicate over an
-    ``Enum`` column with no rows at all. Not an exception, not an empty table: ``WHERE business_date =
+    ``Enum`` column with no rows at all. Not an exception, not an empty table: ``WHERE business_date
+    =
     ?`` returns both rows and ``WHERE status IN (...)`` returns neither, on the same session, in the
-    same request, and a second session opened on the same engine reads the same nothing. The write is
+    same request, and a second session opened on the same engine reads the same nothing. The write
+    is
     durable; the session that made it has gone quiet about one particular kind of question.
 
-    So the transaction is asked about before anything is read, and rolled back only if it exists. The
+    So the transaction is asked about before anything is read, and rolled back only if it exists.
+    The
     condition is not decoration: on a session whose own commit has already landed there is no
-    transaction to end, and a rollback issued there is what produces the empty-``IN`` behaviour above.
+    transaction to end, and a rollback issued there is what produces the empty-``IN`` behaviour
+    above.
     Recovery has to be conditional or it is the bug it is written to fix.
 
-    It runs before the read rather than after a failed one because a read that comes back quietly empty
+    It runs before the read rather than after a failed one because a read that comes back quietly
+    empty
     is not an error that can be caught. The queue would simply be reported as nobody waiting, in a
     restaurant with a queue, at 200.
     """
@@ -407,7 +418,8 @@ def _sweep_expired(db: Any, now: datetime) -> None:
 
     ``apply_lazy_no_show`` is merged B-06's and stays the single implementation: it moves a
     ``CALLED`` row whose hold has lapsed to ``NO_SHOW``, stamps ``closed_at``, releases the table it
-    held, and commits. The two guards here are the ones a sweep needs and a single-row call does not:
+    held, and commits. The two guards here are the ones a sweep needs and a single-row call does
+    not:
     the row must still be ``CALLED`` (every other status is already closed, and the merged service
     answers a transition it does not own with a 409 rather than silently ignoring it), and the sweep
     must not read rows it will not write, because SQLite hands the write lock to the first write of
@@ -453,15 +465,19 @@ def _queue_day(db: Any, now: datetime | None = None) -> str:
     is waiting on the previous board, and a screen that filed them under the next day would show two
     different queues to the two halves of one product.
 
-    The clock is the authority, and the rows are the tiebreaker. ``business_date`` is a column on each
+    The clock is the authority, and the rows are the tiebreaker. ``business_date`` is a column on
+    each
     row (section 8), and the day a branch's queue actually lives on is the newest day its rows were
-    written against - so when the clock names a day this branch holds nothing on, the day is read from
+    written against - so when the clock names a day this branch holds nothing on, the day is read
+    from
     the rows instead of being guessed at. That is not a courtesy to a fixed-clock fixture: the queue
     *is* the rows, and an operational screen answering "nobody is waiting" because the wall clock
     drifted past the queue it exists to display would be committing the one failure this endpoint is
-    for. It also costs nothing when the clock is right, because a live branch's newest row is written
+    for. It also costs nothing when the clock is right, because a live branch's newest row is
+    written
     against the day the same clock computes - and it is what keeps a demonstration or a replay of an
-    archived evening (the two things section 4's staff board is used for) showing its own queue rather
+    archived evening (the two things section 4's staff board is used for) showing its own queue
+    rather
     than an empty one.
     """
     branch = db.get(Branch, _branch_id(db))
@@ -479,7 +495,8 @@ def _queue_day(db: Any, now: datetime | None = None) -> str:
         return day
     # The clock's day holds nothing and the branch does hold a queue: the rows are the day, and a
     # board that answered "nobody is waiting" about a queue it can see would be failing at the one
-    # thing it exists to do. See the docstring for the replay argument and for the drift this trades.
+    # thing it exists to do. See the docstring for the replay argument and for the drift this
+    # trades.
     return latest[0]
 
 
@@ -724,7 +741,8 @@ def _restore_claim(db: Any, entry: WaitlistEntry) -> int:
     Section 4.5 gives a restored row one position rule - it goes back in front of the guests that
     joined after it - and the row already satisfies it by keeping the position it joined on, which
     is why :func:`restore_entry` does not move it. The one thing it cannot keep is a number another
-    guest has been handed since: the guest half allocates one past the highest value *any* row of the
+    guest has been handed since: the guest half allocates one past the highest value *any* row of
+    the
     branch holds, so a ``WAITING`` row that arrived while this one sat closed can carry the same
     number, and AC-5 seeds that collision on purpose. Section 4.5's own remedy is "reorder", so the
     collision is resolved by taking the tail - the same number the guest join would take, from
@@ -869,7 +887,8 @@ def edit_entry(db: Any, entry_id: Any, fields: dict[str, Any], now: datetime) ->
 def active_rows(db: Any) -> list[WaitlistEntry]:
     """Return this branch's ``WAITING`` + ``CALLED`` rows in queue order - the reorder's domain.
 
-    Scoped to the same day the list answers (see :func:`_today`), so the reorder's "exact active set"
+    Scoped to the same day the list answers (see :func:`_today`), so the reorder's "exact
+    active set"
     is the queue the staff screen was showing rather than every live row the table has ever held.
     """
     return queue_rows(db, ACTIVE_STATUSES, day=_queue_day(db))
