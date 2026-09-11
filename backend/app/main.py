@@ -32,6 +32,7 @@ from app.errors import register_error_handlers
 from app.routers import admin as admin_router
 from app.routers import auth as auth_router
 from app.routers import public as public_router
+from app.routers import staff as staff_router
 
 settings = get_settings()
 
@@ -381,6 +382,16 @@ public_router.configure_limiter(limiter)
 mount(public_router.router)
 admin_router.configure_limiter(limiter)
 mount(admin_router.router)
+# B-08's staff table surface rides the same configure-then-mount sequence that auth, public and
+# admin use: ``configure_limiter`` adopts the one process limiter and registers nothing, because the
+# staff table routes declare no limit at all (R-B08-6: specs section 15 limits login, join and
+# lookup only, and openapi declares no 429 here). So no mount ORDER is at stake for this pair -
+# measured, see the merge commit body - and the routes carry no per-route wrapper that B-06's
+# middleware exemption could key off. It goes through ``mount`` rather than a bare
+# ``include_router`` because that is main's own B-06 helper, which asserts after the fact that
+# every declared path really ended up reachable.
+staff_router.configure_limiter(limiter)
+mount(staff_router.router)
 
 # ---------------------------------------------------------------------------
 # Probe routes for test ACs.
