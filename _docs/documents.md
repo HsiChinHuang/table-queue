@@ -26,4 +26,5 @@
 
 - `_docs/rules.md` (all roles may read)
 - `_docs/requirements.md` (project requirements this guide summarizes; SA reads in full, all roles may consult)
-- `_docs/AGENTS.md` (all roles must read first)
+- `AGENTS.md` (root; all roles must read first: hard rules and pointers only)
+- `_docs/project-guide.md` (project content map and frozen archive of the old `AGENTS.md` sections)
