@@ -228,12 +228,25 @@ os.environ.setdefault('STAFF_PIN', '0000')
 
 @pytest.fixture(scope='module')
 def db_engine(tmp_path_factory):
+    """Point the shared engine at a private file for this module, and hand it back afterwards.
+
+    ``engine.url`` is a plain attribute rather than a property, so assigning to it re-points every
+    later ``connect()`` - including the one the app's own ``SessionLocal`` opens - at this temp
+    file. That is exactly what this module needs for one module's worth of tests and exactly what
+    breaks the module that runs next: the assignment used to be unconditional, so the engine stayed
+    pointed at a temporary directory no test had asked for and every later suite read someone
+    else's empty schema. The previous URL is captured and restored on the way out, which is the
+    only reason the module can still say "the shared engine" in its docstring.
+    """
     db_path = tmp_path_factory.mktemp('db') / 'test.db'
     from app.database import Base, engine
+    previous_url = engine.url
     engine.dispose()
     engine.url = f"sqlite:///{db_path}"
     Base.metadata.create_all(engine)
     yield engine
+    engine.dispose()
+    engine.url = previous_url
     engine.dispose()
 
 @pytest.fixture
