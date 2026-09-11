@@ -12,6 +12,15 @@
 - Do NOT pass other role files.
 - Do NOT pass `process.md`, `rules.md`, or `documents.md` directly.
 
+## Slot definition
+
+- A slot = one active subagent session (PM, SW, or QA).
+- Max 3 slots globally, across ALL phases.
+- An issue occupies 1 slot from PM start until QA PASS or blocked.
+- Merge and Orchestrator's own work do NOT consume slots.
+- MERGE-FIX SW session DOES consume a slot.
+- Waiting on dependencies does NOT consume a slot.
+
 ## Initialization
 
 0a. If `_docs/issue-map.json` missing or empty:
@@ -23,13 +32,14 @@
 
 1. Query Platform Issues with label `backlog` and state `open`/`opened`
 2. Filter to issues whose dependencies (from `_docs/issues/<ID>.md` frontmatter `depends:`) are closed
-3. Pick next ready issue (deps closed)
-4. Start PM subagent -> groom -> update `_docs/issues/<ID>.md` AND Platform Issue; add label `groomed`
-5. Create worktree. Start SW subagent -> implement -> push branch -> add label `qa-ready`
-6. Start QA subagent -> verify -> add `qa-passed` or `qa-failed`
-7. If FAIL: goto 5 (max 100 retries per issue)
-8. If PASS: enqueue for merge
-9. Repeat until all `backlog` issues closed
+3. Before picking next issue: check active slots < 3. If full, WAIT.
+4. Pick next ready issue (deps closed). Reserve 1 slot.
+5. Start PM subagent -> groom -> update `_docs/issues/<ID>.md` AND Platform Issue; add label `groomed`
+6. Start SW subagent -> implement -> push branch -> add label `qa-ready`
+7. Start QA subagent -> verify -> add `qa-passed` or `qa-failed`
+8. If FAIL: goto 6 (max 100 retries). Slot stays occupied.
+9. If PASS: release slot. Enqueue for merge.
+10. Repeat until all `backlog` issues closed
 
 ## State machine (MUST enforce)
 
@@ -115,6 +125,7 @@ States:
 - QA: verifies BOTH original ACs pass on merged branch.
 - On PASS: enqueue for merge again.
 - On FAIL: back to SW (max 100 retries).
+- MERGE-FIX SW session consumes a slot.
 
 ### Merge conflict ownership
 - Assign to **the issue's own SW**.
@@ -122,7 +133,10 @@ States:
 
 ## Rules
 
-- Mode X: max 3 parallel slots. Fill idle slots with ready issues (parallel implementation, serial merge).
+- Never spawn a subagent if 3 slots are already active.
+- Before spawning PM/SW/QA, check active slot count.
+- If slots full: queue the issue; do not spawn.
+- Free a slot only when: QA PASS, issue blocked, or BLOCKER raised.
 - On FAIL: mark issue highest priority. NO preemption. Engineer finishes current task first, then takes FAIL issue.
 - Retry limit: 100. Exceed -> create `BLOCKER: {title}` issue, label `blocker`, release slot, await human.
 - Idle-fill: blocked engineer may pick any ready issue. NO preemption when dependency unblocks. Finish current task first.

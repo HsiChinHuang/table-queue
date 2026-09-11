@@ -7,6 +7,16 @@
 - Do not manually edit Platform Issues while Orchestrator is running.
 - Labels drive state transitions (see `orchestrator.md`).
 
+## Slots
+
+- 1 slot = 1 active subagent session (PM/SW/QA).
+- Max 3 slots globally, across all phases.
+- Never spawn a subagent when 3 slots are active.
+- Merge and Orchestrator work do NOT consume slots.
+- MERGE-FIX SW session DOES consume a slot.
+- Dependency wait does NOT consume a slot.
+- Free a slot only when: QA PASS, issue blocked, or BLOCKER raised.
+
 ## Source of truth (files)
 
 - Dependency source of truth: `_docs/issues/<ID>.md` frontmatter `depends:`.
