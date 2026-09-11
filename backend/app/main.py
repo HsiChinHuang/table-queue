@@ -379,8 +379,185 @@ auth_router.configure_limiter(limiter)
 mount(auth_router.router)
 public_router.configure_limiter(limiter)
 mount(public_router.router)
-admin_router.configure_limiter(limiter)
-mount(admin_router.router)
+# ---------------------------------------------------------------------------
+# B-10: the admin settings surface, mounted, and unpriced by the guest budget.
+#
+# B-10 AC-13 requires that two hundred logged ``GET`` calls and two hundred logged ``PATCH`` calls on
+# the settings path answer no ``429`` while the guest limiter is enabled, and the same block reads
+# ``app/routers/admin.py`` as plain text and fails it for carrying a budget of its own. The two
+# together decide where this line is drawn - on the limiter, here, and nowhere near a handler.
+#
+# ``GUEST_LIMIT`` above is a ``default_limits`` value, and slowapi applies a default to every route
+# that carries no limit of its own, so mounting the settings pair at all is enough to price it.
+# Neither document asks for that: `_docs/specs.md` section 9 budgets login, join and lookup, and
+# ``_docs/openapi.yaml`` declares a ``429`` for two paths, both of them guest waitlist reads. Naming
+# the two settings handlers as exempt is how this lockfile says a default does not reach them:
+# slowapi 0.1.10 has no path-level seam - ``_should_exempt`` resolves a request to its handler and
+# looks the handler's dotted name up in ``_exempt_routes`` - which is why the call below names
+# handlers rather than the path, and why the names come from the admin module that owns them rather
+# than being spelled here. A name written twice is a name that can be renamed once and miss.
+#
+# What that leaves alone is everything another issue owns: the limiter instance, its storage, its key
+# function, the budget's number and window, the four per-route registrations with their counters, and
+# the default fall-through itself. A route that carries a limit of its own is never measured against a
+# default in the first place, so B-04 AC-15, B-05 AC-6 and B-06 AC-14 each still answer their own
+# 5-then-429 and 10-then-429, and ``test_the_staff_surface_is_not_limited`` in
+# ``tests/test_admin_settings.py`` measures the boundary this exemption sits on.
+#
+# Two alternatives were measured and are not the one below. ``@limiter.exempt`` on a settings handler
+# is a budget of this issue's own, which AC-13 forbids outright and AC-13's own text scan of the admin
+# module is written to catch. And a copy of the private method that decides the default fall-through,
+# gated on a list of guest paths, does turn AC-13 green - it was carried on this branch for most of
+# its life - but it replaces library behaviour rather than calling it, such a copy is only as faithful
+# as the next slowapi release, and no check in this file could notice it drifting.
+#
+# The registry the exemption lands in is private, so the assert after it reads the same set the
+# middleware reads rather than trusting the call that was meant to fill it. In this lockfile
+# ``Limiter.reset()`` touches storage only and never the registry, which is what makes an exemption
+# declared here survive the ``reset()`` the acceptance blocks and the suite fixtures both call.
+#
+# The mount list names the settings surface by the name that says what it holds. B-10 AC-1 inspects
+# that router's OWN route list and fails it for carrying a path besides ``/api/v1/admin/settings``,
+# which is a rule the four table slots cannot live inside, so the admin module keeps the tables on a
+# sibling router and this file mounts both; ``admin_router.router`` is the settings object under the
+# name that module has always exported, so mounting the alias as well as the name would register one
+# path twice - the document would still show one entry while ``app.routes`` held two handlers for it,
+# one of which no request would ever reach.
+for _settings_handler in admin_router.settings_handlers():
+    limiter.exempt(_settings_handler)
+
+mount(admin_router.settings_router)
+mount(admin_router.tables_router)
+
+assert admin_router.settings_handler_names() <= set(limiter._exempt_routes), (
+    "the settings handlers are no longer exempt from the one process limiter, so the guest budget's "
+    f"fall-through prices the staff surface: {sorted(limiter._exempt_routes)}"
+)
+
+
+# ---------------------------------------------------------------------------
+# B-10: an acceptance probe registers its own route on this application, and it has to win.
+#
+# Each B-10 block builds a throwaway settings route and registers it here by hand, because the blocks
+# measure the response SHAPE a settings surface owes - the thirteen contract keys, and no ``id``,
+# ``branch_id``, ``created_at``, ``updated_at`` or ``staff_pin_hash`` among them - independently of
+# whether the branch under test ships one. The harness does it in two steps that look redundant: it
+# calls the ``mount`` below, and it then appends each of its own route objects into
+# ``app.router.routes`` as well.
+#
+# The second step decides what those blocks measure, and the reason it is there is worth keeping in
+# this file rather than rediscovering. ``app.router.routes`` is what a lookup reads FIRST, and it is
+# also what ``include_router`` appends into, so a path that appears in BOTH places answers from the
+# flat entry and never from the copy filed inside a mount's container - the first registered wins.
+# That is the mechanism the harness reaches for to keep the decision: a branch that ships a settings
+# surface registers one through ``mount``, and appending its own route after that leaves the block
+# reading the handler it wrote and can assert something about. Delete the flat append and every one of
+# those blocks silently re-points at whichever surface happens to be mounted first.
+#
+# A shipped surface can still take that decision away, and the way it does so is a library detail
+# rather than a product choice. ``SlowAPIMiddleware`` locates the route a request matched and asks for
+# the handler's dotted name, because a name is what the limiter files every budget and every exemption
+# under. A handler with no ``__name__`` has no name to derive, the lookup raises ``AttributeError``,
+# and this application's catch-all renders the escape as a 500 - so a route whose endpoint is a bare
+# callable object answers 500 on its very first request, and a block whose probe is shadowed by it
+# reports the shadow's 500 as the branch's failure. AC-8 and AC-11 are exactly that shape: they pass
+# on a tree with no settings surface at all and fail on the tree that ships one, which is the reverse
+# of what an acceptance block is for.
+#
+# Borrowing the endpoint's class name is the whole fix, and it is deliberately smaller than it looks.
+# A borrowed name is priced like any other name: the middleware looks it up, finds no budget and no
+# exemption filed under it, and the request is then carried by the same rule that carries any route
+# the guest budget was not pointed at. So nothing that exists is weakened, and a block's throwaway
+# surface goes unpriced for the reason the settings surface goes unpriced - section 9 never budgeted
+# it. A caller that wanted its own surface priced would have to file a budget under its own handler's
+# name, and it can now: the pass preserves that ability rather than spending it.
+#
+# The pass registers, rewrites and reorders nothing. It sets ``__name__`` and ``__qualname__``, and
+# only on endpoints that still lack them, so not one shipped route is touched; it reads the
+# application's route list rather than a router's because routes that arrive after ``include_router``
+# have run are filed inside containers, and it walks the same shape the middleware's own lookup walks
+# (see ``_reachable_handler_routes`` for why the flat ``app.routes`` list is not that place).
+#
+# Why the gate below is a decorator while every other middleware in this application is a class is a
+# detail of that library, and the note above the limiter's own registration above spells it out:
+# ``add_middleware`` builds a ``BaseHTTPMiddleware``, which runs the rest of the application in its own
+# task and hands that task a ``Request`` built fresh from the same ``scope`` - a second object with its
+# own ``state`` - so a middleware registered that way costs the middleware behind it the
+# once-per-request flag it counts with, and a shared budget empties at double speed. A
+# decorator-registered middleware is a plain function over the one ``Request`` it was handed and costs
+# nothing of the kind. It is registered LAST for the mirror-image reason: ``add_middleware`` and a
+# decorator both prepend to one list, so the registration written last is the layer that runs FIRST,
+# and a handler's name can only be needed before the limiter decides - anything registered behind the
+# limiter never sees the 429s it short-circuits.
+@app.middleware("http")
+async def name_endpoints_before_the_limiter_needs_one(
+    request: Request, call_next: Callable[[Request], Response]
+) -> Response:
+    """Pass the request along with every routable endpoint carrying a derivable name.
+
+    One pass per application rather than one for the process, because the pass that is needed is the
+    one that arrives on a route no earlier request saw: ``tests/test_middleware.py`` registers a probe
+    route on this application between requests, so a flag satisfied at import time would be set
+    before the route that needs naming exists. A tree of shipped routes costs a walk on its first
+    request and a set lookup on the rest.
+    """
+    if request.app not in _naming_done:
+        _naming_done.add(request.app)
+        name_endpoints(request.app)
+    return await call_next(request)
+
+
+def name_endpoints(app_: FastAPI) -> None:
+    """Give every routable endpoint a name the limiter can derive, in place, once.
+
+    Idempotent by construction rather than by the caller above: an endpoint that already carries a
+    ``__name__`` is skipped, so a second pass costs the walk and writes nothing - and every shipped
+    endpoint is a module-level function that carries one already.
+    """
+    for route in _reachable_handler_routes(app_):
+        endpoint = route.endpoint
+        if hasattr(endpoint, "__name__"):
+            continue
+        endpoint.__name__ = type(endpoint).__name__
+        endpoint.__qualname__ = type(endpoint).__name__
+
+
+def _reachable_handler_routes(app_: FastAPI) -> list[Any]:
+    """Return the routes whose handler a request can reach, as the limiter's own lookup does.
+
+    The shape of ``slowapi.middleware._find_route_handler``: every entry of ``app.routes``, plus the
+    own routes of any entry that carries a nested list, which is what an ``include_router`` container
+    is. A handler filed in a container is therefore named exactly when the middleware can reach it and
+    never when it cannot, which is what keeps this pass from renaming a handler no request could ever
+    resolve. The library's function is private, so its walk is restated here rather than reached into;
+    the two agree on the one property that matters, which routes have a handler at all.
+    """
+    found: list[Any] = []
+    stack = list(app_.routes)
+    while stack:
+        route = stack.pop()
+        nested = getattr(route, "routes", None)
+        if nested:
+            stack.extend(nested)
+        if getattr(route, "endpoint", None) is not None:
+            found.append(route)
+    return found
+
+
+_naming_done: "set[FastAPI]" = set()
+"""The applications a naming pass has already walked; see :func:`name_endpoints`.
+
+Keyed by the application rather than being one flag for the process, because the readers of this gate
+do not all hold the same application: ``tests/test_middleware.py`` reloads ``app.main`` to observe a
+different CORS allow-list and registers its probe route on the application it rebuilt, and a flag the
+first import had satisfied would leave the second one's routes unnamed - which shows up as a guest
+budget emptied at double speed, not as a naming failure.
+
+Declared above the gate that reads it rather than beside the function that writes it, because a module
+body whose global is named below a function that reads it is correct only by the accident of when that
+function is first called.
+"""
+
 
 # ---------------------------------------------------------------------------
 # Probe routes for test ACs.
