@@ -53,3 +53,5 @@ Work order is topological: every issue appears after all of its `depends`.
 | B-15 | Fix the settings bootstrap INSERT | [B-02, B-04] | #47 | backlog |
 | F-16 | Ignore pytest artifacts in .gitignore | [F-01] | #48 | backlog |
 | P0-16 | Register P0-13 in issue-map.json | [P0-11] | #49 | backlog |
+| D-04 | Prove every AC can fail: vacuity detector for the AC gate | [P0-04] | #50 | backlog |
+| D-05 | Slim AGENTS.md to Hard rules + Pointers, relocate project content | [P0-09] | #51 | backlog |
