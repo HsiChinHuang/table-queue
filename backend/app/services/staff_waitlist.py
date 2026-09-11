@@ -347,7 +347,7 @@ def list_waitlist(
     # It is a write, so it happens before the read below - merged B-06's note about SQLite's
     # deferred transaction is the reason the sweep cannot be interleaved with the page it reports.
     _sweep_expired(db, clock)
-    rows = queue_rows(db, statuses, day=_probe_day(db, clock), search=search, party_size=party_size)
+    rows = queue_rows(db, statuses, day=_queue_day(db, clock), search=search, party_size=party_size)
     total = len(rows)
     page = rows[max(offset, 0) : max(offset, 0) + max(limit, 0)]
     return {"items": [_entry_payload(db, row, now) for row in page], "total": total}
