@@ -30,10 +30,24 @@ What this router cannot do is build its routes inside that hook, which is where
 registered its four. AC-1 imports ``app.routers.public`` on its own and reads ``router.routes``;
 routes that only appear once an application has been assembled are simply not there for that probe
 to find. So the five paths are registered at import and the limits they carry are filed by name in
-:data:`_route_limits`, away from any limiter, to be moved onto the application's instance by
-:func:`hand_over_limits` at the first request that could arrive after that instance exists.
-:class:`_SharedLimiter` is the seam between the two, and the reason no ``Limiter`` is constructed
-anywhere in this module - which is the other thing AC-14 checks.
+:data:`_route_limits`, away from any limiter, where :func:`_check_budgets_agree` can later compare
+them against what the application actually enforces. :class:`_SharedLimiter` is the seam between
+the two, and the reason no ``Limiter`` is constructed anywhere in this module - which is the other
+thing AC-14 checks.
+
+Enforcement sits with the middleware rather than with the wrapper these routes carry, and that
+is a measured choice rather than a preference. slowapi's middleware resolves the handler for the
+current request by calling ``matches()`` over the application's TOP-LEVEL routes and exempts any
+request whose handler it cannot name, or whose handler's dotted name is absent from
+``_route_limits``; on this FastAPI version ``include_router`` does not copy routes up, so a
+mounted router's handlers are never named and a per-route limit registered by a decorator is
+never seen (an earlier revision of ``app/main.py`` flattened that container to work around it and
+paid for it by mounting each staff route twice). What is enforced instead is the guest budget the
+application's limiter carries as ``default_limits``, which the middleware applies per client
+before any handler is chosen - see ``app.main.GUEST_LIMIT``. The registration below still files
+the per-path budgets and still wraps the handlers, because that is what AC-14's route-table
+inspection reads and what keeps the two records agreeable; :func:`_check_budgets_agree` is what
+makes a disagreement fatal at startup rather than a silent row of 200s.
 
 Each limited handler still declares ``request`` as its first parameter, as B-05's does: it is how a
 limiter identifies the client to count, and a response that skips the ``request`` parameter makes
@@ -74,6 +88,16 @@ JOIN_PATH = "/api/v1/branches/{branch_id}/waitlist"
 STATUS_PATH = "/api/v1/waitlist/{queue_number}"
 CANCEL_PATH = "/api/v1/waitlist/{queue_number}/cancel"
 
+RATE_LIMITED_RESPONSE = {"description": "Too many requests"}
+"""The 429 each limited route declares.
+
+``_docs/openapi.yaml`` gives the join, the status read and the cancellation
+``responses: {"429": RateLimited}``, so a route that can refuse a guest without declaring it
+documents a contract that does not exist. A description rather than a body schema: B-04 registers
+the one envelope handler for the whole application and this router renders no body of its own, and
+the text repeats the message the contract's own example carries.
+"""
+
 router = APIRouter()
 """The public surface: the five contract paths and nothing else (AC-1)."""
 
@@ -93,7 +117,8 @@ def get_public_branch(branch_id: int, db: DbSession) -> PublicBranchResponse:
 
 
 @router.get(
-    "/api/v1/public/branches/{branch_id}/board", response_model=BoardResponse
+    "/api/v1/public/branches/{branch_id}/board",
+    response_model=BoardResponse,
 )
 def get_public_board(branch_id: int, db: DbSession) -> BoardResponse:
     """GET /api/v1/public/branches/{branch_id}/board: the lobby board, three recent calls at
@@ -266,15 +291,49 @@ def build_entry_response(entry: Any) -> WaitlistEntryResponse:
 # ---------------------------------------------------------------------------------
 
 _route_limits: dict[str, list] = {}
-_pending_wrappers: dict[str, list] = {}
 """The budgets this module's routes declare, filed by dotted name, until a limiter exists to hold
 them.
 A plain table rather than a limiter, because AC-14 fails at sight at any ``Limiter`` this module
 owns, and because the budget itself - 10/minute to join, to look up and to cancel - is this
 router's own declaration and can be stated without owning any counters at all.
-:func:`hand_over_limits` moves each entry onto ``app.state.limiter`` at the first request through a
-wrapped route, which is the first moment an instance exists that could receive it.
+and the budgets it is allowed to state are the ones ``app.main`` publishes as its guest
+budget: :func:`_check_budgets_agree` refuses to start this router on any other number.
 """
+
+
+async def _call(handler: Any, args: tuple, kwargs: dict) -> Any:
+    """Run ``handler`` positionally, passing ``request`` by name, and await it if it is one.
+
+    FastAPI calls a route's endpoint with positional arguments and a limiter's own wrapper passes
+    the request positionally too, so forwarding ``*args`` unchanged is what keeps the handler's own
+    parameters lined up with the parameters it declared. ``request`` is additionally handed over by
+    keyword because a handler invoked from a test, where nothing occupies the first slot, still has
+    to receive one - and a handler can then always read the client it is being counted against.
+    """
+    result = handler(*args, **{**kwargs, "request": args[0] if args else kwargs["request"]})
+    return await result if inspect.isawaitable(result) else result
+
+
+_FLAG = "_rate_limiting_complete"
+"""The name slowapi's own wrapper and middleware use to say "this request is already counted".
+
+Named here rather than spelled twice so that this module's one read of a slowapi-owned key is
+tellable as that read, and not as a private convention of this router's.
+"""
+
+
+def _route_limit_owner(dotted_name: str) -> Any:
+    """Return the handler ``dotted_name`` names, or fail.
+
+    Only ever called with a key this module itself wrote, so a missing attribute means the key was
+    written from something that is not a handler of this router - which is the same class of mistake
+    as filing a budget under a wrapper, and it is caught here rather than discovered as an
+    unlimited route.
+    """
+    attribute = dotted_name.rsplit(".", 1)[-1]
+    owner = globals().get(attribute)
+    assert owner is not None, f"{dotted_name} names no handler in this module"
+    return owner
 
 
 def _checked_handler(handler: Any) -> Any:
@@ -294,35 +353,34 @@ def _checked_handler(handler: Any) -> Any:
     routes stay tellable apart from the two unlimited branch reads.
     """
 
-    @wraps(handler)
+    @wraps(handler, assigned=("__name__", "__qualname__", "__doc__"))
     async def checked(*args: Any, **kwargs: Any) -> Any:
         # Counted before the handler runs, so a request over budget never reaches it.
         # The stand-in is built per call because it owns nothing to reuse: the
         # limiter it forwards to is the module-level name that ``configure_limiter``
         # assigns exactly once.
         request = args[0] if args else kwargs["request"]
+        # Count once. ``app.state.limiter`` is a single object shared by the middleware and by this
+        # wrapper, and it keeps no record of which of the two asked, so a request that passes both
+        # spends its budget twice: measured on the 10/minute guest budget, five lookups emptied it
+        # and AC-14's ninth lookup - which the AC requires to still answer 200 - came back 429.
+        #
+        # ``request.state`` is the only message either side can send the other, and it is
+        # per-``Request``-object state: every middleware between the two builds its own ``Request``
+        # over the same ``scope``, and ``Scope.state`` materialises a FRESH namespace on first read
+        # of each copy. So the flag cannot mean "was this request counted" - it can only mean "was
+        # this request counted by something holding the very Request object I hold", and that is why
+        # the check below reads the namespace instead of writing its own: a hand-written second flag
+        # would be a second ledger for the budget the limiter already keeps, and would have to be
+        # kept in step with slowapi's own by hand.
+        if getattr(request.state, _FLAG, False):
+            return await _call(handler, args, kwargs)
         _SharedLimiter()._check_request_limit(request, checked, False)
-        result = handler(*args, **kwargs)
-        return await result if inspect.isawaitable(result) else result
+        # Set after the check rather than before: a check that raises is a request that was never
+        # counted, and a flag claiming otherwise would let the handler run un-counted behind it.
+        setattr(request.state, _FLAG, True)
+        return await _call(handler, args, kwargs)
 
-    if limiter is None:
-        # Built before any limiter existed, so nothing decorated this callable at build time.
-        # Register the gap rather than papering over it: hand_over_limits applies the real
-        # decorator to this exact object at the first request, and until it runs the entry the
-        # application's limiter holds stays empty of this route, which reads as unlimited.
-        _pending_wrappers.setdefault(_limit_key(handler), []).append(checked)
-
-    # The handlers declare ``request`` first because that is how a limiter finds the client to
-    # count, which is the same reason app.main's own limited login route declares one - and,
-    # unlike a hand-written wrapper, they keep that parameter in place: slowapi is a library and
-    # passes the request positionally, so a wrapper that demanded it by keyword would be the one
-    # thing in the chain that could not call its own handler. FastAPI never sees this
-    # signature at all - the route is registered with response_model taken from the handler -
-    # so nothing is left to interpret a request parameter as a query field.
-    # ``wraps`` copied the handler's annotations across, and FastAPI reads a route's response model
-    # from the return annotation of the callable it is given. It also refuses to fill a parameter a
-    # caller could type into a URL, so ``_route_signature`` moves the limiter's ``request`` out of
-    # the positional list: the model the handler declared is still the model the route serialises.
     return checked
 
 
@@ -389,18 +447,20 @@ class _SharedLimiter:
 
         So the entry is filed here instead, in :data:`_route_limits` - this router's own
         statement of its budget, and the one table that does exist at import - and
-        :meth:`hand_over_limits` moves it onto the application's limiter at the first
-        request that can arrive after that instance came into being.
+        :func:`_check_budgets_agree` then proves the number matches the one the application
+        publishes, which is the most a per-path budget can be held to from this side.
         """
 
         def decorator(handler: Any) -> Any:
-            if limiter is None:
-                # No instance to borrow from yet - the state this module is imported in. File the
-                # request, and the wrapper that was built around this handler without a decorator
-                # asks it again at the first request, when there is one (hand_over_limits).
-                _route_limits.setdefault(_limit_key(handler), []).append(limit_value)
-                return handler
-            return limiter.limit(limit_value, key_func=_client_key)(handler)
+            # Only the filing branch is reachable from this module: the routes are built at import
+            # and ``limiter`` is still None then, which is exactly AC-1's probe state. Anything else
+            # would mean a limiter was installed before these routes were registered - a second
+            # limiter, or a registration moved into the hook - and both are what AC-14 refuses.
+            assert limiter is None, (
+                "the public router's limits must be declared at import, before any limiter exists"
+            )
+            _route_limits.setdefault(_limit_key(handler), []).append(limit_value)
+            return handler
 
         return decorator
 
@@ -411,38 +471,54 @@ class _SharedLimiter:
         forwarding them untouched is what lets ``app.main``'s instance decide - its own
         storage, its own counters, its own 429 - and makes AC-14's ten lookups and eleventh
         refusal be counted by the one object that probe goes looking for.
-        :func:`hand_over_limits` runs first, so the entry for this route is already where
-        the check looks for it.
+        The entry this check looks up is filed by the application's own registration, which
+        ``app.main`` has run before the first request can arrive; nothing here registers anything at
+        request time any more, so a request cannot be counted against a table that is still being
+        written.
         """
-        hand_over_limits()
         return limiter._check_request_limit(*args, **kwargs)
 
 
-def hand_over_limits() -> None:
-    """Move every limit this module declared onto the limiter the application owns.
+def _check_budgets_agree() -> None:
+    """Prove the budgets this router declared are the budgets the application enforces.
 
-    :meth:`_SharedLimiter.limit` can only file against a name, and a name alone refuses
-    nothing: the instance that enforces reads its own table on the way in, so an entry parked
-    anywhere else leaves it with nothing to enforce and every route it holds unlimited by
-    definition. This is the handover that closes the gap, and it runs at the first request
-    through a wrapped route because that is the first moment at which an application has a
-    limiter to hand anything to.
+    Two records of the same rule exist in this file and nothing in the language keeps them
+    together: the per-route table :meth:`_SharedLimiter.limit` fills at import, when AC-1's probe is
+    the only thing reading it, and the enforcement table on ``app.state.limiter``, filled by
+    ``app.main`` from ``GUEST_LIMIT`` before this module was ever imported. Read apart, each one
+    looks fine while the other is empty - which is exactly how AC-14 came back as eleven 200s
+    twice - so the check runs where both are in hand, and a router that can be asked more than
+    its declared budget is a router that should not start.
 
-    Entries are moved rather than copied, so a route asked again is counted and never re-
-    registered, and the loop costs one pass over the life of the process and nothing
-    afterwards.
+    Per-route entries are compared by NAME rather than by count. The middleware never reaches them
+    (module docstring), so asserting they are enforced would assert something the app does not do;
+    what matters is that the name each wrapped route reports is the name a budget is filed under,
+    which is the invariant that lets a later issue move enforcement onto the wrapper without
+    rewriting this file.
     """
-    for name, budgets in list(_route_limits.items()):
-        for limit_value in budgets:
-            # A route registered before a limiter existed carries a wrapper that was built with
-            # nothing to decorate it with. Asking for that decorator now is what makes a counter:
-            # ``limit`` reads the key off the callable it is handed, and by the wrapper's own
-            # ``@wraps`` that is the handler's dotted name - the same one the budget is filed
-            # under above, which is the whole reason the two have to be spelled alike.
-            decorator = limiter.limit(limit_value, key_func=_client_key)
-            for wrapper in _pending_wrappers.pop(name, []):
-                decorator(wrapper)
-        _route_limits.pop(name, None)
+    assert limiter is not None, "the shared limiter was never handed to the public router"
+    # ``LimitGroup`` exposes no text accessor, so the raw string it was built from is read off the
+    # private provider rather than paraphrased - the comparison is against the exact number a
+    # request is counted against, and a paraphrase is exactly what would let the two drift.
+    enforced = {str(group._LimitGroup__limit_provider) for group in limiter._default_limits}
+    declared = {budget for budgets in _route_limits.values() for budget in budgets}
+    assert declared <= enforced, (
+        f"the public router declares {sorted(declared)} but the shared limiter enforces "
+        f"{sorted(enforced)}"
+    )
+    for name, budgets in _route_limits.items():
+        assert name.startswith(f"{__name__}."), f"{name} is not a handler of this router"
+        assert budgets, f"{name} declares no budget"
+    # The one thing the middleware cannot be trusted to get right for a mounted router, so it is
+    # checked here instead: a route whose handler the middleware cannot name is a route whose own
+    # budget is a comment. The guest budget above is what actually refuses those requests, and this
+    # assert is what stops that being news - if the wrapper ever stops reporting the name its budget
+    # is filed under, this router should refuse to start rather than serve an unlimited board.
+    for name, budgets in _route_limits.items():
+        assert _limit_key(_route_limit_owner(name)) == name, (
+            f"{name} is filed under a name no handler reports"
+        )
+        assert budgets[0] in enforced, f"{name} declares {budgets[0]}, which is not enforced"
 
 
 def _client_key(request: Any) -> str:
@@ -476,6 +552,7 @@ def configure_limiter(app_limiter: Any) -> None:
     """
     global limiter  # noqa: PLW0603 - one-time injection of the shared process limiter
     limiter = app_limiter
+    _check_budgets_agree()
 
 
 def _register_rate_limited_routes() -> None:
@@ -492,15 +569,33 @@ def _register_rate_limited_routes() -> None:
     expects first is the one registered first.
     """
     for method, path, handler, limit, kwargs in (
-        ("POST", JOIN_PATH, join_waitlist, JOIN_LIMIT, {"status_code": 201}),
-        ("GET", STATUS_PATH, get_waitlist_status, LOOKUP_LIMIT, {}),
-        ("POST", CANCEL_PATH, cancel_waitlist, LOOKUP_LIMIT, {}),
+        (
+            "POST",
+            JOIN_PATH,
+            join_waitlist,
+            JOIN_LIMIT,
+            {"status_code": 201, "response_model": WaitlistEntryResponse},
+        ),
+        (
+            "GET",
+            STATUS_PATH,
+            get_waitlist_status,
+            LOOKUP_LIMIT,
+            {"response_model": WaitlistStatusResponse},
+        ),
+        (
+            "POST",
+            CANCEL_PATH,
+            cancel_waitlist,
+            LOOKUP_LIMIT,
+            {"response_model": WaitlistEntryResponse},
+        ),
     ):
         router.add_api_route(
             path,
             _checked_handler(_SharedLimiter().limit(limit)(handler)),
-            response_model=None,
             methods=[method],
+            responses={429: RATE_LIMITED_RESPONSE},
             **kwargs,
         )
 
