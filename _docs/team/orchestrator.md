@@ -27,6 +27,13 @@
     - Start SA subagent -> generate issues + backlog + Platform Issues + issue-map.json
 
 0b. Load `_docs/issue-map.json` -> local ID -> Platform issue ID mapping.
+0c. Register every Platform Issue the Orchestrator itself creates.
+    - Whenever the Orchestrator creates a Platform Issue outside the SA run, it MUST add
+      `"<ID>": <number>` to `_docs/issue-map.json` in the same commit that adds the issue file,
+      and set the matching `_docs/backlog.md` Platform column.
+    - Never regenerate the map from scratch: entry order and existing numbers are load-bearing.
+    - Gate: every `_docs/issues/<ID>.md` has a map entry equal to its front-matter
+      `platform_issue:` value, and no number is claimed by two IDs.
 
 ## Lifecycle (per issue)
 
