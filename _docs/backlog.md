@@ -35,7 +35,7 @@ Work order is topological: every issue appears after all of its `depends`.
 | B-02 | SQLAlchemy models | [B-01] | #28 | backlog |
 | B-03 | Pydantic schemas | [B-01] | #29 | backlog |
 | B-04 | Errors and dependencies | [B-01] | #30 | backlog |
-| B-05 | Auth endpoints | [B-02, B-03, B-04] | #31 | backlog |
+| B-05 | Auth endpoints | [B-02, B-03, B-04, B-15] | #31 | backlog |
 | B-06 | Public endpoints | [B-02, B-03, B-04] | #32 | backlog |
 | B-07 | Staff waitlist endpoints | [B-02, B-03, B-04, B-06] | #33 | backlog |
 | B-08 | Staff tables endpoints | [B-02, B-03, B-04] | #34 | backlog |
