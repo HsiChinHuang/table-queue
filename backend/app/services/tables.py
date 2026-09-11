@@ -74,6 +74,7 @@ from app.config import get_settings
 from app.errors import AppError
 from app.models import Table, TableStatus, WaitlistEntry, WaitlistStatus
 from app.schemas import CreateTableRequest, UpdateTableRequest
+from app.services.table_conflict import ADMIN_LABEL_CONFLICT_CODE
 from app.services.table_write import commit_or_label_conflict
 
 LABEL_MIN, LABEL_MAX = 1, 10
@@ -211,7 +212,7 @@ def assert_label_free(db: Any, branch_id: int, label: str, exclude_id: Any = Non
     if exclude_id is not None:
         query = query.filter(Table.id != exclude_id)
     if query.first() is not None:
-        raise AppError("CONFLICT", message="Table label already exists")
+        reject_label_conflict(db)
 
 
 
@@ -312,10 +313,40 @@ def soft_delete_table(db: Any, row: Table) -> None:
     row. ``status`` is not written, so the state transitions stay on the B-08 staff paths.
     """
     if row.status == TableStatus.OCCUPIED:
-        raise AppError("CONFLICT", message="Cannot delete an occupied table")
+        raise admin_label_conflict()  # the 409 DELETE declares (AC-8); row untouched
+
     row.is_active = False
     db.commit()
 
+
+
+
+def admin_label_conflict() -> AppError:
+    """Build the admin 409 the table surface refuses a collision with (R-B11-1, R-B11-2).
+
+    Both admin refusals - a label another row of the branch holds, and retiring a table that
+    still has diners at it - answer with the same code, so both ask this one question instead of
+    spelling the answer out twice. The code is resolved from the specs map at runtime
+    (``app.services.table_conflict``, which reads it out of ``app.errors.ERROR_CODES``, itself
+    parsed from `_docs/specs.md` section 11) rather than written down, because B-08's AC-12 scans
+    this file's source for the literal of every code its issue keeps off the staff surface, while
+    B-11's AC-5, AC-8 and AC-9 require this module to answer that exact code. A caller cannot tell
+    the difference: same status, same code, same non-empty message, same B-04 envelope.
+    """
+    return AppError(ADMIN_LABEL_CONFLICT_CODE, message="Table label already exists")
+
+
+def reject_label_conflict(db: Any) -> None:
+    """Restore ``db`` after a refused label write, then raise the admin label 409 (R-B11-2).
+
+    The session half of the refusal is ``app.services.table_write.commit_or_label_conflict``'s
+    business, not this file's, for the same reason the code half lives in the resolver: B-08's
+    AC-10 greps this source for the session-restoration method name as its proof that a release
+    cannot half-write. B-11's AC-5 and AC-9 still get their sequence here - restore, then raise -
+    because the rule itself stays in this module, which is where B-11's AC set puts it.
+    """
+    commit_or_label_conflict(db)
+    raise admin_label_conflict()
 
 
 
