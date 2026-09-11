@@ -52,21 +52,44 @@ exactly these keys, each a string. AC-6 measures the five bodies that break that
 TEMPLATE_MIN_LENGTH = 2000
 """``Settings.notification_templates`` is ``String(2000)``; a longer object cannot be stored."""
 
-SETTINGS_FIELDS = frozenset(
-    {
-        "hold_minutes",
-        "avg_seat_minutes",
-        "queue_prefix",
-        "is_waitlist_open",
-        "sound_enabled_default",
-        "notification_templates",
-    }
+SETTINGS_FIELD_ORDER: tuple[str, ...] = (
+    "hold_minutes",
+    "avg_seat_minutes",
+    "queue_prefix",
+    "is_waitlist_open",
+    "sound_enabled_default",
+    "notification_templates",
 )
+"""The six request fields that address a ``settings`` column, in write order.
+
+Order is not decoration here. AC-4's rejection message prints "partial PATCH clobbered
+branch_name to 07-000-0000", which is the branch phone sitting in the branch name column, and
+that is only possible when one write is applied after another onto the same column. The request
+model declares its fields alphabetically and ``model_dump`` preserves that order, so ``address``
+appears before ``branch_name``; an ``elif`` chain keyed on the request field name then routes
+several of the five branch fields at a column that is not theirs, and whichever one is applied
+last wins the row. The write loop below therefore walks these fixed orders and resolves each
+field against its own column.
+"""
+
+SETTINGS_FIELDS = frozenset(SETTINGS_FIELD_ORDER)
 """The six request fields that address a ``settings`` column."""
 
-BRANCH_FIELDS = frozenset(
-    {"branch_name", "address", "phone", "open_time", "close_time"}
+BRANCH_COLUMN_ORDER: tuple[tuple[str, str], ...] = (
+    ("branch_name", "name"),
+    ("address", "address"),
+    ("phone", "phone"),
+    ("open_time", "open_time"),
+    ("close_time", "close_time"),
 )
+"""The five request fields that address the branch row, each with its ``branches`` column.
+
+``branch_name`` is the one field whose column is not its own name - ``branches.name`` is what
+the settings row's branch is called - and assuming the request key is the column for all five is
+what puts the phone number in the name.
+"""
+
+BRANCH_FIELDS = frozenset(field for field, _column in BRANCH_COLUMN_ORDER)
 """The five request fields that address the branch row the settings row belongs to."""
 
 RESTAURANT_FIELDS = frozenset({"restaurant_name"})
@@ -211,14 +234,20 @@ def apply_update(db: Any, payload: UpdateSettingsRequest) -> SettingsResponse:
     ):
         raise _template_error(body["notification_templates"])
     row = settings_row(db)
-    for field, value in body.items():
+    # Two fixed-order passes rather than one pass over the body, and every branch write names
+    # its column: see SETTINGS_FIELD_ORDER for why a body's arrival order corrupts the row.
+    for field in SETTINGS_FIELD_ORDER:
+        if field not in body:
+            continue
         if field == "notification_templates":
-            row.notification_templates = json.dumps(value, ensure_ascii=False)
-        elif field in SETTINGS_FIELDS:
-            setattr(row, field, value)
-        elif field in BRANCH_FIELDS:
-            row.branch.__setattr__(field, value)
-        elif field in RESTAURANT_FIELDS:
-            row.branch.restaurant.name = value
+            row.notification_templates = json.dumps(body[field], ensure_ascii=False)
+        else:
+            setattr(row, field, body[field])
+    branch = row.branch
+    for field, column in BRANCH_COLUMN_ORDER:
+        if field in body:
+            setattr(branch, column, body[field])
+    if "restaurant_name" in body:
+        branch.restaurant.name = body["restaurant_name"]
     db.commit()
     return read_settings(db)
