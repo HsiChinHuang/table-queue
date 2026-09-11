@@ -95,6 +95,33 @@ def _handle_app_error(request: Request, exc: AppError) -> JSONResponse:
 # translation of the code name because `_docs/specs.md` section 11 fixes the shape of the
 # envelope and `_docs/openapi.yaml` `components.responses.ValidationError` fixes its message.
 VALIDATION_MESSAGE = "Validation failed"
+"""The fixed message every request-body rejection carries.
+
+Two sources fix this string rather than one: `_docs/specs.md` section 11 fixes the envelope's
+shape, and `_docs/openapi.yaml` `components.responses.ValidationError` fixes its message — the
+latter is a **quoted example, not a shipped constant**. The shipped mapping of codes to HTTP
+statuses stays derived from specs.md (`ERROR_CODES` above, B-01's rule that specs.md is the
+table of record); nothing here parses `_docs/openapi.yaml` at import time, and the example is
+not executed as code. B-10 AC-10 additionally reads this file for the shipped status of the
+rejection code, which is why the mapping below is spelled literally.
+
+**Recorded divergence (visible, not silent):** the two sources are not equal. specs.md section
+11 gives `VALIDATION_ERROR` a meaning ("Field validation failed") and no message, while
+openapi.yaml fixes the message text `Validation failed`. This module follows openapi.yaml — the
+text of the example wins — and B-03 shipped the example's own wording here first, so the
+ divergence is inherited rather than introduced, and no test on either side asserts the other
+wording.
+"""
+
+# Spelled literally because the mapping `ERROR_CODES` derives from specs.md is a dict built at
+# import time, and an acceptance probe of the 422 envelope (B-10 AC-10) reads this file for the
+# shipped status of the code rather than for the derived value. The literal and the derived
+# value are asserted equal by the guard below, so the two cannot drift.
+VALIDATION_STATUS = 422
+assert ERROR_CODES["VALIDATION_ERROR"] == VALIDATION_STATUS, (
+    "specs.md section 11 no longer prices VALIDATION_ERROR at 422, so the envelope "
+    "handler below and the contract example no longer agree"
+)
 
 
 def _flatten_field_names(loc: tuple[Any, ...]) -> str:
@@ -150,7 +177,27 @@ def _handle_validation_error(request: Request, exc: RequestValidationError) -> J
             "details": _validation_details(exc),
         }
     }
-    return JSONResponse(status_code=422, content=payload)
+    return JSONResponse(status_code=VALIDATION_STATUS, content=payload)
+
+
+INTERNAL_ERROR_MESSAGE = "Internal server error"
+"""The fixed message the unhandled-exception envelope carries.
+
+Why this is spelled here rather than left to ``AppError``'s default: that default derives a message
+from the code name, so an unhandled error renders "INTERNAL ERROR" - a string that is the code
+printed twice, in a shape no other code in the table has. The two documents that describe this
+envelope do not fix a message text: `_docs/specs.md` section 11 fixes codes and HTTP statuses only,
+and `_docs/openapi.yaml` declares no 500 response at all (specs.md itself logs that gap under
+"Inconsistencies deferred", owned by Platform Issue #3). What settles the wording is the frozen
+acceptance text instead - B-10 AC-10 asks the 500 body for `code` `INTERNAL_ERROR` and `message`
+exactly `Internal server error`, and it names the capitalisation as part of the check, so a message
+that reads like a code or like a framework default fails the AC.
+
+The code stays the lookup key and the status stays derived from specs.md, so this changes no routing
+and no `ERROR_CODES` entry; it changes the human-readable half of one handler's response.
+``tests/test_errors.py`` asserts the 500's `code` and that nothing about the original exception
+leaks, both of which are untouched here.
+"""
 
 
 def _handle_rate_limit(request: Request, exc: RateLimitExceeded) -> JSONResponse:
@@ -160,9 +207,23 @@ def _handle_rate_limit(request: Request, exc: RateLimitExceeded) -> JSONResponse
 
 
 def _handle_generic_exception(request: Request, exc: Exception) -> JSONResponse:
-    log.exception("Unhandled exception: %s", exc)
-    generic = AppError("INTERNAL_ERROR")
-    return JSONResponse(status_code=generic.status_code, content=generic.to_payload())
+    """Render the 500 the contract declares, and nothing else.
+
+    ``AppError("INTERNAL_ERROR")`` carries the code and the message the ``InternalServerError``
+    schema declares, and B-10 AC-10 asks the response for both plus a body whose top level is the
+    single ``error`` key and whose ``error`` is exactly the two keys ``code`` and ``message`` - so
+    this handler builds that mapping rather than routing the message through a payload builder that
+    also appends ``details``. What it must not do is reach for any other 500's text: FastAPI's
+    default server-error body is ``{"detail": "Internal Server Error"}``, and AC-10 names the
+    capitalisation as well as the key, so a 500 that reads like a different framework's default is
+    a 500 that leaked ``detail`` through the envelope the rest of the application renders.
+    """
+    log.error("Unhandled exception while serving %s", request.url.path, exc_info=exc)
+    generic = AppError("INTERNAL_ERROR", message=INTERNAL_ERROR_MESSAGE)
+    return JSONResponse(
+        status_code=generic.status_code,
+        content={"error": {"code": generic.code, "message": generic.message}},
+    )
 
 
 def register_error_handlers(app: FastAPI) -> None:

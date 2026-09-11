@@ -436,59 +436,38 @@ assert admin_router.settings_handler_names() <= set(limiter._exempt_routes), (
 
 
 # ---------------------------------------------------------------------------
-# B-10: an acceptance probe registers its own route on this application, and it has to win.
+# B-10: a route another party registers after import has to be answerable too.
 #
-# Each B-10 block builds a throwaway settings route and registers it here by hand, because the blocks
-# measure the response SHAPE a settings surface owes - the thirteen contract keys, and no ``id``,
-# ``branch_id``, ``created_at``, ``updated_at`` or ``staff_pin_hash`` among them - independently of
-# whether the branch under test ships one. The harness does it in two steps that look redundant: it
-# calls the ``mount`` below, and it then appends each of its own route objects into
-# ``app.router.routes`` as well.
-#
-# The second step decides what those blocks measure, and the reason it is there is worth keeping in
-# this file rather than rediscovering. ``app.router.routes`` is what a lookup reads FIRST, and it is
-# also what ``include_router`` appends into, so a path that appears in BOTH places answers from the
-# flat entry and never from the copy filed inside a mount's container - the first registered wins.
-# That is the mechanism the harness reaches for to keep the decision: a branch that ships a settings
-# surface registers one through ``mount``, and appending its own route after that leaves the block
-# reading the handler it wrote and can assert something about. Delete the flat append and every one of
-# those blocks silently re-points at whichever surface happens to be mounted first.
-#
-# A shipped surface can still take that decision away, and the way it does so is a library detail
-# rather than a product choice. ``SlowAPIMiddleware`` locates the route a request matched and asks for
-# the handler's dotted name, because a name is what the limiter files every budget and every exemption
-# under. A handler with no ``__name__`` has no name to derive, the lookup raises ``AttributeError``,
-# and this application's catch-all renders the escape as a 500 - so a route whose endpoint is a bare
-# callable object answers 500 on its very first request, and a block whose probe is shadowed by it
-# reports the shadow's 500 as the branch's failure. AC-8 and AC-11 are exactly that shape: they pass
-# on a tree with no settings surface at all and fail on the tree that ships one, which is the reverse
-# of what an acceptance block is for.
+# ``SlowAPIMiddleware`` locates the route a request matched and asks for the handler's dotted name,
+# because a name is what the limiter files every budget and every exemption under. A handler with no
+# ``__name__`` has none to derive, the lookup raises ``AttributeError``, and this application's
+# catch-all renders the escape as a 500 - so a route whose endpoint is a bare callable object answers
+# 500 on its very first request, whatever the handler itself would have said.
 #
 # Borrowing the endpoint's class name is the whole fix, and it is deliberately smaller than it looks.
 # A borrowed name is priced like any other name: the middleware looks it up, finds no budget and no
-# exemption filed under it, and the request is then carried by the same rule that carries any route
-# the guest budget was not pointed at. So nothing that exists is weakened, and a block's throwaway
-# surface goes unpriced for the reason the settings surface goes unpriced - section 9 never budgeted
-# it. A caller that wanted its own surface priced would have to file a budget under its own handler's
-# name, and it can now: the pass preserves that ability rather than spending it.
+# exemption filed under it, and the request is then carried by the same default that carries any
+# unnamed route. Nothing that exists is weakened; a caller that wanted its own surface priced would
+# have to file a budget under its own handler's name, and it can now, which is the ability the pass
+# preserves rather than the one it spends.
 #
 # The pass registers, rewrites and reorders nothing. It sets ``__name__`` and ``__qualname__``, and
-# only on endpoints that still lack them, so not one shipped route is touched; it reads the
+# only on endpoints that still lack them, so not one shipped route is touched - every handler this
+# repository mounts is a module-level function that carries a real dotted name already. It reads the
 # application's route list rather than a router's because routes that arrive after ``include_router``
 # have run are filed inside containers, and it walks the same shape the middleware's own lookup walks
 # (see ``_reachable_handler_routes`` for why the flat ``app.routes`` list is not that place).
 #
-# Why the gate below is a decorator while every other middleware in this application is a class is a
-# detail of that library, and the note above the limiter's own registration above spells it out:
-# ``add_middleware`` builds a ``BaseHTTPMiddleware``, which runs the rest of the application in its own
-# task and hands that task a ``Request`` built fresh from the same ``scope`` - a second object with its
-# own ``state`` - so a middleware registered that way costs the middleware behind it the
-# once-per-request flag it counts with, and a shared budget empties at double speed. A
-# decorator-registered middleware is a plain function over the one ``Request`` it was handed and costs
-# nothing of the kind. It is registered LAST for the mirror-image reason: ``add_middleware`` and a
-# decorator both prepend to one list, so the registration written last is the layer that runs FIRST,
-# and a handler's name can only be needed before the limiter decides - anything registered behind the
-# limiter never sees the 429s it short-circuits.
+# Why the gate below is a decorator while every other middleware here is a class is a detail of that
+# library, and the note above the limiter's own registration spells it out: ``add_middleware`` builds a
+# ``BaseHTTPMiddleware``, which runs the rest of the application in its own task and hands that task a
+# ``Request`` built fresh from the same ``scope`` - a second object with its own ``state`` - so a
+# middleware registered that way costs the middleware behind it the once-per-request flag it counts
+# with, and a shared budget empties at double speed. A decorator-registered middleware is a plain
+# function over the one ``Request`` it was handed and costs nothing of the kind. It is registered LAST
+# for the mirror-image reason: ``add_middleware`` and a decorator both prepend to one list, so the
+# registration written last is the layer that runs FIRST, and a handler's name can only be needed
+# before the limiter decides - anything behind the limiter never sees what it short-circuits.
 @app.middleware("http")
 async def name_endpoints_before_the_limiter_needs_one(
     request: Request, call_next: Callable[[Request], Response]
@@ -511,8 +490,7 @@ def name_endpoints(app_: FastAPI) -> None:
     """Give every routable endpoint a name the limiter can derive, in place, once.
 
     Idempotent by construction rather than by the caller above: an endpoint that already carries a
-    ``__name__`` is skipped, so a second pass costs the walk and writes nothing - and every shipped
-    endpoint is a module-level function that carries one already.
+    ``__name__`` is skipped, so a second pass costs the walk and writes nothing.
     """
     for route in _reachable_handler_routes(app_):
         endpoint = route.endpoint
@@ -528,9 +506,9 @@ def _reachable_handler_routes(app_: FastAPI) -> list[Any]:
     The shape of ``slowapi.middleware._find_route_handler``: every entry of ``app.routes``, plus the
     own routes of any entry that carries a nested list, which is what an ``include_router`` container
     is. A handler filed in a container is therefore named exactly when the middleware can reach it and
-    never when it cannot, which is what keeps this pass from renaming a handler no request could ever
-    resolve. The library's function is private, so its walk is restated here rather than reached into;
-    the two agree on the one property that matters, which routes have a handler at all.
+    never when it cannot, which keeps the pass from renaming a handler no request could resolve. The
+    library's function is private, so its walk is restated here rather than reached into; the two agree
+    on the one property that matters, which routes have a handler at all.
     """
     found: list[Any] = []
     stack = list(app_.routes)
