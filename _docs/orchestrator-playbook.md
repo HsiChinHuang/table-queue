@@ -36,6 +36,16 @@ Rules that keep ACs honest:
 - **Clean up** any temp SQLite file, and never write outside the repo.
 - `accheck.py` (private tooling) must report 0 findings: heading sequence, one block per AC, at
   least 8 level-2 sections.
+- **A negative control must be proven to move the AC before it is used as evidence.** Falsification
+  that leaves the AC green proves nothing about the AC; it proves the AC cannot see the mutation. On
+  B-05 the Orchestrator's own planned control (`5/minute` -> `5/hour`) left AC-6 green, because a
+  fixed-window counter is indistinguishable inside one test window (measured: both give
+  `401,401,401,401,401,429`; 30 rapid attempts give 30x429). Where an AC provably cannot pin a number,
+  the AC's own prose must say so rather than implying it does.
+- **Every failure path prints its own `FAIL AC-n:` token.** A block that prints a bare measurement
+  (`missing=/api/v1/auth/login:POST`) is graded silent, which is treated as not-green and is invisible
+  as a defect. This recurred in the Orchestrator's own B-05 AC-1 - groom-time audit: grep every AC body
+  for a `print(`/`echo` that lacks its own `AC-n` token.
 - **Two-sided probe (mandatory before landing a backend groom).** (a) Run the ACs with nothing
   implemented: every block must print its FAIL guard, and the baseline must be all-red.
   (b) Write a THROWAWAY implementation plus tests, run again, and require all-green. (c) Delete the
@@ -144,6 +154,22 @@ These came out of AC probes or QA cycles. Each one has already cost a worker cyc
 - `git reset --hard` on a checkout that may hold uncommitted worker work is forbidden. Salvage to a
   preserve directory first, then `git checkout --` the noise. Line-ending warnings are not content:
   compare per file with `git diff --numstat` before deciding.
+- **Dispatch budgets are part of the brief.** The subagent default is 30 minutes and it is too short
+  for a QA gate or a full groom: three children (two QA gates + one PM) timed out at exactly that
+  default on one mission, after 100+ tool calls of real measurement, and none posted a verdict - a
+  total loss of expensive work. Pass `timeoutMs` explicitly (60 min for a gate, 50 for a groom) and
+  write a verdict-first protocol into the brief: post the verdict and label inside the first 15
+  minutes, then put extra probes in a second comment. A partial posted verdict is recoverable.
+- **Recover a timed-out child's transcript before re-dispatching.** The session jsonl under
+  `~/.pi/agent/sessions/.../run-0/session.jsonl` holds every tool result; extracting the `toolResult`
+  text recovered both gates' central mutations. Save it to a preserve file, then re-run the SAME role
+  with the dead run id, the failure reason, and the recovered evidence so the child does not redo it.
+  Say explicitly which probes are already done and must not be repeated.
+- **A child's dependency claim is a claim, not a fact.** A B-06 groom shipped `## Blocked by B-15
+  (measured, not inferred)` over a dependency that `git merge-base --is-ancestor` refutes - B-15 was
+  already merged and its test passed on the groom's own tree. Verify blockers against `origin/main`
+  before dispatching an SW on the strength of them, and route the correction to a PM child: an issue
+  file's prose is PM-owned even when the Orchestrator caught the error.
 - Provider failures look like agent deaths. Verify the worktree for leftovers, probe the model
   endpoint directly, then re-dispatch citing the dead run id. Do not switch a governed pipeline to
   an ad-hoc CLI fallback without the owner's approval.
