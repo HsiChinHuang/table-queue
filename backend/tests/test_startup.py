@@ -2,58 +2,23 @@
 
 import pytest
 from sqlalchemy import create_engine, inspect, text
-from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
-# Create a local Base for testing that doesn't depend on app.database.Base
-TestBase = declarative_base()
+# app.models is imported first so every mapped class is registered on Base.metadata
+# before create_all runs (AC-7: the test schema comes from models.py, never from a
+# hand-written CREATE TABLE that hides columns models.py has added).
+import app.models  # noqa: F401
+from app.database import Base
 
 
 def create_test_tables(engine):
-    """Create the required tables for testing."""
-    with engine.connect() as conn:
-        # Create restaurants table
-        conn.execute(text(
-            "CREATE TABLE restaurants ("
-            "id INTEGER PRIMARY KEY, "
-            "name TEXT NOT NULL, "
-            "created_at TEXT, "
-            "updated_at TEXT"
-            ")"
-        ))
+    """Build the schema from models.py, never from a hand-written CREATE TABLE.
 
-        # Create branches table
-        conn.execute(text(
-            "CREATE TABLE branches ("
-            "id INTEGER PRIMARY KEY, "
-            "restaurant_id INTEGER, "
-            "name TEXT NOT NULL, "
-            "address TEXT, "
-            "phone TEXT, "
-            "timezone TEXT, "
-            "business_day_cutoff_hour INTEGER, "
-            "open_time TEXT, "
-            "close_time TEXT, "
-            "created_at TEXT, "
-            "updated_at TEXT"
-            ")"
-        ))
-
-        # Create settings table
-        conn.execute(text(
-            "CREATE TABLE settings ("
-            "id INTEGER PRIMARY KEY, "
-            "branch_id INTEGER, "
-            "hold_minutes INTEGER, "
-            "avg_seat_minutes INTEGER, "
-            "queue_prefix TEXT, "
-            "is_waitlist_open BOOLEAN, "
-            "notification_templates TEXT, "
-            "staff_pin_hash TEXT, "
-            "created_at TEXT, "
-            "updated_at TEXT"
-            ")"
-        ))
-        conn.commit()
+    A hand-written table silently drops columns that models.py has since added,
+    so the bootstrap INSERT could succeed in tests while failing against a real
+    database. AC-7 of B-15 pins this.
+    """
+    Base.metadata.create_all(engine)
 
 
 @pytest.fixture
