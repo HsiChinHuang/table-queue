@@ -9,7 +9,9 @@ TableQueue is a restaurant waitlist manager.
 - Admin side: store info, waitlist settings, tables CRUD, change PIN, reset data (dev only).
 - Public board: read-only, shows current call, next up, recent calls, waiting count, QR code.
 
-Single-store MVP, but data model keeps `restaurant_id` and `branch_id` for future expansion.
+Single-store MVP, but the data model keeps `restaurant_id` and `branch_id` for future expansion.
+This file is the route map, not the spec: the pages named under `Read These Files First` carry the
+detail, and the 17 section headings below are the stable anchors that `_docs/plan.md` cites.
 
 ## 2. Tech Stack
 
@@ -17,17 +19,21 @@ Single-store MVP, but data model keeps `restaurant_id` and `branch_id` for futur
 |---|---|
 | Backend | FastAPI, uv, SQLAlchemy 2.0, Pydantic v2, SQLite |
 | Frontend | React 18, Vite, TypeScript, Tailwind, shadcn/ui, TanStack Query, Zustand |
-| Auth | Single shared PIN → JWT |
+| Auth | Single shared PIN, then JWT |
 | Testing | pytest (backend), Vitest + RTL (frontend) |
 | Tooling | Makefile, concurrently, ruff, eslint, prettier |
 
-Authority: `_docs/requirements.md` section 2.
+Authority: `_docs/requirements.md` section 2. This file deliberately does not restate dependency
+versions or the install matrix: `_docs/requirements.md` section 2 and the manifests
+(`backend/pyproject.toml`, `frontend/package.json`) are the source of truth.
 
 ## 3. Read These Files First
 
-The Orchestrator passes the role file path; the subagent reads it plus `AGENTS.md`. Before starting any task, read:
+The Orchestrator passes the role file path; a subagent reads `AGENTS.md` plus that one role file and
+nothing else. Before starting any task, read:
 
-1. Your role file: `_docs/team/orchestrator.md`, `_docs/team/sa.md`, `_docs/team/pm.md`, `_docs/team/sw.md`, `_docs/team/qa.md` (passed by Orchestrator)
+1. Your role file: `_docs/team/orchestrator.md`, `_docs/team/sa.md`, `_docs/team/pm.md`,
+   `_docs/team/sw.md`, `_docs/team/qa.md` (passed by the Orchestrator)
 2. `AGENTS.md` (this file)
 3. `_docs/specs.md` — full specification
 4. `_docs/ui.md` — UI guide
@@ -35,7 +41,10 @@ The Orchestrator passes the role file path; the subagent reads it plus `AGENTS.m
 6. `_docs/testing.md` — testing guide
 7. `CONTRIBUTING.md` — issue and PR workflow
 
-If a task references a specific section, read that section.
+If a task references a specific section, read that section. Task-specific authority: the AC blocks
+and constraints in `_docs/issues/<ID>.md` (what to build is never inferred from this guide), then
+`_docs/openapi.yaml` for response shapes and `_docs/specs.md` for behaviour; where an issue file
+disagrees with either, the contract wins and the disagreement goes in the PR description.
 
 ## 4. Hard Rules
 
@@ -121,223 +130,105 @@ table-queue/
 └── .nvmrc
 ```
 
-This is the target structure. `backend/`, `frontend/`, `Makefile`, `package.json`, `.editorconfig`, `.gitignore`, `.nvmrc` do not exist in this checkout; they are created by Platform Issue 12 (F-01). The anchor `AGENTS.md#5-project-structure` matches the citation at `_docs/plan.md:1921`.
+The anchor `AGENTS.md#5-project-structure` matches the citation at `_docs/plan.md:1921`. Every path
+in this tree now exists; the checkout is authoritative over this list, so if the two disagree, fix
+this section through a docs issue rather than coding around the guide.
 
 ## 6. Commands
 
-The `Makefile`, `make` targets, `backend/`, `frontend/` and root `package.json` are created by Platform Issue 12 (F-01). None of them exist in this checkout today, so these commands do not run here yet. They are documented for reference.
+The commands below all run in this checkout today: `Makefile`, `backend/`, `frontend/` and the root
+`package.json` were created by Platform Issue 12 (F-01, closed). Run them from the repo root.
 
-### Setup (does not exist yet, tracked by Platform Issue 12)
+| Task | Command | Manual equivalent |
+|---|---|---|
+| Install both toolchains | `make setup` | `cd backend && uv sync`, `cd frontend && npm install`, `npm install` |
+| Run backend and frontend | `make dev` | `cd backend && uv run uvicorn app.main:app --reload --host 0.0.0.0`; `cd frontend && npm run dev -- --host` |
+| Backend only / frontend only | `make backend` / `make frontend` | see `make dev` |
+| Reset and seed database | `make seed` | `cd backend && uv run python -m app.seed --reset` |
+| All tests | `make test` | `cd backend && uv run pytest`; `cd frontend && npm run test` |
+| Backend tests / frontend tests | `make test-backend` / `make test-frontend` | as above |
+| Lint | `make lint` | `cd frontend && npm run lint` (backend: `ruff check .`) |
+| Format | `make format` | `cd frontend && npm run format` (backend: `ruff format`) |
 
-```bash
-make setup
-# or manually:
-cd backend && uv sync
-cd frontend && npm install
-npm install
-```
-
-### Run (does not exist yet, tracked by Platform Issue 12)
-
-```bash
-make dev
-# or in two terminals:
-cd backend && uv run uvicorn app.main:app --reload --host 0.0.0.0
-cd frontend && npm run dev -- --host
-```
-
-### Seed (does not exist yet, tracked by Platform Issue 12)
-
-```bash
-make seed
-# or:
-cd backend && uv run python -m app.seed --reset
-```
-
-### Test (does not exist yet, tracked by Platform Issue 12)
-
-```bash
-make test
-# or separately:
-cd backend && uv run pytest
-cd frontend && npm run test
-```
-
-### Lint and Format (does not exist yet, tracked by Platform Issue 12)
-
-```bash
-make lint
-make format
-# or:
-cd frontend && npm run lint
-cd frontend && npm run format
-```
-
-### Makefile Targets (does not exist yet, tracked by Platform Issue 12)
-
-| Target | Description |
-|---|---|
-| `make setup` | Install backend and frontend deps |
-| `make dev` | Run backend and frontend together |
-| `make backend` | Run backend only |
-| `make frontend` | Run frontend only |
-| `make seed` | Reset and seed database |
-| `make test` | Run all tests |
-| `make test-backend` | Run backend tests |
-| `make test-frontend` | Run frontend tests |
-| `make lint` | Lint frontend |
-| `make format` | Format frontend |
-
-Commands reference: `_docs/requirements.md` section 6, `_docs/testing.md` section 8, `_docs/plan.md` F-01.
+Commands reference: `_docs/requirements.md` section 6, `_docs/testing.md` section 8, `_docs/plan.md`
+F-01. Environment specifics (`uv` on `PATH`, `python3` vs `python`, which filesystem may host a
+toolchain) are recorded in `_docs/orchestrator-playbook.md` and repeated in each issue brief.
 
 ## 7. Backend Guidelines
 
-### Structure (from `_docs/requirements.md` section 7)
+Structure (from `_docs/requirements.md` section 7):
 
-- `routers/` — FastAPI routers, no SQL.
-- `services/` — business logic, no HTTP.
-- `models.py` — SQLAlchemy 2.0 models with `Mapped[]` and `mapped_column()`.
-- `schemas.py` — Pydantic v2 request/response.
-- `errors.py` — `AppError` and exception handlers.
-- `dependencies.py` — `get_db`, `get_current_staff`, `get_now`.
+1. **routers/** — FastAPI routers, no SQL.
+2. **services/** — business logic, no HTTP.
+3. **models.py** — SQLAlchemy 2.0 models with `Mapped[]` and `mapped_column()`.
+4. **schemas.py** — Pydantic v2 request/response, separate classes per direction.
+5. **errors.py** — `AppError` and exception handlers.
+6. **dependencies.py** — `get_db`, `get_current_staff`, `get_now`.
 
-### Rules
+Rules: SQLAlchemy 2.0 style; Pydantic v2; all timestamps stored in UTC; never call
+`datetime.utcnow()` inside models, inject `now`; every write endpoint wraps a transaction; errors
+raise `AppError` with a code from `_docs/specs.md` section 11; never log phone, name, or token;
+never expose `staff_pin_hash`.
 
-- Use SQLAlchemy 2.0 style.
-- Use Pydantic v2.
-- Request and response schemas are separate classes.
-- All timestamps stored in UTC.
-- Never call `datetime.utcnow()` inside models; inject `now`.
-- All write endpoints wrap a transaction.
-- Errors use `AppError` with code from `_docs/specs.md`.
-- Never log phone, name, or token.
-- Never expose `staff_pin_hash`.
+Error handling: services raise `AppError(code, status_code, details)`; routers do not catch, the
+global handler renders JSON; validation errors go through the FastAPI `RequestValidationError`
+handler; unhandled exceptions return `INTERNAL_ERROR` with no stack trace.
 
-### Error Handling
-
-- Raise `AppError(code, status_code, details)` in services.
-- Routers do not catch; global handler converts to JSON.
-- Validation errors use FastAPI `RequestValidationError` handler.
-- Unhandled exceptions return `INTERNAL_ERROR` without stack trace.
-
-### Testing
-
-- Write tests first, then implement.
-- Use in-memory SQLite.
-- Use freezegun for time.
-- Cover success and failure cases.
-- Cover state machine transitions.
+Testing: write the test first; in-memory SQLite; freezegun for time; cover success and failure and
+every state-machine transition. Authority: `_docs/specs.md` section 11 for error shapes,
+`_docs/testing.md` section 2 for backend test strategy.
 
 ## 8. Frontend Guidelines
 
-### Structure (from `_docs/requirements.md` section 8)
+Structure (from `_docs/requirements.md` section 8):
 
-- `api/` — the only place that talks to the backend.
-- `stores/` — Zustand for UI state only.
-- `layouts/` — `PublicLayout`, `StaffLayout`.
-- `pages/` — route components.
-- `components/` — reusable components.
-- `components/ui/` — shadcn/ui generated components only.
-- `hooks/` — TanStack Query hooks and custom hooks.
-- `lib/` — helpers: `format.ts`, `publicBaseUrl.ts`, `strings.ts`.
+1. **api/** — the only place that talks to the backend.
+2. **stores/** — Zustand for UI state only.
+3. **layouts/** — `PublicLayout`, `StaffLayout`.
+4. **pages/** — route components.
+5. **components/** — reusable components; `components/ui/` is shadcn/ui generated code only.
+6. **hooks/** — TanStack Query hooks and custom hooks.
+7. **lib/** — helpers: `format.ts`, `publicBaseUrl.ts`, `strings.ts`.
 
-### Rules
+Rules: every backend call goes through `api/client.ts`; never fetch directly in components;
+TanStack Query owns server state, Zustand owns UI state only; refetch on window focus and
+immediately when a countdown reaches 0; all UI text in English; skeletons for loading (not
+spinners); toasts for transient errors; inline errors for form fields; `ConfirmDialog` for
+destructive actions; respect `prefers-reduced-motion`; every icon button carries an `aria-label`.
 
-- All backend calls go through `api/client.ts`.
-- Never fetch directly in components.
-- Use TanStack Query for server state.
-- Use Zustand for UI state only.
-- Polling intervals:
-  - Staff waitlist: 3 seconds
-  - Tables: 5 seconds
-  - Guest status: 5 seconds
-  - Board: 5 seconds
-  - Settings: no polling
-- Refetch on window focus.
-- Refetch immediately when countdown reaches 0.
-- All UI text in English.
-- Use skeletons for loading, not spinners.
-- Use toasts for transient errors.
-- Use inline errors for form fields.
-- Use `ConfirmDialog` for destructive actions.
-- Respect `prefers-reduced-motion`.
-- All icon buttons have `aria-label`.
+Polling intervals are a product rule owned by `_docs/requirements.md` section 8 and the
+per-page specs in `_docs/ui.md` section 6, not by this file: staff waitlist 3 seconds, tables 5
+seconds, guest status 5 seconds, board 5 seconds, settings no polling.
 
-### Naming
+Naming: components PascalCase, hooks `useCamelCase`, files match the export name, other files
+camelCase or kebab-case.
 
-- Components: PascalCase.
-- Hooks: useCamelCase.
-- Files: match export name.
-- Other files: camelCase or kebab-case.
+Styling: Tailwind plus shadcn/ui. Guest surfaces are warm, spacious, `rounded-2xl`, `max-w-md`;
+staff surfaces are dense, colour-coded, `rounded-lg`, `max-w-7xl`. No dark mode in v1. Use the
+status colour tokens defined in `_docs/ui.md`.
 
-### Styling
+Forms: `react-hook-form` plus zod; validate on blur, re-validate on change; disable submit while
+pending; field errors below fields; keep form values on error.
 
-- Tailwind + shadcn/ui.
-- Guest side: warm, spacious, rounded-2xl, max-w-md.
-- Staff side: dense, color-coded, rounded-lg, max-w-7xl.
-- No dark mode in v1.
-- Use status color tokens from `_docs/ui.md`.
+Query keys are centralised in `api/queryKeys.ts`: `waitlist(branchId)`,
+`waitlistStatus(branchId, queueNumber)`, `tables(branchId)`, `dashboard(branchId)`,
+`settings(branchId)`, `publicBranch(branchId)`, `board(branchId)`.
 
-### Forms
+`api/client.ts` handles: base URL from `VITE_API_BASE_URL`, the Authorization header from
+`staffStore.token`, a 30s timeout with `AbortController`, 401 (clear token, clear query cache,
+redirect to login), 429 (toast), 5xx (toast), and a network failure that never reached the backend
+as `NETWORK_ERROR`. `api/errors.ts` maps error codes to English messages. `api/mock/` provides mock
+responses controlled by `VITE_USE_MOCK`, and mock data must match `_docs/openapi.yaml` and seed data.
 
-- `react-hook-form` + zod.
-- Validate on blur, re-validate on change.
-- Disable submit while pending.
-- Show field errors below fields.
-- Keep form values on error.
-
-### Query Keys
-
-Centralized in `api/queryKeys.ts`:
-
-- `waitlist(branchId)`
-- `waitlistStatus(branchId, queueNumber)`
-- `tables(branchId)`
-- `dashboard(branchId)`
-- `settings(branchId)`
-- `publicBranch(branchId)`
-- `board(branchId)`
-
-### API Client
-
-`api/client.ts` handles:
-
-- Base URL from `VITE_API_BASE_URL`
-- Authorization header from `staffStore.token`
-- 30s timeout with `AbortController`
-- 401 → clear token, clear query cache, redirect to login
-- 429 → toast
-- 5xx → toast
-- Network error → `NETWORK_ERROR`
-
-`api/errors.ts` maps error codes to English messages.
-
-### Mock
-
-`api/mock/` provides mock responses. Controlled by `VITE_USE_MOCK`. Mock data must match `_docs/openapi.yaml` and seed data.
+Authority: `_docs/testing.md` section 3 for test strategy, `_docs/ui.md` for tokens, per-page
+layout and copy.
 
 ## 9. UI Rules
 
-**`_docs/ui.md` is the single source of truth** for design tokens, typography, component inventory, page layouts, states, responsive rules, and accessibility. This section summarises `_docs/design-system.md` and points to `_docs/ui.md` for the authoritative details.
-
-### Stack (from `_docs/design-system.md` section 1)
-
-| Concern | Choice |
-|---|---|
-| UI library | React 18 with function components and hooks |
-| Build tool / dev server | Vite |
-| Language | TypeScript (`strict: true`) |
-| Styling | Tailwind CSS utility classes |
-| Component primitives | shadcn/ui |
-| Server state | TanStack Query |
-| Client state | Zustand |
-| Toasts | Sonner (`Toaster` mounted in `frontend/src/main.tsx`) |
-| Icons | `lucide-react` |
-| QR code | `qrcode.react` |
-
-There is **no server-side template layer** and **no CSS framework CDN** in this project.
-
-### Where the rules live (from `_docs/design-system.md` section 2)
+**`_docs/ui.md` is the single source of truth** for design tokens, typography, the component
+inventory, page layouts, states, responsive rules and accessibility. This section is the pointer
+map; `_docs/design-system.md` explains how those rules are wired into the code. Neither page is
+restated here: where a rule and this summary disagree, `_docs/ui.md` wins.
 
 | Topic | Source of truth |
 |---|---|
@@ -353,84 +244,42 @@ There is **no server-side template layer** and **no CSS framework CDN** in this 
 | Business rules behind the UI | `_docs/specs.md` |
 | API shapes the UI consumes | `_docs/openapi.yaml` |
 
-### Wiring the tokens into Tailwind (from `_docs/design-system.md` section 3)
-
-Colour and font values are defined only in `_docs/ui.md`. They are registered once, in `frontend/tailwind.config.js`, during F-02:
-
-- Status colours (`WAITING`, `CALLED`, `SEATED`, `NO_SHOW`, `CANCELLED`, `DONE`) and table statuses (`AVAILABLE`, `OCCUPIED`, `CLEANING`) become theme colours, so components reference semantic names, never hex literals.
-- The `Inter` family with `Noto Sans TC` fallback becomes the sans stack.
-- Components then use utilities (`bg-called`, `text-primary`, `rounded-2xl`) rather than inline styles or hardcoded hex values.
-
-**Rule: no hex colour literal appears in a `.tsx` file.** If a token is missing, it is added to `_docs/ui.md` first, then to `tailwind.config.js`.
-
-### Component conventions (from `_docs/design-system.md` section 4)
-
-- Primitives come from shadcn/ui (`Button`, `Input`, `Label`, `Card`, `Dialog`, `Select`, `Badge`, `Table`, `Skeleton`, `Switch`, `Checkbox`, `Form`); the project-specific components listed in `_docs/ui.md` section 5 live in `frontend/src/components/`.
-- One component per file, file named after the component, imported through the `@` alias.
-- A component that appears in a page mock-up but not in `_docs/ui.md` section 5 is not built: `_docs/ui.md` is extended by a docs issue first.
-- Reusable props are documented in `_docs/ui.md` section 19.
-
-### State rendering (from `_docs/design-system.md` section 5)
-
-Every screen renders four states, defined in `_docs/ui.md` sections 7-9:
-
-1. **Loading**: `LoadingSkeleton` with the variant named for the page.
-2. **Empty**: `EmptyState` with icon, title, description, and action.
-3. **Error**: the message mapped from the error code in `_docs/specs.md` section 11; unexpected failures surface through `ConnectionBanner` or a toast.
-4. **Data**: the page body.
-
-Server data is read through TanStack Query hooks keyed off `frontend/src/api/queryKeys.ts`; mutations invalidate those keys. Auth token and sound preference live in the Zustand `staffStore` and nowhere else.
-
-### Responsive and accessibility (from `_docs/design-system.md` section 6)
-
-- Guest pages are mobile-first and width-capped; staff pages are tablet/desktop-first. Breakpoints and per-page rules: `_docs/ui.md` section 10.
-- Icon buttons carry `aria-label`, dialogs trap focus, status text is announced politely, contrast stays at or above 4.5:1: `_docs/ui.md` section 11.
-- Sizing uses `rem`, and 200% browser zoom must not break the layout: `_docs/ui.md` section 3.
-
-### Copy rules (from `_docs/design-system.md` section 7)
-
-- All UI text is English. No CJK characters ship in user-visible strings.
-- Date and time display as `2026-09-10 21:00`.
-- Phone numbers display as Taiwan format (`09xx-xxx-xxx` / `02-xxxx-xxxx`).
-- Copy for each page is specified in `_docs/ui.md` section 6; reproduce it rather than inventing new wording.
-
-### Theme (from `_docs/design-system.md` section 8)
-
-Light theme only in v1. Dark mode and i18n are non-goals; see `_docs/ui.md` sections 17 and 18.
+Wiring, component conventions, state rendering, responsive and accessibility rules, copy rules and
+theme are summarised in `_docs/design-system.md` sections 1 to 8, which cite `_docs/ui.md` for every
+value. Three rules are hard enough to state here: no hex colour literal appears in a `.tsx` file (a
+missing token is added to `_docs/ui.md` first, then to `tailwind.config.js`); a component that
+appears in a page mock-up but not in `_docs/ui.md` section 5 is not built until a docs issue extends
+`_docs/ui.md`; every screen renders four states - loading, empty, error, data (`_docs/design-system.md`
+section 5). Light theme only in v1; dark mode and i18n are non-goals (`_docs/ui.md` sections 17-18).
 
 ## 10. State Machine
 
-Summarised from `_docs/specs.md` section 5. The authoritative source with all 23 transition rules and 10 dash-item state lines is `_docs/specs.md` section 5.
+Summarised from `_docs/specs.md` section 5, which is the authoritative source with all 23 transition
+rules and the dash-item state lines.
 
-### Waitlist states (6 states)
+Waitlist states (6 states):
 
-- `WAITING` → `CALLED` (Call)
-- `WAITING` → `SEATED` (Seat)
-- `WAITING` → `CANCELLED` (Cancel)
-- `CALLED` → `SEATED` (Seat)
-- `CALLED` → `NO_SHOW` (No-show or timeout)
-- `CALLED` → `WAITING` (Revert)
-- `CALLED` → `CANCELLED` (Cancel with confirm)
-- `SEATED` → `DONE` (Release table)
-- `SEATED` → `CANCELLED` (Staff cancel)
-- `NO_SHOW` → `WAITING` (Restore)
-- `CANCELLED` → terminal
-- `DONE` → terminal
+| From | To | Trigger |
+|---|---|---|
+| `WAITING` | `CALLED` | Call |
+| `WAITING` | `SEATED` | Seat |
+| `WAITING` | `CANCELLED` | Cancel |
+| `CALLED` | `SEATED` | Seat |
+| `CALLED` | `NO_SHOW` | No-show or timeout |
+| `CALLED` | `WAITING` | Revert |
+| `CALLED` | `CANCELLED` | Cancel with confirm |
+| `SEATED` | `DONE` | Release table |
+| `SEATED` | `CANCELLED` | Staff cancel |
+| `NO_SHOW` | `WAITING` | Restore |
+| `CANCELLED` | — | terminal |
+| `DONE` | — | terminal |
 
-### Table states (3 states)
+Table states (3 states): `AVAILABLE` ↔ `CLEANING` (manual), `AVAILABLE` → `OCCUPIED` (seat),
+`OCCUPIED` → `AVAILABLE` (release).
 
-- `AVAILABLE` ↔ `CLEANING` (manual)
-- `AVAILABLE` → `OCCUPIED` (seat)
-- `OCCUPIED` → `AVAILABLE` (release)
-
-### Rules
-
-- `OCCUPIED` cannot be set directly via `PATCH /staff/tables/{id}`.
-- `CALLED` timeout uses `hold_minutes_snapshot`.
-- Lazy no-show evaluates on read.
-- Release table sets entry to `DONE`.
-- Cancel releases table if any.
-- Close day closes all active entries.
+Rules: `OCCUPIED` cannot be set directly via `PATCH /staff/tables/{id}`; the `CALLED` timeout uses
+`hold_minutes_snapshot`; lazy no-show evaluates on read; releasing a table sets the entry to `DONE`;
+cancel releases the table if any; closing the day closes all active entries.
 
 ## 11. Time and Timezone
 
@@ -440,9 +289,9 @@ Summarised from `_docs/specs.md` section 13.
 - Display `Asia/Taipei`.
 - Date format: `2026-09-10`.
 - DateTime format: `2026-09-10 21:00`.
-- `business_date` uses branch timezone and cutoff hour (default 4).
-- `remaining_seconds` returned by backend for `CALLED` entries.
-- Frontend does not compute time differences.
+- `business_date` uses the branch timezone and cutoff hour (default 4).
+- `remaining_seconds` is returned by the backend for `CALLED` entries.
+- The frontend does not compute time differences.
 
 ## 12. Queue Number
 
@@ -453,11 +302,11 @@ Summarised from `_docs/specs.md` section 8.
 - `full_queue_number` unique: `A-20260910-001`.
 - Resets daily.
 - Not unique across days.
-- Guest lookup without token only searches current `business_date`.
+- Guest lookup without a token only searches the current `business_date`.
 
 ## 13. Errors
 
-Summarised from `_docs/specs.md` section 11. All errors use the shape:
+Summarised from `_docs/specs.md` section 11, which owns this table. All errors use the shape:
 
 ```json
 {
@@ -468,8 +317,6 @@ Summarised from `_docs/specs.md` section 11. All errors use the shape:
   }
 }
 ```
-
-### Error codes (13 codes)
 
 | Code | HTTP | Meaning |
 |---|---|---|
@@ -487,36 +334,27 @@ Summarised from `_docs/specs.md` section 11. All errors use the shape:
 | `INTERNAL_ERROR` | 500 | Unhandled error |
 | `BRANCH_NOT_FOUND` | 404 | Branch not found |
 
+Codes are listed alphabetically, matching `_docs/specs.md` section 11; no code is defined here that
+the spec does not list.
+
 ### Frontend-only code
 
-- `NETWORK_ERROR` — synthesised client-side by the API client when a request never reaches the backend.
+- `NETWORK_ERROR` — synthesised client-side by the API client when a request never reaches the
+  backend (`_docs/specs.md` section 11, `_docs/testing.md` section 3).
 
-Frontend maps codes to English messages in `api/errors.ts`.
+The frontend maps codes to English messages in `api/errors.ts`.
 
 ## 14. Testing
 
-### Backend (does not exist yet, tracked by Platform Issue 12)
-
 ```bash
-uv run pytest
+make test          # both suites
+cd backend && uv run pytest     # backend only
+cd frontend && npm run test     # frontend only
 ```
 
-### Frontend (does not exist yet, tracked by Platform Issue 12)
-
-```bash
-npm run test
-```
-
-### Makefile target (does not exist yet, tracked by Platform Issue 12)
-
-```bash
-make test
-```
-
-Commands reference: `_docs/testing.md` section 8, `_docs/plan.md` F-01.
-
-No test commands run in this checkout until Platform Issue 12 creates `Makefile`, `backend/` and `frontend/`.
-
+Commands authority: `_docs/testing.md` section 8. No test command was available in this checkout
+until Platform Issue 12 created `Makefile`, `backend/` and `frontend/`; that issue is closed, so
+failing to find a runner today is a defect in the repo, not a documentation gap.
 ## 15. Do Not Do
 
 From `_docs/requirements.md` section 15:
@@ -548,7 +386,8 @@ From `_docs/requirements.md` section 16:
 
 ## 17. File Ownership
 
-From `CONTRIBUTING.md` ## File Ownership (Platform #9, closed). `_docs/documents.md` wins on role reachability where there is a conflict.
+Same 13 rows as `CONTRIBUTING.md` `## File Ownership` (Platform #9, closed); `_docs/documents.md`
+wins on role reachability where sources conflict.
 
 | Path | Owner |
 |---|---|
@@ -566,7 +405,18 @@ From `CONTRIBUTING.md` ## File Ownership (Platform #9, closed). `_docs/documents
 | `Makefile` | both |
 | `root package.json` | both |
 
+Two paths are not listed in either table because they were created after Platform #9 closed:
+`_docs/requirements.md`, owned by PM and read by SA (it is the source this guide summarises), and
+`_docs/orchestrator-playbook.md`, owned by the Orchestrator (hard-won operating knowledge: contract
+precedence, how to write ACs that cannot lie, and the traps this stack and harness actually enforce).
+Extending a File Ownership table is a docs-issue edit to `CONTRIBUTING.md`, not a silent addition
+here.
+
 ### Recorded divergences
 
-1. `_docs/documents.md:27` lists the agent guide as `_docs/AGENTS.md`, a path that does not exist; the real file is root `AGENTS.md`. **No owning issue exists** for `_docs/documents.md`.
-2. `_docs/documents.md:12` and `:14` grant SA and SW write/read access to `_docs/design-system.md`, which will not exist after the follow-up deletion. **No owning issue exists**.
+1. `_docs/documents.md` lists the agent guide as `_docs/AGENTS.md`, a path that does not exist; the
+   real file is root `AGENTS.md`. **No owning issue exists** for `_docs/documents.md`.
+2. `_docs/documents.md` grants SA and SW write or read access to `_docs/design-system.md`; that file
+   exists and is read-only reference. **No owning issue exists**.
+3. `_docs/plan.md:1921` cites `AGENTS.md#5-project-structure` while this file's headings are
+   numbered (recorded as Platform Issue 11); the anchor is kept by numbering.

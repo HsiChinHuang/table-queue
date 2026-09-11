@@ -5,6 +5,7 @@
 - `_docs/process.md`
 - `_docs/team/orchestrator.md`
 - `_docs/team/roles.md`
+- `_docs/orchestrator-playbook.md` (operating knowledge: AC authoring, rulings, harness traps)
 
 ## Read by specific roles (per role file)
 
@@ -24,4 +25,5 @@
 ## Universal
 
 - `_docs/rules.md` (all roles may read)
+- `_docs/requirements.md` (project requirements this guide summarizes; SA reads in full, all roles may consult)
 - `_docs/AGENTS.md` (all roles must read first)
