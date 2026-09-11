@@ -1,4 +1,4 @@
-"""B-07's staff waitlist transport: the nine routes, and the two rules they carry.
+"""The staff waitlist transport: the nine routes, and the two rules they carry.
 
 AC-15 names this file. It is deliberately not a restatement of the issue's own AC blocks - those
 mount the app from a scratch directory and drive it through ``TestClient``, and they are the
