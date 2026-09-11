@@ -57,7 +57,6 @@ from app.services.waitlist import (
     ACTIVE_STATUSES,
     _as_utc,
     _stamp,
-    normalize_phone,
     phone_last3,
 )
 
@@ -530,16 +529,12 @@ def _entry_payload(db: Any, entry: WaitlistEntry, now: datetime) -> dict[str, An
     status page cannot drift) and ``table_label``, which is read through the entry's own table
     relationship rather than copied from a column.
 
-    ``phone`` is the stored number, and it is here because the contract's own response examples for
-    this schema carry it - see the ``phone: '0912345678'`` under every staff waitlist operation in
-    ``_docs/openapi.yaml`` - alongside ``phone_masked``, so a reader can see the number the guest
-    typed and the number the screen prints without asking the staff to remember which is which. The
-    contract's staff section asks for a masked list without ever forbidding the stored form beside
-    it, so this surface ships both and lets the caller decide what to show.
+    Only the masked form is ever emitted. The stored number never reaches the wire from this
+    surface - not under ``phone``, not under another name - because ``_docs/specs.md`` section 15
+    makes the staff list the masked view and B-06's guest surfaces keep the same rule; the response
+    model declares no key a raw number could travel on, and AC-5 looks for one.
     """
     from app.schemas import WaitlistEntryResponse
-    __import__("os").environ.setdefault("B07DBG","")
-    pass
     from app.services.waitlist import remaining_seconds
 
     table = getattr(entry, TABLE_LABEL_PROPERTY, None)
