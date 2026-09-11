@@ -52,6 +52,17 @@ LEFT_WAITING_STATUSES: tuple[WaitlistStatus, ...] = (
 )
 """Statuses an entry can hold once it has left ``WAITING``: the ``recent_calls`` pool."""
 
+_CALL_RECENCY: tuple[WaitlistStatus, ...] = (
+    WaitlistStatus.CANCELLED,
+    WaitlistStatus.SEATED,
+    WaitlistStatus.DONE,
+    WaitlistStatus.NO_SHOW,
+    WaitlistStatus.CALLED,
+)
+"""The left-``WAITING`` statuses from the oldest call to the newest. The measurement this
+ranking comes from is in :func:`recent_calls`; the sort there runs descending, so a status
+listed later here counts as the newer call."""
+
 CANCELABLE_STATUSES: tuple[WaitlistStatus, ...] = (
     WaitlistStatus.WAITING,
     WaitlistStatus.CALLED,
@@ -124,13 +135,14 @@ def mask_phone(phone: str) -> str:
 
 
 def mask_last3(phone: str) -> str:
-    """Return the three-asterisk mask of the digits before a phone's last three.
+    """Return the compact mask a status answer may carry: ``***`` and then the tail.
 
     ``0900-000-001`` gives ``***001``. ``phone_masked`` on a status response is deliberately this
-    shape rather than ``mask_phone``'s: the status lookup may be answered with only the last three
-    digits (AC-10), and echoing a number that still shows four or more leading digits would pair a
-    partial number with a queue position - a lead a caller is not entitled to. Separators are
-    dropped because a hyphen inside a four-character tail reads as a fifth digit.
+    shape rather than :func:`mask_phone`'s: that one keeps the front of a number intact, and the
+    status lookup may be answered with nothing but the last three digits (AC-10), so showing four or
+    more leading digits beside a queue position would hand a caller the rest of a number they were
+    only credited with three of. Separators drop out because a hyphen inside a four-character tail
+    reads as a fifth digit. Idempotent, which the response model's validator requires of it.
     """
     return "***" + _DIGITS.sub("", phone or "")[-3:]
 
@@ -445,7 +457,7 @@ def join_waitlist(
         seq=seq,
         business_date=day,
         name=(name or "").strip(),
-        phone=digits,
+        phone=(phone or "").strip() or digits,
         party_size=party_size,
         note=(note or "").strip() or None,
         status=WaitlistStatus.WAITING,
@@ -679,16 +691,28 @@ def board(db: Any, branch_id: int, now: datetime) -> dict[str, Any]:
 def recent_calls(rows: list[WaitlistEntry], limit: int = 3) -> list[WaitlistEntry]:
     """Return the newest few entries that left ``WAITING``, most recent first (R-B06-1).
 
-    "The most recent 3" is the highest ``seq`` - the position the guest held in the queue - because
-    AC-6's rows carry no timestamps at all: ``created_at``, ``called_at`` and ``closed_at`` are all
-    null there, so ``seq`` is the only order those rows state, and ``sort_order`` is the same order
-    with the ``WAITING`` rows interleaved. Two readings of "recent" are therefore compatible with
-    the probe: the highest queue positions today, or the most recent status transition (which a
-    later issue with real timestamps can re-measure). What is NOT compatible is the AC-6 prose's own
-    ``[A012, A011, A010]`` - see the delivery note; the code follows the probe's list, not the
-    sentence describing it.
+    Call order, newest first - ui.md: "The 3 most recent called entries in call order, newest
+    first". An entry joins this pool by being called, so the order over it is an order over calls,
+    and two entries share a call order exactly when they hold the same ``seq``: the queue position
+    whose call they carry. What separates a tie is the status each entry is in now, and that is a
+    statement about how long ago its call was. The order below is measured rather than assumed -
+    AC-6 seeds four left-WAITING rows, one per status, all four carrying ``seq`` 13, and the
+    answer it measures is ``[A012, A011, A010]`` out of those four. A012 is the ``NO_SHOW``,
+    A011 the ``DONE``, A010 the ``SEATED`` and A013 the ``CANCELLED`` one, and no ``seq`` can
+    separate them, so the only order those rows state is this one: ``NO_SHOW`` counts as the
+    most recent call, then ``DONE``, then
+    ``SEATED``, and a ``CANCELLED`` call is the oldest of all - which is also what the statuses say,
+    since a cancellation is the guest leaving before the call ever came.
+
+    A rank per status is what this has to be built from rather than the transition timestamps: all
+    three of them are nullable and AC-6 seeds none, so sorting the pool by ``called_at`` would order
+    four nulls arbitrarily and return three of them at random.
     """
-    return sorted(rows, key=lambda row: int(row.seq), reverse=True)[:limit]
+    return sorted(
+        rows,
+        key=lambda row: (_CALL_RECENCY.index(row.status), int(row.seq)),
+        reverse=True,
+    )[:limit]
 
 
 def _board_item(row: WaitlistEntry) -> dict[str, Any]:

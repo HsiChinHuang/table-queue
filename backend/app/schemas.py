@@ -31,6 +31,19 @@ class JoinWaitlistRequest(BaseModel):
     @field_validator("phone")
     @classmethod
     def _validate_phone(cls, v: str) -> str:
+        """Reject anything that is not a Taiwan mobile or a Taipei landline, keeping the
+        typing.
+
+        The digits are what every rule in section 6 and section 7 works from - the
+        duplicate check and the ``phone_last3`` credential both normalise first - but this
+        field returns ``v`` rather than the digits on purpose. The spacing a guest typed is
+        the only record of the form the number was given in, and ``phone_masked`` is
+        specified as that number with its middle replaced: the contract's example keeps
+        both hyphens, which is only reproducible if the hyphens reach the mask. Dropping
+        them here is what makes ``0900-000-001`` answer ``*******001`` - a mask of the
+        number the guest did not type. The column is a ``String(50)``, so the pattern's
+        bound on the input width bounds what can be stored.
+        """
         mobile_pat = re.compile(r"^09\d{2}-?\d{3}-?\d{3}$")
         landline_pat = re.compile(r"^02-?\d{4}-?\d{4}$")
         if not (mobile_pat.match(v) or landline_pat.match(v)):
@@ -138,81 +151,71 @@ class ErrorResponse(BaseModel):
 
 
 def mask_phone(phone: str) -> str:  # noqa: N802 - reads as the type name at the field
-    """Return ``phone`` masked the way the contract writes it: ``0900-000-001`` to ``0900-***-001``.
+    """Return ``phone`` masked the way the contract writes it: ``0900-000-001`` to
+    ``0900-***-001``.
 
-    ``WaitlistEntryResponse`` is the only schema in the contract that carries a phone, and it gets
-    filled from ORM rows: a plain ``str`` field cannot stop one of those paths from handing it the
-    stored digits, so the rule is installed as the field's validator instead (see
-    ``AnnotatedPhone`` below).
+    ``WaitlistEntryResponse`` is the only schema in the contract that carries a phone, and it
+    gets filled from ORM rows: a plain ``str`` field cannot stop one of those paths from
+    handing it the stored digits, so the rule is installed as the field's validator instead
+    (see ``AnnotatedPhone`` below).
 
-    Three branches, and they are three because the contract's example is a *form* rather than a
-    rule. What always survives is the first digit and the last three - the head says who the
-    subscriber is, the tail is the credential section 15 lets a guest look their own queue
-    position up with - and what goes is the span between them, written as exactly three
-    asterisks.
+    Three shapes, and they are three because the contract's example is a *form* rather than a
+    What always survives is the last three digits, which is the credential section 15 lets a
+    guest look their own queue position up with, and what goes is the span before it, written
+    as exactly three asterisks. Three shapes, because the contract's example is a *form* rather
+    than a rule:
 
     A number typed the way the contract types it - a leading block, a middle block and the last
-    three, one separator between each - has the mark written over the middle block and nothing
-    else. Both separators the number was typed with survive that, one on each side of the mark,
-    and the answer is the contract's example: ``0900-000-001`` in, ``0900-***-001`` out. The
-    answer still reads as three blocks, which is what lets a second pass recognise the same
-    form, find the mark already in place and refresh only the digits beside it.
+    three, one separator between each - has the mark written over the middle block and over
+    nothing else. Both separators survive it, one on each side of the mark, which is the
+    contract's example: ``0900-000-001`` in, ``0900-***-001`` out.
 
-    A number with fewer than three blocks has no middle block to hide, so the span between the
-    head and the credential is written compactly behind the mark: ``0900000001`` becomes
-    ``*******001``. That is the only spelling available to it, because it has no separator that
-    could survive without ending up inside what the mask is hiding.
-
-    A number split into more than three blocks falls between the two. Its middle block still
-    goes, and the mark borrows the two digits straddling it, so the answer stays readable as the
-    number it was typed as. Seven digits is where a number starts having a middle at all, so
-    anything shorter comes back unchanged, and so does anything with no digits in it.
+    A number with more than three blocks keeps the same rule - the mark runs from the start of
+    its second block to the end of its second-to-last, so the outermost blocks survive whole -
+    and a number with one separator or none has no span that could be hidden without either
+    showing a digit too many or hiding one too few, so it answers compactly: ``0900000001``
+    gives ``*******001``. Seven digits is where a number starts having a span to hide at all,
+    so anything shorter comes back unchanged, and so does anything with no digits in it.
 
     Idempotent, and it has to be: a response model re-validates the value it is given, so the
-    mask must survive its own validator. A value already carrying a mark is read as one span
-    already hidden, and only the two digits on that span's edges are refreshed - each with the
-    value the first pass wrote there - which is what returns the same string rather than a one-
-    digit-shorter one. The branches above are what makes that refresh well founded: it is the
-    shape of the number, not the mark, that says how many digits were hidden.
-
-    Module-level, not a method: pydantic passes the value under validation as the single positional
-    argument of a ``BeforeValidator`` callable, which a bound method would swallow.
+    mask has to survive its own validator. A value that already carries a mark is returned as
+    it arrived, because re-deriving the hidden span from the survivors would cost a digit on
+    every round for any spelling that hides more, or fewer, than three of them. Module-level,
+    not a method: pydantic passes the value under validation as the single positional argument
+    of a ``BeforeValidator`` callable, which a bound method would swallow.
     """
     raw = phone or ""
     groups = list(re.finditer(r"\d+", raw))
     number = "".join(g.group() for g in groups)
     if len(number) < 7:
         return raw
-    head, tail = number[0], number[-3:]
-    hidden = re.search(r"\*+", raw)
-    if hidden:
-        left = re.sub(r"\d+\Z", head, raw[: hidden.start()])
-        right = re.sub(r"\A\d+", tail[:1], raw[hidden.end() :])
-        return left + "***" + right
-    if len(groups) == 3:
-        # Three blocks of digits, the contract's form: a leading block, a middle block and the last
-        # three. The mark goes over the middle block and over nothing else, so both separators the
-        # number was typed with survive it, one on each side. The answer is read as three blocks
-        # again, which is what lets a second pass recognise this same form, find the mark it wrote
-        # already in place, and rebuild the two digits beside the mark from the same number rather
-        # than shorten the number it was handed.
-        _first, middle, _last = groups
-        return raw[: middle.start()] + "***" + raw[middle.end() :]
+    tail = number[-3:]
+    mark = re.search(r"\*+", raw)
+    if mark is not None:
+        # The value arrives already masked, which it does on every path that fills this field from a
+        # database row or from a model that ran the validator first: the mask has to survive the
+        # response model that owns it. Nothing is rewritten at all here. Re-deriving the hidden span
+        # from the survivors instead - which is what refreshing its edges would amount to - costs a
+        # digit per validation round on any spelling that hides more, or fewer, than three of them,
+        # so the safe answer is that a masked value is already the answer.
+        return raw
     if len(groups) >= 3:
-        # More than three blocks. There is still a middle block, and the two digits on either
-        # side of it are left in the open - refreshed from the runs they sit inside - so the
-        # second pass reads the block widths back and finds the string it was given.
-        middle = groups[len(groups) // 2]
-        return raw[: middle.start()] + head + "***" + tail[:1] + raw[middle.end() :]
-    return "*" * (len(number) - 3) + tail
-    if len(groups) >= 3:
-        # More than three blocks: no spelling keeps every separator and still leaves a re-
-        # reading pass enough to go on. The middle block goes, and the two digits the mark
-        # straddles belong to its neighbours - both refreshed from the runs they sit inside,
-        # which is what makes the second pass return the string it was given.
-        middle = groups[len(groups) // 2]
-        return raw[: middle.start()] + head + "***" + tail[:1] + raw[middle.end() :]
-    return "*" * (len(number) - 3) + tail
+        # Two separators or more. What the mark covers is the span from the second digit to the
+        # credential: the middle block of the contract's form together with both separators
+        # beside it, and everything between them. Two digits survive it, both outside the
+        # separators, so the number stays as readable as it arrived - and the pass above is what
+        # makes re-validating that answer return it untouched, whatever width the hidden span
+        # ended up covering.
+        return raw[: groups[1].start()] + "***" + raw[groups[-2].end() :]
+    if len(groups) == 2:
+        # One separator. It cannot survive: the span the mark covers lies between the head and the
+        # credential, and keeping the separator would mean either showing one digit more of the
+        # number than the mark is meant to hide, or hiding one fewer. So ``0912345-678`` answers
+        # compactly, like a number that was typed without one.
+        return "*" * (len(number) - 3) + tail
+    # One block, or none: nothing to preserve. A number too short to have a credential tail is
+    # hidden in full rather than leaked.
+    return raw if len(number) < 7 else "*" * (len(number) - 3) + tail
 
 
 
@@ -283,6 +286,17 @@ class WaitlistStatusResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True, extra="forbid")
 
+    @field_validator("phone_masked")
+    @classmethod
+    def _hide_everything_left_of_the_tail(cls, value: str | None) -> str | None:
+        # ``AnnotatedPhone`` gives a phone the shape the guest typed it in, which is what the join
+        # and cancel answers show. This answer may be fetched with nothing but the last three
+        # digits, and it goes out beside a queue position: replaying a number the caller already
+        # half knows, in the form the guest typed it, hands back the digits the credential could
+        # not. So this one field answers compactly - the mark, then the tail, no separators - and
+        # stays idempotent, because the mark survives a re-validation of itself.
+        return None if value is None else "***" + re.sub(r"\D", "", value)[-3:]
+
 
 class TableResponse(BaseModel):
     id: str
@@ -343,6 +357,15 @@ class SettingsResponse(BaseModel):
 
 
 class PublicBranchResponse(BaseModel):
+    """What the guest page shows before it joins, branch contact line included.
+
+    The phone on this schema is the branch's own published number rather than a guest's, and
+    ``_docs/openapi.yaml`` declares it with the example ``02-1234-5678``. It stays unmasked for that
+    reason: a guest has to be able to dial it, and AC-2 asks that all nine of these fields arrive
+    populated. The privacy line AC-15 draws is about GUEST numbers, and every schema that can carry
+    one of those routes it through ``AnnotatedPhone``.
+    """
+
     address: str | None = None
     branch_name: str
     close_time: str | None = None
@@ -352,6 +375,12 @@ class PublicBranchResponse(BaseModel):
     phone: str | None = None
     restaurant_name: str
     timezone: str | None = None
+    # ``phone`` is the branch's own published number, which ``_docs/openapi.yaml`` declares on this
+    # schema with the example ``02-1234-5678``. It is deliberately the plain stored value and not
+    # ``AnnotatedPhone``: AC-2 requires every one of this schema's nine fields to be non-empty, and
+    # masking a business line would hide digits a guest is expected to dial. The privacy rule the
+    # contract cares about is the GUEST's number, and that one is masked in every schema that can
+    # carry it - see ``AnnotatedPhone`` on the waitlist responses below.
 
     model_config = ConfigDict(from_attributes=True, extra="forbid")
 

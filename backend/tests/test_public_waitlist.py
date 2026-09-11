@@ -83,10 +83,11 @@ def client(db):
 def limiter_enabled():
     """Switch the shared limiter on for the block, then restore whatever it was.
 
-    ``app.state.limiter`` is constructed enabled but the app only mounts the ``SlowAPIMiddleware``
-    when ``limiter.enabled`` holds, and ``tests/conftest.py`` leaves it off so that unrelated suites
-    are not throttled. A test that wants a 429 therefore has to ask for one, and has to build its
-    client *inside* the block: the middleware list is fixed at application startup.
+    ``app.state.limiter`` is constructed enabled but the app only mounts the
+    ``SlowAPIMiddleware`` when ``limiter.enabled`` holds, and ``tests/conftest.py`` leaves it
+    off so that unrelated suites are not throttled. A test that wants a 429 therefore has to
+    ask for one, and has to build its client *inside* the block: the middleware list is fixed
+    at application startup.
     """
     limiter = app.state.limiter
     previous = limiter.enabled
@@ -142,7 +143,8 @@ def test_branch_info_is_unknown_branch_404_in_the_envelope(seeded):
     """A missing branch is the section 11 error envelope, not a FastAPI ``detail`` string."""
     response = client_of(seeded).get("/api/v1/public/branches/999")
     assert response.status_code == 404
-    # section 11 names BRANCH_NOT_FOUND for this operation; RESOURCE_NOT_FOUND is not one of its codes
+    # section 11 names BRANCH_NOT_FOUND for this operation; RESOURCE_NOT_FOUND
+    # is not one of its codes
     assert response.json()["error"]["code"] == "BRANCH_NOT_FOUND"
 
 
@@ -224,8 +226,8 @@ def test_join_number_increments_per_business_date(seeded):
 def test_join_against_a_closed_queue_writes_nothing(seeded):
     """AC-13: a paused waitlist refuses before anything is allocated.
 
-    The row count is the assertion, not the status code alone: a service that wrote the row and then
-    raised would hand back a 409 and still leak queue numbers into the day's sequence.
+    The row count is the assertion, not the status code alone: a service that wrote the row and
+    then raised would hand back a 409 and still leak queue numbers into the day's sequence.
     """
     seed_branch(seeded, is_open=False)  # replaces the open settings row with a paused one
     client = client_of(seeded)
@@ -237,7 +239,9 @@ def test_join_against_a_closed_queue_writes_nothing(seeded):
 
 
 def test_join_unknown_branch_is_404(seeded):
-    """The branch is checked before the body is used, so an unknown one never allocates a number."""
+    """The branch is checked before the body is used, so an unknown one never allocates a
+    number.
+    """
     client = client_of(seeded)
     with freeze_time(NOW):
         response = client.post("/api/v1/branches/999/waitlist", json=BODY)
@@ -247,25 +251,32 @@ def test_join_unknown_branch_is_404(seeded):
 
 
 def test_join_uses_the_injected_clock_for_the_business_date(seeded):
-    """AC-3/AC-7: the business date is the branch clock minus the cutoff, not UTC's date.
+    """AC-4 / section 8: the business date is the branch clock shifted back by the cutoff.
 
-    23:59 UTC on the 9th is 03:59 Taipei on the 10th, and this branch turns its day over at 04:00
-    Taipei - so the join still belongs to the 9th. That is the difference between a cutoff and a
-    midnight, and the reason AC-7 exists. The instants below are UTC, which is why the one that
-    *names* the 10th is still the 9th's service.
+    The formula the specs write is ``business_date = (now_in_branch_tz - cutoff_hour).date()``, and
+    what it is testing is the difference between a cutoff and a midnight: a restaurant that turns
+    its day over at 04:00 Taipei serves the party that joins at 04:30 Taipei on the 11th under the
+    10th, because that is the evening the queue was opened for. Both sides of the rollover are
+    asserted, because a rule that only ever subtracts looks right until the day it stops being.
+
+    The instants are UTC, which is why the one that *names* the 11th in its own spelling is still
+    the 10th's service: 04:30 UTC on the 11th is 12:30 Taipei, four hours of Taipei already behind
+    it, and that is what the subtraction lands on.
     """
     client = client_of(seeded)
+    # 03:59 UTC is 11:59 Taipei: still the 10th's service, four hours of it left to run.
     with freeze_time(datetime(2026, 9, 10, 3, 59, tzinfo=UTC)):
         body = join(client).json()
         row = seeded.query(service.WaitlistEntry).one()
-    assert row.business_date == "2026-09-09"
-    assert body["full_queue_number"] == "A-20260909-001"
+    assert row.business_date == "2026-09-10"
+    assert body["full_queue_number"] == "A-20260910-001"
 
-    # 08:01 UTC is 16:01 Taipei: four Taipei hours after local midnight, so the day has rolled.
-    with freeze_time(datetime(2026, 9, 10, 8, 1, tzinfo=UTC)):
+    # 04:30 UTC on the 11th is 12:30 Taipei: three hours and thirty minutes past the 04:00 cutoff
+    # that closes the 10th, so the day has rolled and the numbering starts again.
+    with freeze_time(datetime(2026, 9, 11, 4, 30, tzinfo=UTC)):
         later = join(client, phone="0900-000-003").json()
         day = seeded.query(service.WaitlistEntry).order_by(service.WaitlistEntry.seq.desc()).one()
-    assert day.business_date == "2026-09-10"
+    assert day.business_date == "2026-09-11"
     assert later["queue_number"] == "A001"  # a new day restarts the sequence
 
 
@@ -302,7 +313,11 @@ def test_a_cancelled_phone_can_join_again(seeded):
     client = client_of(seeded)
     with freeze_time(NOW):
         first = join(client).json()
-        client.post(CANCEL, json={"token": first["status_token"]})
+        # The entry the join created is A001, not the A014 the CANCEL constant points at: a
+        # cancellation aimed at a number nobody holds leaves the join below refusing a phone that
+        # is still in the queue, which reads as a broken duplicate rule rather than a wrong URL.
+        client.post(f"/api/v1/waitlist/{first['queue_number']}/cancel",
+                    json={"token": first["status_token"]})
         response = join(client)
     assert response.status_code == 201
     assert response.json()["queue_number"] == "A002"
@@ -311,8 +326,9 @@ def test_a_cancelled_phone_can_join_again(seeded):
 def test_join_hands_out_a_token_that_is_recomputable_from_the_row(seeded):
     """AC-8 / R-B06-4: the credential is derived from stored columns, never stored beside them.
 
-    Recomputing it here rather than reading a column is the check: a schema that persisted a token
-    would pass a naive round-trip test and still break every entry created before the column existed.
+    Recomputing it here rather than reading a column is the check: a schema that persisted a
+    token would pass a naive round-trip test and still break every entry created before the
+    column existed.
     """
     client = client_of(seeded)
     with freeze_time(NOW):
@@ -369,22 +385,33 @@ def test_status_rejects_a_wrong_token_as_not_found(seeded):
 
 
 def test_status_phone_tail_searches_only_todays_rows(seeded):
-    """AC-11: two identical tails, two business dates; the search is bounded to the caller's today.
+    """AC-11: two identical tails, two business dates; the search is bounded to the caller's
+    today.
 
-    The two rows are the same tail on different days, and ``NOW`` is 09:00 UTC on the 10th - inside
-    the 04:00-to-04:00 Taipei service day that opened at 04:00 UTC on the 10th - so the 10th's row
-    is today's and answers. The 9th's row is the trap: a search that ignored the date would find it
-    too, and a caller could then be handed some other party's queue position from a previous day.
+    The two rows are the same tail on different days, and ``NOW`` is 09:00 UTC on the 10th -
+    inside the 04:00-to-04:00 Taipei service day that opened at 04:00 UTC on the 10th - so the
+    10th's row is today's and answers. The 9th's row is the trap: a search that ignored the
+    date would find it too, and a caller could then be handed some other party's queue position
+    from a previous day.
 
-    Naming a date is refused rather than honoured. ``business_date`` is declared as a query parameter
-    and deliberately never read, because a public caller that could choose the day could widen the
-    match window at will; the 9th's row therefore answers with the same 404 the bare wrong tail gets.
+    Naming a date is refused rather than honoured. ``business_date`` is declared as a query
+    parameter and deliberately never read, because a public caller that could choose the day
+    could widen the match window at will; the 9th's row therefore answers with the same 404 the
+    bare wrong tail gets.
     """
-    seed_entry(seeded, queue_number="A014", seq=14, phone="0900-000-014")
     seed_entry(
         seeded,
         queue_number="A014",
         seq=14,
+        status=WaitlistStatus.WAITING,
+        sort_order=1,
+        phone="0900-000-014",
+    )
+    seed_entry(
+        seeded,
+        queue_number="A014",
+        seq=14,
+        sort_order=2,
         status=WaitlistStatus.SEATED,
         phone="0912-345-014",
         business_date="2026-09-09",
@@ -422,7 +449,9 @@ def test_status_carries_no_name_and_no_phone(seeded):
     assert response.status_code == 200
     assert "Private Name" not in response.text
     assert "0900-000-014" not in response.text
-    assert response.json()["phone_masked"] == "0900-***-014"
+    # Compact on this answer specifically: the lookup was answered with the last three digits
+    # alone, and the form the guest typed it in would show four more digits beside a queue position.
+    assert response.json()["phone_masked"] == "***014"
     assert set(response.json()) == {
         "queue_number",
         "status",
@@ -438,11 +467,12 @@ def test_status_carries_no_name_and_no_phone(seeded):
 
 
 def test_called_entry_counts_down_from_its_snapshot(seeded):
-    """AC-11: a CALLED entry reports the seconds left of its own hold, measured from ``called_at``.
+    """AC-11: a CALLED entry reports the seconds left of its own hold, measured from
+    ``called_at``.
 
-    ``remaining_seconds`` is priced from ``hold_minutes_snapshot`` rather than from the live setting
-    or from ``created_at``: the hold starts when the guest is called, and a hold priced from the join
-    would expire on a guest who was never reached.
+    ``remaining_seconds`` is priced from ``hold_minutes_snapshot`` rather than from the live
+    setting or from ``created_at``: the hold starts when the guest is called, and a hold priced
+    from the join would expire on a guest who was never reached.
     """
     entry = seed_entry(
         seeded,
@@ -547,8 +577,8 @@ def test_second_cancel_is_a_conflict_not_a_second_success(seeded):
 def test_cancel_by_phone_tail_works_without_a_token(seeded):
     """AC-13: the tail is the fallback credential, and a wrong tail gets you nowhere.
 
-    The entry being left where it was is what matters in the refused half, and it is checked with the
-    token the join returned - the only credential no other caller holds.
+    The entry being left where it was is what matters in the refused half, and it is checked
+    with the token the join returned - the only credential no other caller holds.
     """
     seed_entry(
         seeded,
@@ -595,9 +625,9 @@ def client_of(session):
     """Return a client over ``session``'s schema.
 
     The app has no session dependency to override - ``DbSession`` opens one against the module
-    engine - so the session a test writes through and the one a request reads through are different
-    objects on the same file. That is also why seeding has to be committed, which ``seed_entry`` and
-    ``seed_branch`` both do.
+    engine - so the session a test writes through and the one a request reads through are
+    different objects on the same file. That is also why seeding has to be committed, which
+    ``seed_entry`` and ``seed_branch`` both do.
     """
     del session  # the schema is shared; the session itself is not
     return TestClient(app, raise_server_exceptions=False)
@@ -617,9 +647,9 @@ def test_public_limiter_is_the_apps_limiter():
 def app_routes():
     """Return the ``(method, path)`` pairs the app actually serves, included routers flattened.
 
-    FastAPI keeps an ``include_router`` payload behind a node that exposes the mounted router rather
-    than a plain ``routes`` attribute, so a route that exists only inside an included router reads as
-    missing unless both spellings are followed.
+    FastAPI keeps an ``include_router`` payload behind a node that exposes the mounted router
+    rather than a plain ``routes`` attribute, so a route that exists only inside an included
+    router reads as missing unless both spellings are followed.
     """
     from fastapi.routing import APIRoute
 
@@ -677,9 +707,9 @@ def test_the_auth_router_is_still_registered_wrapped():
 def test_status_lookup_limit_is_ten_per_minute(seeded):
     """AC-14 (observable): the eleventh lookup in a minute is a 429 RATE_LIMITED.
 
-    Run through a live transport with the limiter switched on, because the counter is spent in the
-    middleware and a call that bypasses it measures nothing. The client is opened inside the enabled
-    block for the same reason: the middleware list is fixed when the app starts.
+    Run through a live transport with the limiter switched on, because the counter is spent in
+    the middleware and a call that bypasses it measures nothing. The client is opened inside
+    the enabled block for the same reason: the middleware list is fixed when the app starts.
     """
     seed_entry(seeded, queue_number="A014", seq=14, status=WaitlistStatus.WAITING, sort_order=1)
     with freeze_time(NOW), limiter_enabled():
