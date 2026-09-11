@@ -398,6 +398,13 @@ hidden=$(git ls-files | while read -r f; do case "$f" in *.db) git check-ignore 
 hidden=$(git ls-files | while read -r f; do case "$f" in *.db) git check-ignore -q --no-index "$f" && echo "$f";; esac; done)
 ```
 
+Two exclusions keep this rule from eating rules that are already correct. It does not apply to a
+`git check-ignore` call that already passes `--no-index`, and it does not apply to documentation
+that names `--no-index` inside the same command line it criticises. Rule 5 binds the call site, not
+the file: one correct `--no-index` call in `_docs/testing.md` does not license a bare one three
+hundred lines later in the same file, which is how `_docs/testing.md` itself shipped the defect it
+documents.
+
 The equivalent assertion without `--no-index` is `git ls-files -i -c --exclude-standard`,
 which lists tracked files that the ignore rules would exclude. Either form is acceptable when the
 question is "does this rule match a path that may already be tracked". The ban is narrow: bare
