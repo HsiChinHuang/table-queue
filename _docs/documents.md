@@ -3,7 +3,7 @@
 ## Read by Orchestrator only
 
 - `_docs/team/orchestrator.md` (Orchestrator's own brief; the root `AGENTS.md` note that closes the file forbids every other role from reading its process document, so that document holds no read row anywhere in this index)
-- `_docs/team/roles.md` (read by the Orchestrator; the other role files name each other only as the role-to-file map)
+- `_docs/team/INDEX.md` (team-file map: which role file is read by whom; `roles.md` was split into `INDEX.md` plus the per-topic `orchestrator-*.md` files)
 - `_docs/orchestrator-playbook.md` (operating knowledge: AC authoring, rulings, harness traps)
 
 ## Read by specific roles (per role file)

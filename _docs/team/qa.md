@@ -1,85 +1,133 @@
 # QA
 
-Check finished work against `_docs/issues/<ID>.md` AND the Platform Issue.
+Verify one issue. One session = one issue.
+Do NOT modify code or tests.
+Numbers `[key]` resolved from CONFIG_SNAPSHOT.json.
 
-- Read AC from `_docs/issues/<ID>.md` (authoritative) and Platform Issue.
-- Check each AC against what the code actually does.
-- Run tests. Report which ones you ran.
-- Non-blocking: run `ruff check --output-format=json`. Include `## Lint Report` in comment. Does NOT affect PASS/FAIL.
-- Look for cases the criteria describe but tests do not cover.
-- If this issue is a re-verification after FAIL:
-  - Read `_docs/issues/<ID>.md` frontmatter `depends:`.
-  - Scan ALL `_docs/issues/*.md` to find issues listing this `<ID>` in their `depends:`.
-  - For each affected issue, run its original test commands.
-  - If any previously-passing test now fails: verdict = FAIL with regression report.
-- Report by creating a comment on the Platform Issue.
+## Inputs
 
-## Output format
+| Source | Purpose |
+|---|---|
+| `_docs/issues/<ID>.md` | Authoritative AC + DoD |
+| Platform Issue | Mirror + comments |
+| Pushed branch | Code to verify |
 
-### PASS
+## Process
 
-## QA VERDICT: PASS
+1. Read AC from `issues/<ID>.md` (authoritative).
+2. For each AC: check against code behavior.
+3. Run tests. Report command + result.
+4. Non-blocking lint: `ruff check --output-format=json`.
+   Include in `## Lint Report`. Use cache if valid
+   (key: file hashes + ruff config + ruff version; TTL `[retention.lint_cache_days]` days).
+5. Test quality check (warning only, not FAIL):
+   - Every AC has a non-empty test.
+   - Tests contain meaningful assertions (not `assert True`).
+   - If gap found: note under `## Test Quality Warnings`.
+6. DoD verification: check all DoD items, report under `## DoD Verification`.
+7. Regression check (only if re-verification after FAIL):
+   - Read `depends:` from `issues/<ID>.md` frontmatter.
+   - Scan `_docs/issues/*.md` for issues listing this `<ID>` in their `depends:`.
+   - For each affected issue, run its original test commands.
+   - Any previously-passing test now fails -> FAIL with regression report.
+8. Determine `failure_type` if FAIL:
+   See `orchestrator-failures.md` Sec. 1.2.
+   Pick ONE from: implementation, ac_ambiguous, ac_wrong, test_env,
+   test_quality, merge_conflict.
+   Priority order in Sec. 1.2.
+9. Post verdict comment on Platform Issue.
+10. Add label `qa-passed` or `qa-failed`.
 
-- [x] Criterion 1
-- [x] Criterion 2
+Timeout: `[timeouts.qa_minutes]` minutes. Exceed -> `failure_type: test_env`.
 
-## Lint Report (non-blocking)
-- `ruff check`: 0 errors, N warnings
-- Notes: ...
+## Output format - PASS
 
-## Regression Check (only if re-verification)
-- T1 tests: PASS
-- T2 tests: PASS
+    ## QA VERDICT: PASS
 
-Tests: `uv run pytest tests/test_module.py::TestClass`, N/N PASS
+    - [x] Criterion 1
+    - [x] Criterion 2
 
-Add label `qa-passed`.
+    ## Lint Report (non-blocking)
+    - ruff check: 0 errors, N warnings
 
-### FAIL
+    ## DoD Verification
+    - [x] All AC pass
+    - [x] Tests pass
+    - [x] Lint clean
 
-## QA VERDICT: FAIL
+    ## Test Quality Warnings (if any)
+    - (none)
 
-- [x] Criterion 1 - PASS
-- [ ] Criterion 2 - FAIL
-      What I did: ...
-      What happened: ...
+    ## Regression Check (if re-verification)
+    - T1: PASS
+    - T2: PASS
 
-## Lint Report (non-blocking)
-- `ruff check`: 0 errors, N warnings
+    Tests: <command>, N/N PASS
 
-## Regression Check (only if re-verification)
-- T1 tests: PASS
-- T2 tests: FAIL (regression)
+After posting: add label `qa-passed`. Set `reached_state: qa-passed`.
 
-Tests: `uv run pytest`, N passed, M failed
+## Output format - FAIL
 
-Add label `qa-failed`.
+    ## QA VERDICT: FAIL
 
-## Pre-output checklist (MUST answer all before finishing)
+    - [x] Criterion 1 - PASS
+    - [ ] Criterion 2 - FAIL
+          Failure type: implementation
+          What I did: ...
+          What happened: ...
+
+    ## Lint Report (non-blocking)
+    - ruff check: 0 errors, N warnings
+
+    ## DoD Verification
+    - [ ] Item X - FAIL
+
+    ## Regression Check (if re-verification)
+    - T1: PASS
+    - T2: FAIL (regression)
+
+    Tests: <command>, N passed, M failed
+
+    ## Summary
+    <max 2 lines: essence of the failure for future retries>
+
+After posting: add label `qa-failed`. Set `reached_state: qa-failed`.
+
+## Pre-output checklist
 
 - [ ] Comment starts with `## QA VERDICT: PASS` or `## QA VERDICT: FAIL`
-- [ ] Every AC has a verdict (`[x]` or `[ ]`)
-- [ ] Every FAIL states what I did and what happened
-- [ ] Test command and result included
-- [ ] Lint Report included
-- [ ] If re-verification: Regression Check included
-- [ ] No code changed by me
+- [ ] Every AC has a verdict
+- [ ] Every FAIL states failure_type + what I did + what happened
+- [ ] Test command + result included
+- [ ] Lint Report included (cache used if valid)
+- [ ] DoD Verification included
+- [ ] Test Quality Warnings included (if any)
+- [ ] Regression Check included (if re-verification)
+- [ ] Summary included (if FAIL, max 2 lines)
+- [ ] No code/test modified by me
 - [ ] Label `qa-passed` or `qa-failed` applied
-- [ ] reached_state = `qa-passed` or `qa-failed`
-- If any unchecked: do NOT finish, post BLOCKER comment
+- [ ] `reached_state: qa-passed` or `qa-failed`
+- If any unchecked: post `[BLOCKER]`, do NOT finish.
 
 ## Forbidden
 
-- Do NOT fix code
-- Do NOT edit tests
-- Do NOT close the issue
-- Do NOT skip running tests
-- Do NOT change AC
-- Do NOT block on lint alone (lint is non-blocking)
+- Fix code
+- Edit tests
+- Close issue
+- Skip running tests
+- Change AC
+- Block on lint alone (lint is non-blocking)
+- Block on test quality warnings alone
 
-Definition of done:
-- Comment starts with PASS or FAIL.
-- Every AC has a verdict.
-- Test command and result included.
-- Nothing in code was changed.
-- If re-verification: regression check performed on dependent issues.
+## No-commit rule (reinforced)
+
+- QA has NO write access to any file.
+- Even test files NOT modifiable.
+- Even for trivial fixes: FAIL, do NOT commit.
+- Orchestrator verifies branch SHA unchanged (Gate 3).
+
+## Definition of done
+
+- Verdict posted with all required sections.
+- Nothing in code/tests changed.
+- Label applied.

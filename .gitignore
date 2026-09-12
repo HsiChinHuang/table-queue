@@ -1,12 +1,88 @@
-node_modules/
-.venv/
-__pycache__/
-dev.db
-# pytest scratch databases (test.db, _*ac*.db) at any depth
-*.db
+# Raw daily logs (gitignored after week 1)
+_docs/log/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].md
+_docs/log/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-human.md
+_docs/log/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].md.gz
+
+# Track summaries and audits
+!_docs/log/weekly-*.md
+!_docs/log/*/summary.md
+!_docs/log/failure-audit*.md
+!_docs/log/index.md
+!_docs/log/archive/**
+
+# Runtime state (never commit)
+_docs/cache/
+_docs/state/orchestrator.lock
+_docs/state/heartbeat.txt
+_docs/state/PAUSE
+_docs/state/RESTART
+_docs/state/RESET
+_docs/state/RESET_APPROVED
+_docs/state/RESET_IDS
+_docs/state/RESET_PLATFORM_APPROVED
+_docs/state/initialized
+_docs/state/compressed/
+_docs/state/outputs/orphan-*/
+_docs/state/recovery.log
+_docs/state/log-rotating
+_docs/state/CANCEL_*
+
+# ============================================================
+# Secrets
+# ============================================================
 .env
-dist/
-coverage/
+
+# ============================================================
+# Local config (examples are committed)
+# ============================================================
+_docs/config.yaml
+
+# ============================================================
+# Worktrees (outside repo, safety net)
+# ============================================================
+../worktrees/
+
+# ============================================================
+# Python
+# ============================================================
+__pycache__/
+*.pyc
+.venv/
 .pytest_cache/
 .ruff_cache/
+
+# ============================================================
+# Node / frontend build output
+# ============================================================
+node_modules/
+dist/
+coverage/
+
+# ============================================================
+# Databases and logs (project rule: never commit *.db)
+# ============================================================
+*.db
+*.sqlite3
+dev.db
 *.log
+
+# ============================================================
+# OS
+# ============================================================
+.DS_Store
+Thumbs.db
+
+# ============================================================
+# IDE
+# ============================================================
+.vscode/
+.idea/
+
+# ============================================================
+# NOTE: CONFIG_SNAPSHOT.json IS committed (explicitly not ignored)
+# NOTE: _docs/state/snapshot.json IS committed
+# NOTE: _docs/state/retry.json IS committed
+# NOTE: _docs/state/seq.txt IS committed
+# ============================================================
+# orchestrator runtime state (machine-local, never committed; harness lives beside the repo)
+_docs/state/

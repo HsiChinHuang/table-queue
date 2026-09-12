@@ -1,23 +1,41 @@
 # Commands
 
-Commands are defined by `plan.md` tech-stack. Defaults:
+Defaults per tech-stack. Override in `plan.md` if different.
 
-## Python
+## Python (default)
 
-- `uv sync` - install dependencies
-- `uv run pytest` - whole suite
-- `ruff check --fix` - lint and autofix
+| Purpose | Command |
+|---|---|
+| Install deps | `uv sync` |
+| Run all tests | `uv run pytest` |
+| Run one file | `uv run pytest tests/test_<name>.py` |
+| Run one test | `uv run pytest tests/test_<name>.py::<Class>::<test>` |
+| Lint + fix | `ruff check --fix` |
+| Lint JSON | `ruff check --output-format=json` |
 
 ## Git (universal)
 
-- `git worktree add ../worktrees/<ID> -b issue/<ID>-<slug>` - create worktree
-- `git push -u origin issue/<ID>-<slug>` - push branch
-- `git fetch origin` - sync remote
-- `git checkout main && git reset --hard origin/main` - sync main
-- `git merge --no-ff issue/<ID>-<slug>` - merge branch
-- `git worktree remove ../worktrees/<ID>` - cleanup
+| Purpose | Command |
+|---|---|
+| Create worktree | `git worktree add ../worktrees/<ID> -b issue/<ID>-<slug>` |
+| Push branch | `git push -u origin issue/<ID>-<slug>` |
+| Sync remote | `git fetch origin` |
+| Sync main | `git checkout main && git reset --hard origin/main` |
+| Merge branch | `git merge --no-ff issue/<ID>-<slug>` |
+| Remove worktree | `git worktree remove ../worktrees/<ID>` |
 
-For non-Python: replace with equivalent in `plan.md`.
+## Non-Python
+
+Replace with equivalents defined in `plan.md` tech-stack section.
+
+## Orchestrator commands
+
+| Purpose | Command |
+|---|---|
+| Export failures | `orchestrator export-failures` |
+| Generate DAG | `orchestrator dag-export` |
+| Heartbeat | (handled by subagent internally) |
+
 
 ## Project make targets (TableQueue)
 

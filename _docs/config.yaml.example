@@ -1,0 +1,217 @@
+# ============================================================
+# Project Config — copy to config.yaml and adjust
+# No secrets. No tokens. No API keys.
+# YAML 1.2. Booleans: true/false only. UTF-8 no BOM.
+# ============================================================
+
+config_version: 1
+
+# timezone: base for LOCAL_TS in logs. UTC or IANA name (e.g., Asia/Taipei).
+# UTC_TS is always UTC regardless. Invalid value falls back to UTC.
+timezone: UTC
+
+timeouts:
+  qa_minutes: 30
+  orch_restart_hours: 1
+  orch_restart_transitions: 20
+  recovery_minutes: 10
+  heartbeat_stale_minutes: 10
+  slot_wait_minutes: 10
+  auto_commit_minutes: 5
+  idle_sleep_seconds: 30
+  ci_wait_minutes: 15
+  merge_starvation_hours: 24
+  suggestion_pm_wait_hours: 24
+  suggestion_timeout_hours: 48
+  approval_warn_hours: 24
+  approval_max_hours: 72
+  pause_stale_days: 7
+  completion_verify_delay_seconds: 60
+
+dag:
+  # existing keys
+  hub_scan_interval_hours: 6
+  hub_scan_lock_timeout_seconds: 60
+
+priority:
+  human_override_max: 3
+  boost_value: 100
+
+memory:
+  read_max: 3
+  promote_count: 2
+  fail_delete_threshold: 3
+  write_after_retries: 10
+  pattern_threshold: 3
+  similarity_dedupe: 0.85
+  max_size_kb: 10
+  max_candidates: 100
+  retention_days: 90
+  verified_retention_days: 365
+  conflict_history_dir: memory/conflicts
+
+output:
+  externalize_lines: 50
+  externalize_tokens: 1000
+  request_max_lines: 500
+  diff_split_lines: 2000
+
+retention:
+  output_keep_days: 7
+  output_archive_days: 30
+  log_keep_days: 90
+  lint_cache_days: 30
+  config_history_keep: 10
+  daily_log_days: 30
+  monthly_summary_days: 90
+  quarterly_archive_days: 365
+  compliance_years: 1
+  merge_history_days: 0
+  failure_audit_days: 0
+  approval_keep_days: 30
+
+limits:
+  dep_chain_warn: 10
+  dep_chain_halt: 20
+  comments_keep: 5
+  analysis_max_per_day: 5
+  total_retry_warn: 1000
+  blocker_fatigue_count: 5
+  stale_block_days: 7
+  long_wait_ready_hours: 24
+  process_anomaly_pct: 10
+  process_anomaly_window: 20
+  plan_quality_threshold: 3
+  oscillation_alternations: 2
+  qa_misjudgment_threshold: 2
+  similar_failures_threshold: 3
+  correlation_window_minutes: 5
+  concurrent_failure_threshold: 3
+  starvation_warn_hours: 24
+  starvation_blocker_hours: 48
+  backlog_drift_log: 3
+  backlog_drift_blocker: 10
+  ac_change_blocker_pct: 50
+  api_confirm_retries: 2
+  api_confirm_gap_seconds: 5
+  failure_pattern_threshold: 3
+  config_suspect_threshold: 3
+  slot_stale_multiplier: 2
+  recovery_attempt_threshold: 3
+  blocker_create_retry: 3
+  approval_delete_files: 1
+  approval_issue_count: 10
+  similarity_threshold: 0.8
+  git_retry_max: 3
+  history_max_lines: 1000
+  pending_stale_days: 7
+
+log:
+  tail_lines: 100
+  line_max_chars: 500
+  dual_format_daily: true
+  compress_after_days: 7
+  monthly_after_days: 30
+  quarterly_after_days: 365
+  rotation_buffer_lines: 1000
+  rotation_time_utc: "00:05"
+  report_delay_hours: 12
+
+merge:
+  full_suite_every: 10
+  dry_run: true
+  queue_priority_by_dependents: false
+  fast_path_lines: 10
+  commit_message_max: 5000
+
+slots:
+  max: 3
+
+sw_retry:
+  per_round: 25
+  per_issue: 100
+
+pm_retry:
+  per_issue: 4
+
+sa:
+  batch_size: 50
+  batch_delay_seconds: 5
+  rate_limit_per_second: 5
+  max_minutes: 60
+  template_strict: true
+  dry_run: false
+  requirements_files: [_docs/requirements.md]
+  output_language: en
+
+dag:
+  cache: true
+  incremental: true
+  max_depth_warn: 10
+  max_depth_halt: 20
+  hub_file_threshold: 5
+  hub_file_human_escalate: 10
+  hub_recheck_on_pending: true
+  cycle_detection_on_change: true
+
+plan:
+  quality_check_enabled: true
+  traceability_required: false
+
+retry:
+  # Subagent-level retry limits (per type, per issue).
+  # See orchestrator-failures.md Sec. 1.3.
+  subagent:
+    timeout: 3
+    crash: 5
+    format_error: 3
+    empty: 3
+    refused: 0
+
+git:
+  push_retry: 3
+  push_backoff_seconds: [5, 15, 45]
+  merge_fix_max_level: 3
+  flaky_rerun: 1
+  flaky_high_pct: 10
+  worktree_retry: 3
+  worktree_lock_backoff_seconds: 5
+  force_push_check: true
+  autocrlf_uniform: true
+  ignore_all_space_first: true
+  binary_conflict_human_required: true
+  main_history_track: true
+  require_gpg: false
+
+worktree:
+  pool_size: 0
+
+audit:
+  chain: false
+
+ac:
+  materiality_threshold_pct: 20
+
+completion:
+  auto_restart: false
+
+disk:
+  warn_mb: 1000
+  halt_mb: 100
+  force_archive_mb: 500
+  archive_free_ratio: 2.0
+
+backlog:
+  active_max_rows: 500
+  split_on_exceed: true
+
+api:
+  page_size: 100
+  cache_ttl_minutes: 5
+  cache_force_on_error: true
+
+# ============================================================
+# Change log (append below)
+# ============================================================
+# 2026-09-12: initial
+
