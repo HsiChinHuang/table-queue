@@ -675,10 +675,34 @@ The single deliberate disagreement this module tolerates, named here so a second
 to this literal and argued for, rather than appearing as a set difference nobody reads.
 """
 
-CONTRACT_YAML = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "_docs", "openapi.yaml")
-)
-"""The contract file, from the test's own location - never from the caller's working directory."""
+def _contract_yaml() -> str:
+    """`_docs/openapi.yaml`, found from this suite's own home rather than from anyone's cwd.
+
+    `_docs/testing.md:488` puts AC blocks at the repo root, and the AC-14 block runs pytest
+    with `cwd="backend"`, so a path built against the working directory resolves to
+    `backend/_docs/` and raises `FileNotFoundError` - a red that looks like a contract
+    regression and is really a packaging accident. `__file__` is the only reliable anchor.
+
+    It is deliberately resolved at call time, not frozen at module scope. A module-level
+    `CONTRACT_YAML = abspath(...)` looks equivalent and is not: pytest 9 imports a collected
+    file from outside the rootdir by exec-ing it with `__file__` set to the bare filename, so
+    the constant freezes as `_docs/openapi.yaml`, resolves against the caller's cwd, and all
+    twelve contract arms fail together. Deferring keeps the anchor honest about its own home:
+    a file that cannot see itself on disk is not in a directory worth trusting, and the
+    search walks up from there instead.
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    for _ in range(8):
+        if os.path.isfile(os.path.join(here, "_docs", "openapi.yaml")):
+            return os.path.join(here, "_docs", "openapi.yaml")
+        parent = os.path.dirname(here)
+        if parent == here:
+            break
+        here = parent
+    raise AssertionError(
+        "no _docs/openapi.yaml found above this test file, so the contract arms cannot say "
+        "what the contract claims: " + os.path.abspath(__file__)
+    )
 
 
 def _not_null_writable_fields() -> set[str]:
@@ -758,7 +782,7 @@ def test_every_writable_field_is_named_by_the_contract_and_the_model(field):
     assert field in UpdateSettingsRequest.model_fields, "the request model dropped " + field
     props = UpdateSettingsRequest.model_json_schema()["properties"]
     assert field in props, "the generated document dropped " + field
-    with open(CONTRACT_YAML, encoding="utf-8") as handle:
+    with open(_contract_yaml(), encoding="utf-8") as handle:
         raw = handle.read()
     start = raw.index("    UpdateSettingsRequest:")
     nxt = re.compile(r"^    [A-Za-z][A-Za-z0-9]*:$", re.M).search(raw, start + 1)
