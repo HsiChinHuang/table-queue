@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import inspect
 import json
+import os
+import re
 import time
 
 import pytest
@@ -623,6 +625,137 @@ def test_the_null_rule_narrows_no_bound_the_contract_prices(client, engine):
         assert response.status_code == 200, body
     assert stored_settings(engine).hold_minutes == 15
     assert len(stored_branch(engine).address) == 201
+
+
+# ---------- the null rule's own premise, read from the store rather than from a list ----------
+
+NULL_RULE_FIELDS = [
+    "restaurant_name",
+    "branch_name",
+    "address",
+    "phone",
+    "open_time",
+    "close_time",
+    "hold_minutes",
+    "avg_seat_minutes",
+    "queue_prefix",
+    "is_waitlist_open",
+    "sound_enabled_default",
+]
+"""The fields ``app.schemas`` refuses to null: every writable settings field except
+``notification_templates``. The reason for the exception is a CONTRACT fact and it is written down
+item 5 of ``_docs/issues/B-10.md`` - ``_docs/openapi.yaml`` declares this object with no
+``required`` list and no ``additionalProperties: false``, so a ``null`` there is the one body shape
+the contract genuinely leaves open, and its 422 stays the service's three-key rule (AC-6) rather
+narrowed into a schema rule the contract does not carry. It is NOT a store fact: the column is
+``nullable=False`` like the other eleven, so the disagreement below is deliberate, named, and
+explained in both directions. The store is still read rather than restated - see
+:func:`_not_null_writable_fields`, whose set is derived from ``app.models`` column by column."""
+
+COLUMN_NULLABLE = {
+    "restaurant_name": (Restaurant, "name"),
+    "branch_name": (Branch, "name"),
+    "address": (Branch, "address"),
+    "phone": (Branch, "phone"),
+    "open_time": (Branch, "open_time"),
+    "close_time": (Branch, "close_time"),
+    "hold_minutes": (SettingsRow, "hold_minutes"),
+    "avg_seat_minutes": (SettingsRow, "avg_seat_minutes"),
+    "queue_prefix": (SettingsRow, "queue_prefix"),
+    "is_waitlist_open": (SettingsRow, "is_waitlist_open"),
+    "sound_enabled_default": (SettingsRow, "sound_enabled_default"),
+    "notification_templates": (SettingsRow, "notification_templates"),
+}
+"""Where each writable field actually lands, read from ``app.models`` rather than restated."""
+
+CONTRACT_NULLABLE_EXCEPTION: set[str] = {"notification_templates", "address"}
+"""The one field the contract leaves nullable although its column is NOT NULL.
+
+The single deliberate disagreement this module tolerates, named here so a second one has to be added
+to this literal and argued for, rather than appearing as a set difference nobody reads.
+"""
+
+CONTRACT_YAML = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "_docs", "openapi.yaml")
+)
+"""The contract file, from the test's own location - never from the caller's working directory."""
+
+
+def _not_null_writable_fields() -> set[str]:
+    """The writable settings fields whose column ``app.models`` says cannot hold null.
+
+    Derived from the table metadata rather than typed out, so a column that gains or loses a
+    ``nullable`` flag moves this set on its own.
+    """
+    return {
+        field
+        for field, (model, column) in COLUMN_NULLABLE.items()
+        if not model.__table__.columns[column].nullable
+    }
+
+
+def _null_rule_fields() -> list[str]:
+    """The field names the shipped null rule carries, read out of the model's own validators."""
+    for validator in UpdateSettingsRequest.__pydantic_decorators__.field_validators.values():
+        info = validator.info
+        if info.mode == "before" and "restaurant_name" in info.fields:
+            return sorted(info.fields)
+    return []
+
+
+def test_the_null_rule_covers_exactly_the_columns_that_cannot_hold_null():
+    """The rule and the store agree, field by field, and neither is taken on trust.
+
+    A schema-level null rule has one failure mode no behavioural test catches: a twelfth writable
+    field is added to the contract, nobody adds it to the validator's list, and its null answers 500
+    again - which is the exact defect this round fixed, re-made as an omission. This test is the
+    mechanical half of that: it reads each field's column from ``app.models``, reads the names the
+    shipped validator carries, and fails if the two sets have drifted. The one allowed disagreement
+    is ``notification_templates`` - NOT NULL in the store, absent from the rule, for the contract
+    reason spelled out on :data:`NULL_RULE_FIELDS` - so a second exception has to be a decision
+    recorded in both places rather than an oversight in one.
+    """
+    rule = _null_rule_fields()
+    assert rule == sorted(NULL_RULE_FIELDS), "the text list above is no longer the shipped rule"
+    not_null = _not_null_writable_fields()
+    # Twelve writable fields, twelve NOT NULL columns: no store-level exception exists, so a field
+    # that leaves this set has changed nullability and every premise in item 5 needs re-reading.
+    assert not_null == set(COLUMN_NULLABLE), (
+        "a settings column became nullable, or a column left the map: "
+        + str(sorted(set(COLUMN_NULLABLE) ^ not_null))
+    )
+    assert rule == sorted(not_null - CONTRACT_NULLABLE_EXCEPTION), (
+        "the null rule and the NOT NULL columns have drifted: "
+        + "rule=" + str(rule) + " columns=" + str(sorted(not_null))
+    )
+    assert not {
+        field
+        for field, (model, column) in COLUMN_NULLABLE.items()
+        if model.__table__.columns[column].primary_key
+    }, "a writable settings field is a primary key, which no contract entry can mean"
+
+
+@pytest.mark.parametrize("field", sorted(COLUMN_NULLABLE))
+def test_every_writable_field_is_named_by_the_contract_and_the_model(field):
+    """Nothing writable is invisible: contract file, generated schema and model all name it.
+
+    The set this arm walks is derived from ``app.models`` through ``COLUMN_NULLABLE``, so a field
+    the contract declares but no test names is caught by the map growing, not by a sentence.
+    """
+    assert field in UpdateSettingsRequest.model_fields, "the request model dropped " + field
+    props = UpdateSettingsRequest.model_json_schema()["properties"]
+    assert field in props, "the generated document dropped " + field
+    with open(CONTRACT_YAML, encoding="utf-8") as handle:
+        raw = handle.read()
+    start = raw.index("    UpdateSettingsRequest:")
+    nxt = re.compile(r"^    [A-Za-z][A-Za-z0-9]*:$", re.M).search(raw, start + 1)
+    section = raw[start : nxt.start() if nxt else len(raw)]
+    declared = set(re.findall(r"^        ([a-z_]+):$", section, re.M))
+    assert field in declared, "_docs/openapi.yaml declares no " + field + " property there"
+    assert sorted(declared) == sorted(UpdateSettingsRequest.model_fields), (
+        "the contract file and the generated model name different properties: "
+        + str(sorted(declared ^ set(UpdateSettingsRequest.model_fields)))
+    )
 
 
 # ---------- AC-9: auth ----------
