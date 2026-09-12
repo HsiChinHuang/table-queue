@@ -19,10 +19,11 @@ Auth: all nine ride on ``app.dependencies.Staff`` (B-04/B-05's ``get_current_sta
 missing, non-bearer, forged or expired token is 401 ``AUTH_TOKEN_EXPIRED`` before any handler
 runs - which is what AC-2 measures on all nine paths at once.
 
-The edit route is a POST as well as a PUT (see the module body): ``_docs/specs.md`` section 12 and
-``_docs/openapi.yaml`` name ``POST .../{id}/edit``, while the issue's own AC set puts the edit on
-``PUT .../{id}``. Both spellings are registered, both are the same handler over the same service
-call, and AC-1's path-prefix check admits the PUT plus the eight POSTs it names.
+The edit route is the PUT and nothing else: ``_docs/specs.md`` section 12 and
+``_docs/openapi.yaml`` name ``PUT /api/v1/staff/waitlist/{id}`` (``operationId editWaitlist``), and
+AC-14 removed the older ``POST .../{id}/edit`` spelling from the contract. A route the contract does
+not declare is the drift AC-14 exists to close, and it is the surface B-12's contract-completeness
+test fails the suite for, so the POST spelling is not mounted here even as a compatibility alias.
 
 Rate limiting: none, exactly as B-08's table surface does it. Section 15 budgets login, join and
 lookup only, the contract declares no 429 here, and ``app.main`` owns the one process ``Limiter``;
@@ -84,7 +85,7 @@ def list_waitlist(
 
 
 @router.put("/api/v1/staff/waitlist/{entry_id}", response_model=WaitlistEntryResponse)
-def edit_waitlist_by_put(
+async def edit_waitlist(
     request: Request,
     entry_id: str,
     staff: Staff,
@@ -98,26 +99,17 @@ def edit_waitlist_by_put(
     rather than silently accepted, while ``{}`` is a no-op 200 that returns the entry unchanged.
     A ``party_size`` outside the schema's own range is the same 422 from the bound model, and an
     entry that is not ``WAITING`` or ``CALLED`` is 409 ``WAITLIST_INVALID_STATUS``.
+
+    This handler is ``async`` because reading the body is an await: ``Request.body()`` is a
+    coroutine function, and a ``def`` handler runs on a worker thread with no loop to await on, so
+    the un-awaited coroutine reaches ``bytes.strip()`` as a coroutine object and every
+    body-carrying request answers 500 ``INTERNAL_ERROR`` - the defect AC-6, AC-7 and AC-13 measure.
     """
     return service.edit_entry(
-        db, entry_id, service.parse_edit_body(request.method, _json_body(request)), get_now()
-    )
-
-
-@router.post("/api/v1/staff/waitlist/{entry_id}/edit", response_model=WaitlistEntryResponse)
-def edit_waitlist(
-    request: Request,
-    entry_id: str,
-    staff: Staff,
-    db: DbSession,
-) -> Any:
-    """POST /api/v1/staff/waitlist/{entry_id}/edit: the contract's spelling of the same edit.
-
-    ``_docs/specs.md`` section 12 and ``_docs/openapi.yaml`` declare this path; the issue's AC set
-    declares the PUT above. One service call serves both, and the body rules are identical.
-    """
-    return service.edit_entry(
-        db, entry_id, service.parse_edit_body(request.method, _json_body(request)), get_now()
+        db,
+        entry_id,
+        service.parse_edit_body(request.method, await _json_body(request)),
+        get_now(),
     )
 
 
@@ -211,14 +203,18 @@ def cancel_waitlist(entry_id: str, staff: Staff, db: DbSession) -> Any:
     return service.cancel_entry(db, entry_id, get_now())
 
 
-def _json_body(request: Request) -> Any:
+async def _json_body(request: Request) -> Any:
     """Return the request body as a mapping, or ``None`` when there is none to parse.
+
+    The read is awaited, and the caller must be an ``async def`` endpoint to make that possible.
+    ``Request.body()`` returns a coroutine, so an un-awaited call compares a coroutine object with
+    ``bytes`` below and the endpoint dies on ``AttributeError`` behind a 500.
 
     The edit route is the only one with a body a client may omit, and an absent body is the
     contract's no-op: ``{}`` edits nothing and answers 200. A body that is not JSON at all is left
     for the service to refuse.
     """
-    raw = request.body()
+    raw = await request.body()
     if not raw or not raw.strip():
         return None
     import json

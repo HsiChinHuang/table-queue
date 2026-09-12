@@ -42,6 +42,8 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
+from pydantic import ValidationError
+
 from app.errors import AppError
 from app.models import (
     Branch,
@@ -823,6 +825,15 @@ def parse_edit_body(method: str, body: Any) -> dict[str, Any]:
       so the entry comes back unchanged.
 
     A JSON value that is not an object at all is the same refusal: it names no field.
+
+    A field the schema *does* declare but whose value breaks its own constraint - ``party_size``
+    outside ``ge=1, le=5`` - is the same 422 ``VALIDATION_ERROR``. ``EditWaitlistRequest`` is
+    validated here rather than by FastAPI's request binding, because this route is the one route
+    whose body a client may omit entirely, and a manual ``model_validate`` raises pydantic's
+    ``ValidationError`` - which the error layer has no handler for - so a party size of 0 would
+    answer 500 ``INTERNAL_ERROR`` where AC-7 and AC-13 ask for 422 and for the row to stay put.
+    The exception is translated into the same envelope the hand-written refusals raise, with one
+    entry per rejected field.
     """
     if body is None:
         return {}
@@ -835,7 +846,10 @@ def parse_edit_body(method: str, body: Any) -> dict[str, Any]:
         raise _edit_validation_error(unknown[0])
     from app.schemas import EditWaitlistRequest
 
-    bound = EditWaitlistRequest.model_validate(body)
+    try:
+        bound = EditWaitlistRequest.model_validate(body)
+    except ValidationError as exc:
+        raise _edit_validation_errors(exc) from exc
     return {"party_size": bound.party_size, "note": bound.note}
 
 
@@ -852,6 +866,27 @@ def _edit_validation_error(field: str) -> AppError:
         status_code=422,
         message="Validation error",
         details={"fields": [{"field": field, "msg": "Field validation failed"}]},
+    )
+
+
+def _edit_validation_errors(exc: ValidationError) -> AppError:
+    """Return the 422 ``VALIDATION_ERROR`` envelope for a body the shipped schema rejected.
+
+    ``details.fields`` is the list-shaped twin of what the hand-written refusals raise, so a
+    constraint break (`party_size: 0`) and a key the schema does not have (`status`) are the same
+    section 11 answer rather than two shapes. Each entry names the field and pydantic's own
+    message; nothing else from the request reaches the response.
+    """
+    fields = [
+        {"field": ".".join(str(part) for part in (err.get("loc") or ("body",))),
+         "msg": str(err.get("msg") or "Field validation failed")}
+        for err in exc.errors()
+    ]
+    return AppError(
+        "VALIDATION_ERROR",
+        status_code=422,
+        message="Validation error",
+        details={"fields": fields or [{"field": "body", "msg": "Field validation failed"}]},
     )
 
 
