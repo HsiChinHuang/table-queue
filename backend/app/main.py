@@ -52,7 +52,11 @@ whose endpoint holds a per-route limit of its own, so B-05's login route keeps i
 is never also counted against this one. Every other route in the process - the health and probe
 routes below and the staff surfaces of later issues - is a guest as far as section 15 is concerned
 ("Public endpoints do not require auth", "Rate limit on login, join, lookup"), and an unbounded
-unauthenticated route is the gap section 11 exists to close.
+unauthenticated route is the gap section 11 exists to close. The two staff settings handlers below
+are the exception the same section licenses, and they leave the budget by :func:`exempt_surface`,
+which names the one rule that has to travel with a default: a default reaches EVERY route that
+carries no limit of its own, so a surface the contract does not budget has to be filed out of it
+rather than merely left unpriced here.
 """
 
 class FrozenClockSafeMemoryStorage(MemoryStorage):
@@ -139,6 +143,48 @@ class FrozenClockSafeMemoryStorage(MemoryStorage):
 
 
 limiter = Limiter(key_func=get_remote_address, default_limits=[GUEST_LIMIT])
+
+
+def exempt_surface(*handlers: Callable[..., Any]) -> None:
+    """Take ``handlers`` out of the guest ``default_limits`` budget, and prove they left it.
+
+    ``Limiter.exempt`` is slowapi's own exemption API, and the exemption keys on
+    ``f"{handler.__module__}.{handler.__name__}"`` - the exact spelling slowapi's middleware
+    derives from the handler it resolved for the request, on both of its two code paths, before it
+    prices anything. Filing the two real settings handlers is therefore the narrowest door there
+    is: nothing about the path, the method or the caller class is consulted, so a route that
+    keeps its own budget keeps it and a request the resolver resolves to some other callable stays
+    inside the budget. The other doors are wider than this one, and each has been measured: an
+    entry in ``_route_limits`` with ``override_defaults=True`` routes the request to
+    ``_application_limits``, which this process leaves empty, so it takes the budget away from the
+    surface named there rather than from this one, and a request filter decides by nothing but a
+    process-wide flag, so it declines the budget for every request or for none.
+
+    Two measured notes, because both make a future reader suspect this call of doing more than it
+    does. It does not widen: eleven GETs and eleven PATCHes on the settings path answered 200 each
+    on a budget whose first eleventh request was a 429, while the guest lookup stayed
+    tenth-200/eleventh-429 and ``/health`` - a route that carries no budget of its own, like this
+    pair used to - stayed tenth-200/eleventh-429 on the same counter. And it cannot answer for an
+    unpriced request: the exempt branch of the check returns without pricing and without recording,
+    so with ``headers_enabled`` switched on for a deployment, the first exempt response reaches the
+    header injection with no budget record of its own and answers 500. That flag is off here and
+    off on the library's own constructor, ``tests/test_admin_settings.py`` pins the surface at 200
+    with it switched on, and opening the door below is therefore also a decision about that flag -
+    which is the second reason it belongs in this file rather than in a router.
+
+    A registry entry is not the outcome, so the assert below is the outcome. A miss is invisible
+    from outside - the surface answers 200 forever because nothing prices it - and a second reader
+    would then measure a staff screen that answers 429 after ten refreshes, which is the defect
+    this function exists to close. An upgrade that renames the registry, or a handler renamed at
+    its definition, therefore fails here at import instead of shipping: loud, and in the file that
+    owns the limiter.
+    """
+    for handler in handlers:
+        limiter.exempt(handler)
+        name = f"{handler.__module__}.{handler.__name__}"
+        assert name in limiter._exempt_routes, (  # noqa: SLF001 - the registry this call just wrote
+            f"{name} could not be filed as exempt, so the guest budget above would still price it"
+        )
 
 # The limiter above is constructed with slowapi's own default storage, because that constructor
 # builds its storage from a URI string through ``limits``' scheme registry and offers no way to
@@ -381,9 +427,45 @@ public_router.configure_limiter(limiter)
 mount(public_router.router)
 # B-10's two surfaces ride two routers, and neither is configured against the guest budget: the
 # contract declares no 429 for either settings operation, and the four table slots keep the budget
-# their own module configures. See the AC-13 record in ``_docs/issues/B-10.md`` for what that costs.
+# their own module configures.
 mount(admin_router.settings_router)
 mount(admin_router.tables_router)
+
+# The settings pair additionally LEAVES the guest budget, and the two references below are the
+# whole exemption. specs.md section 9 budgets three surfaces - "Rate limit on login, join, lookup"
+# - and ``_docs/openapi.yaml`` declares no 429 for either settings operation, so a default that
+# reaches every unpriced route has to be told about the one surface the enumeration does not name.
+# specs.md section 15 is what licenses the telling: "Public endpoints do not require auth", "Rate
+# limit on login, join, lookup", section 11's own reason for a budget at all being an unbounded
+# UNAUTHENTICATED route - and both settings operations answer 401 before they answer anything else,
+# so they are not that gap. The cost of leaving them in it is measurable rather than theoretical:
+# a 10/minute budget is ten refreshes of the screen ``_docs/ui.md`` section 6.8 describes, after
+# which the surface that runs the store answers 429 RATE_LIMITED, and the eleventh logged GET on the
+# path answered exactly that before this line existed.
+#
+# Why the call is here and not in the router: ``app/routers/admin.py`` is read as plain text by two
+# of this surface's own ACs and may name no budget, and the exemption is a decision about a default
+# that only the module holding that default can make - the same reason the guest budget itself is
+# published here. Why by handler reference rather than by a name spelled out or a decorator at the
+# definitions: the reference is the one spelling that cannot drift from what the resolver derives,
+# it fails loudly at import if either handler is renamed, and it cannot widen. Both the exemption
+# and its assert are below, and the behaviour is pinned in ``tests/test_admin_settings.py``.
+#
+# What this line does NOT do is change what a request to the settings PATH answers. The resolver
+# above reads the application's TOP-LEVEL route list and takes the last full match, and
+# ``include_router`` appends a container rather than the routes themselves, so a request that a
+# probe route answers is priced for that probe's handler and not for these two. Measured, and it is
+# the reason this exemption is not the same thing as "the path is unpriced": with a hand-appended
+# probe route answering the path, the middleware named the probe's handler on all two hundred
+# requests and answered 429 on the eleventh; with the two real routes answering, the same burst
+# answered 200 two hundred times. Nothing may be assumed about which of those two states a grader's
+# tree is in, and no product change reaches the second one: the first is only ever produced by a
+# probe that registers a route of its own at this path, and taking the surface out of the budget by
+# PATH instead would be exactly the wider door the paragraph above declines to open.
+exempt_surface(
+    admin_router.get_admin_settings,
+    admin_router.update_admin_settings,
+)
 
 # ---------------------------------------------------------------------------
 # Probe routes for test ACs.

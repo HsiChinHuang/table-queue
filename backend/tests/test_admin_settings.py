@@ -513,35 +513,36 @@ def test_missing_or_unusable_bearer_answers_401(client, header):
 
 # ---------- AC-13: the settings surface carries no budget of its own
 #
-# AC-13 asks two things, and only one of them is a property of this module. The first - that
-# ``app/routers/admin.py`` registers no budget of its own - is asserted below from the module text,
-# and it holds. The second - that two hundred logged calls to the settings path answer no 429 with
-# the guest budget switched on - is a property of the shared component in ``app/main.py``, and on
-# this branch it does NOT hold: ``app/main.py`` builds the limiter with a ``default_limits`` value,
-# and at this lock (slowapi 0.1.10, ``key_style="url"``) a default prices every request whose
-# handler carries no per-route entry of its own, which is exactly what the first half enforces here.
+# AC-13 asks two things, and this file asserts the half that belongs to this module plus the
+# regression that keeps the other half honest. The first is textual: ``app/routers/admin.py``
+# registers no budget of its own, asserted below from the module text. The second is behavioural -
+# two hundred logged calls to the settings path answer no 429 while the guest budget is switched on
+# - and it is a property of the shared component in ``app/main.py``, which now takes this pair out
+# of its own ``default_limits`` budget (``exempt_surface``, beside the limiter that owns the
+# default). What is asserted below is that decision and its cost: the exemption is filed for both
+# handlers and for nothing else, a burst on the settings path never reaches a 429, an exempt
+# response survives the limiter's own headers flag being switched on, and the guest budgets section
+# 9 does name keep counting exactly as B-06 AC-14 measured them.
 #
-# Three ways out were built on this branch and measured, and none of them was green:
-#   * ``Limiter.exempt(handler)`` files the handler's dotted name, but the same call prices by path
-#     at ``key_style="url"``, so nothing matches and the eleventh refresh is a 429.
-#   * an entry in ``Limiter._route_limits`` is consulted by the per-route check and not by the
-#     middleware, which assembles what it applies without reading that table; once the middleware is
-#     told to skip the surface it reads back which budget applied in order to price the response
-#     headers, and no record exists for a request it never measured - the refresh answers 500 on the
-#     way out of having been served correctly.
-#   * a request filter does decline the default, and hits that same header wall, because the flag
-#     that declines is process-wide rather than per path.
-# The two doors that would keep the middleware quiet instead - ``headers_enabled`` off for the
-# process, or ``default_limits`` narrowed to the paths section 9 names - each take a budget away
-# from B-05's login or B-06's four guest counters, whose green tests are this repository's own. So
-# the exclusion is a decision for the owner of that component rather than a fact this branch can
-# earn, and what is asserted here is the half that is this module's to hold. The measured record of
-# all three doors is in ``_docs/issues/B-10.md``.
+# Two facts about the mechanism belong to this comment rather than to a test, because both are
+# decisions and neither is measurable from here. An entry in ``Limiter._route_limits`` with
+# ``override_defaults=True`` was tried first and rejected: it routes the request to
+# ``_application_limits``, which this process leaves empty, so the middleware stops pricing the
+# named surface without the exemption ever being visible in a registry - the state AC-13's own
+# failure text calls out. And the exempt branch of the library's check returns without pricing and
+# without recording, so with ``headers_enabled`` switched on for a deployment, the first exempt
+# response has no budget record for the header injection to read and answers 500. That flag is off
+# here and off on the library's own constructor; the test that names it is kept as the measured
+# boundary of this repair rather than as a comment about a flag.
 #
-# What the two tests below that DO make requests therefore show, read together, is the boundary of
-# the defect rather than its repair: a burst against the guest login is priced, and the settings
-# surface is priced by the same default and reaches no 429 only because nothing here measures it to
-# the tenth call and past. ----------
+# What no test here can assert is that AC-13's burst reaches the two real handlers. The library
+# resolves a request against the application's TOP-LEVEL route list and takes the last full match,
+# and ``include_router`` appends a container rather than the routes themselves, so a request that
+# some probe's hand-appended route answers is priced for that probe's handler. With such a route
+# registered at this path, the middleware named the probe's handler on all two hundred requests and
+# answered 429 on the eleventh; with the two real routes answering, the same burst answered 200 two
+# hundred times. Both numbers are recorded in ``_docs/issues/B-10.md``, and the reason no product
+# change reaches the first is stated where the exemption is made.
 
 
 def test_settings_half_of_the_router_names_no_limiter():
@@ -554,23 +555,11 @@ def test_settings_half_of_the_router_names_no_limiter():
     that stopped at a marker would leave that half unexamined: a budget on a table route would be
     reported as clean.
 
-    Deliberately absent is any assertion about the shared budget's registry, which an earlier
-    revision
-    of this file carried. It asserted that the surface's two operations are filed in
-    ``limiter._route_limits`` under exactly the names the meter derives for them - a structural
-    claim
-    that reads well and is false in a way nobody reading the test could see, because filing an entry
-    does not take a surface out of a ``default_limits`` budget at this lock: the middleware
-    assembles
-    the limits it applies without consulting that table when no entry matches, and an entry that
-    does
-    match is handed to a code path that then reads a request attribute it never set. A green
-    assertion
-    over a registry that has no say is the worst kind of green, and the mechanism it described is
-    gone
-    from this branch. What AC-13 measures is two hundred calls answering no 429 - a
-    request-and-response fact - and that half belongs to
-    ``test_the_settings_surface_is_priced_by_nothing_of_its_own`` below.
+    This is the AC's own arm, and it is deliberately the only textual one. What the exemption that
+    does exist is filed against is a request-and-response fact and belongs to the two tests below
+    that make requests; a green assertion over a registry, on the other hand, is only worth anything
+    when the registry has the last word - which ``_route_limits`` does not, and which
+    ``_exempt_routes`` does.
     """
     from app.routers import admin
 
@@ -579,23 +568,140 @@ def test_settings_half_of_the_router_names_no_limiter():
     assert "shared_limit" not in source
 
 
-def test_settings_surface_answers_200_two_hundred_times(client, db):
-    """Two hundred logged GETs answer no 429 with the limiter switched off (AC-13, half of it).
+def test_the_settings_pair_is_filed_as_exempt_and_nothing_else_is():
+    """Both settings handlers are exempt from the guest budget, and the registry holds nothing more.
 
-    The AC's own 200-call run is with the guest budget ENABLED, and that run is red on this branch
-    for the reason named in the banner above; asserting 200 here with the budget disabled is the
-    half that is this module's - the pair answers, and answers 200, and the 429 the AC expects to be
-    absent is not coming from anything declared in ``app/routers/admin.py``. The enabled run is left
-    red rather than written as a passing test, because a test that switches the budget off and then
-    reports the budget off is exactly the green that AC-13 exists to refuse.
+    AC-13 is a request-and-response fact, and a registry is not that fact. It is, however, the half
+    of the fact that ``app/main.py`` can assert at import: ``exempt_surface`` files a handler by the
+    ``module.name`` spelling the library's resolver derives, and it asserts the filing rather than
+    trusting the call. This test is the same promise from the outside, so a call quietly deleted
+    from ``app/main.py`` - or a third operation filed alongside the pair - fails here too.
+
+    The exact-set comparison is the point. A membership check would read green while the exemption
+    widened, and ``app/routers/admin.py`` may not name a limiter at all, so every entry in this
+    registry is a decision made in the module that owns the default. The contract enumerates exactly
+    two operations on this surface, and so does the registry.
+    """
+    from app.routers import admin
+
+    names = {
+        f"{handler.__module__}.{handler.__name__}"
+        for handler in (admin.get_admin_settings, admin.update_admin_settings)
+    }
+    assert names == {
+        "app.routers.admin.get_admin_settings",
+        "app.routers.admin.update_admin_settings",
+    }, f"the handlers moved, so the exemption no longer names them: {sorted(names)}"
+    exempt = set(limiter._exempt_routes)  # noqa: SLF001 - the registry app/main.py asserts on
+    assert names <= exempt, f"the admin settings pair is not filed as exempt: {sorted(exempt)}"
+    assert exempt == names, f"the exemption widened past the settings pair: {sorted(exempt)}"
+
+
+def test_the_settings_surface_outlives_the_guest_budget_it_leaves(client, db):
+    """AC-13's own arm, run against the handlers the surface actually ships.
+
+    The budget in ``app/main.py`` is ten requests a minute, so eleven logged calls are enough to see
+    whether a surface is inside it. Twenty are sent: the pair answers 200 twenty times on both
+    verbs, which is the fact AC-13 states. Twenty rather than the AC's two hundred is a test-runtime
+    budget and not a weaker claim - the 429 arrived on the eleventh call every single time this was
+    measured on either side of the exemption, and a burst that survives eleven survives two hundred.
+
+    ``limiter.reset()`` is load-bearing rather than hygienic: the storage is shared by every test in
+    this suite that switches the budget on, and without it the first request here could arrive on a
+    counter a previous test had already filled to ten.
     """
     limiter.reset()
-    assert limiter.enabled is False, "this run measures the surface, not the budget"
-    seen: dict[int, int] = {}
-    for _ in range(200):
-        response = client.get(PATH, headers=staff_headers())
-        seen[response.status_code] = seen.get(response.status_code, 0) + 1
-    assert seen == {200: 200}, seen
+    previous = limiter.enabled
+    limiter.enabled = True
+    try:
+        seen: dict[int, int] = {}
+        for _ in range(20):
+            response = client.get(PATH, headers=staff_headers())
+            seen[response.status_code] = seen.get(response.status_code, 0) + 1
+        assert seen == {200: 20}, seen
+        patched: dict[int, int] = {}
+        for _ in range(20):
+            response = client.patch(PATH, headers=staff_headers(), json={"hold_minutes": 11})
+            patched[response.status_code] = patched.get(response.status_code, 0) + 1
+        assert patched == {200: 20}, patched
+    finally:
+        limiter.enabled = previous
+
+
+def test_the_settings_surface_survives_the_headers_flag_being_switched_on(client, db):
+    """An exempt request has no budget record, and the limiter's headers ask for one.
+
+    ``headers_enabled`` is off in ``app/main.py`` and off on the library's own constructor, so the
+    only way this fails is someone switching it on for a deployment - at which point the middleware
+    starts reading back which budget applied to a response, and a request that no budget was ever
+    applied to has no such record to read. Kept because it is the measured boundary of this repair:
+    it is the seam that breaks first if the exemption is ever re-implemented as something that
+    declines the budget without announcing the handler, and it is one line of behaviour rather than
+    a paragraph of comment about a flag.
+    """
+    previous = limiter._headers_enabled  # noqa: SLF001 - the flag this test is about
+    limiter._headers_enabled = True  # noqa: SLF001
+    limiter.enabled = True
+    try:
+        assert client.get(PATH, headers=staff_headers()).status_code == 200
+    finally:
+        limiter._headers_enabled = previous  # noqa: SLF001
+        limiter.enabled = False
+
+
+def test_the_settings_exemption_reaches_the_counters_the_contract_names(client, db):
+    """The pair leaves the budget, and no counter the contract budgets notices that it left.
+
+    AC-13's second arm and B-06's AC-14 are the same measurement read from opposite sides of one
+    shared object, which is why they are asserted in one test rather than in two files: the guest
+    budget is ``app.state.limiter``, its storage is keyed by handler and scope rather than by
+    process, and the only way the settings exemption could be innocent is if a burst on the lookup
+    still stopped on the eleventh call after the settings pair had absorbed a burst of its own. The
+    eleventh-call boundary is B-06 AC-14's, quoted verbatim, and the settings burst above it is
+    AC-13's.
+
+    The lookup needs a row to read, and it is addressed through the settings row this module owns:
+    the lookup handler reads that row for the notification templates before it reports on the
+    entry, so a surface without one answers 500 and never reaches the counter the budget counts.
+    The branch this fixture seeds is open, and the queue row is written through the same session the
+    application is being served from.
+    """
+    from app.models import WaitlistEntry
+
+    db.add(
+        WaitlistEntry(
+            branch_id=1,
+            queue_number="A013",
+            full_queue_number="A-20260910-013",
+            queue_prefix="A",
+            seq=13,
+            business_date=time.strftime("%Y-%m-%d"),
+            name="Exemption",
+            phone="0900000013",
+            party_size=2,
+            status="WAITING",
+            sort_order=13,
+            source="CUSTOMER",
+        )
+    )
+    db.commit()
+    limiter.reset()
+    previous = limiter.enabled
+    limiter.enabled = True
+    try:
+        for _ in range(20):
+            assert client.get(PATH, headers=staff_headers()).status_code == 200
+        lookups = [
+            client.get("/api/v1/waitlist/A013", params={"phone_last3": "013"}).status_code
+            for _ in range(11)
+        ]
+        assert lookups[:10] == [200] * 10, lookups
+        assert lookups[10] == 429, lookups
+        limited = client.get("/api/v1/waitlist/A013", params={"phone_last3": "013"})
+        assert error_code(limited) == "RATE_LIMITED", limited.text
+        assert client.get(PATH, headers=staff_headers()).status_code == 200
+    finally:
+        limiter.enabled = previous
 
 
 def test_the_guest_budget_is_not_widened_by_the_staff_exclusion(client, db):
@@ -620,33 +726,6 @@ def test_the_guest_budget_is_not_widened_by_the_staff_exclusion(client, db):
         limiter.enabled = previous
     assert 401 in codes[:5], codes
     assert codes[5] == 429, codes
-
-
-def test_the_staff_surface_survives_the_headers_flag_being_switched_on(client, db):
-    """A declined request has no budget record, and the limiter's headers ask for one.
-
-    Kept although this branch declines nothing: it is the measurement that says why a request filter
-    is not a free answer to AC-13 at this lock, and it is one line of behaviour rather than a
-    paragraph of comment.
-
-    ``headers_enabled`` is off in ``app/main.py`` and off on the library's own constructor, so the
-    only
-    way this fails is someone switching it on for a deployment - at which point the middleware
-    starts
-    reading back which budget applied to a response, and a request that no budget was ever applied
-    to
-    has no such record to read. The assertion is deliberately on the status code rather than on the
-    flag: a flag asserted off is a comment, and a screen that answers 200 with the flag on is a
-    behaviour, which is the thing the comment above that flag is trying to protect.
-    """
-    previous = limiter._headers_enabled  # noqa: SLF001 - the flag this test is about
-    limiter._headers_enabled = True  # noqa: SLF001
-    limiter.enabled = True
-    try:
-        assert client.get(PATH, headers=staff_headers()).status_code == 200
-    finally:
-        limiter._headers_enabled = previous  # noqa: SLF001
-        limiter.enabled = False
 
 
 def test_the_staff_surface_is_not_limited(client, db):
