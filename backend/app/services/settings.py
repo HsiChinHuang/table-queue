@@ -36,11 +36,9 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from pydantic import ValidationError
-
 from app.config import get_settings
 from app.errors import AppError
-from app.models import Branch, Restaurant, Settings
+from app.models import Settings
 from app.schemas import SettingsResponse, UpdateSettingsRequest
 
 TEMPLATE_KEYS = ("joined", "called", "no_show")
@@ -134,7 +132,9 @@ def _template_error(templates: Any) -> AppError:
         "VALIDATION_ERROR",
         details={
             "fields": {
-                "notification_templates": f"expected exactly {', '.join(TEMPLATE_KEYS)}; got {templates!r}"
+                "notification_templates": (
+                    f"expected exactly {', '.join(TEMPLATE_KEYS)}; got {templates!r}"
+                )
             }
         },
     )
@@ -183,8 +183,9 @@ def read_settings(db: Any) -> SettingsResponse:
     Both hops go through the ORM relationships, and every row is re-read from the session on each
     call rather than remembered on the module: a caller hands this service a session it did not
     build (a request session, or a test's own session that it commits behind our back), and the
-    relationship hop re-queries where a stale identity-map entry would answer from memory. ``has_pin`` is the only thing that looks at ``staff_pin_hash``, and it looks at
-    its truthiness rather than its value (AC-3). The response model is ``extra="forbid"``, so the
+    relationship hop re-queries where a stale identity-map entry would answer from memory.
+    ``has_pin`` is the only thing that looks at ``staff_pin_hash``, and it looks at its truthiness
+    rather than its value (AC-3). The response model is ``extra="forbid"``, so the
     dict below is the whole surface: nothing else can ride along if a column is ever added.
     """
     row = settings_row(db)
@@ -248,7 +249,7 @@ def apply_update(db: Any, payload: UpdateSettingsRequest) -> SettingsResponse:
         # worse than 500-ing quietly, and it says nothing about the column it might have hit.
         raise AppError(
             "VALIDATION_ERROR",
-            details={"fields": {name: "not a settings field" for name in unknown}},
+            details={"fields": dict.fromkeys(unknown, "not a settings field")},
         )
     if "notification_templates" in body and not _templates_are_valid(
         body["notification_templates"]

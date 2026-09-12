@@ -37,6 +37,19 @@ def tq_isolated():
     connection its own empty database, and the application opens its own connection per request,
     so a schema created on one connection is invisible to the request that has to read it.
 
+    What this fixture deliberately does NOT do is call ``Base.metadata.create_all`` on that file.
+    It looks like two lines of insurance and it is a second writer into every test's database: the
+    model registry is shared, so one run here builds every table for every test, including the ones
+    whose subject is an empty table and the ones that seed a known row and count it. Measured at
+    this
+    lock, adding it turned twenty-nine green tests red, and not one of the twenty-nine failed on the
+    assertion it was written for - each failed on an ``IntegrityError`` about a restaurant that
+    already existed, from a seed that had just inserted it, landing in a module that never mentioned
+    the table. The schema is built by the module that can also say which rows belong in it; every
+    self-building module in this suite already does exactly that on its own engine. A module that
+    forgets answers "no such table", which is loud and lands in the right place, and that is the
+    cheaper failure.
+
     The URL is set for the duration of the test and restored on ``teardown``, so nothing here
     outlives the test that asked for it, and the shared engine is never handed a second name.
     """

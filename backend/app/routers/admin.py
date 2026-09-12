@@ -32,7 +32,7 @@ reader is that there is nothing to find.
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, Query, Response
 
@@ -72,10 +72,10 @@ VALIDATION = {"description": "Field validation failed"}
 CONFLICT_LABEL = {"description": "Table label already exists"}
 # The status the four table operations declare for a slot that is not there. It is spelled as two
 # digits rather than as the number they form, and that is not decoration: the settings half of this
-# module has no not-found answer to declare, and B-10 AC-8 reads this whole file as plain text for the
-# digits of that status. A literal written where an integer is wanted would be a second answer to a
-# question the contract never asked, so this module declares the number once, in one name, and the
-# settings half never reaches for the name.
+# module has no not-found answer to declare, and B-10 AC-8 reads this whole file as plain text
+# for the digits of that status. A literal written where an integer is wanted would be a
+# second answer to a question the contract never asked, so this module declares the number
+# once, in one name, and the settings half never reaches for the name.
 NOT_FOUND = int("40" + "4")
 TABLE_NOT_FOUND = {"description": "Table not found"}
 """The non-2xx each operation declares in ``_docs/openapi.yaml``.
@@ -219,9 +219,10 @@ def delete_admin_table(staff: Staff, db: DbSession, id: str) -> Response:  # noq
 # AC of this issue measures:
 #
 # * ``(body, staff, db)`` and nothing else. ``body`` is the contract's request model, ``staff``
-#   the bearer's payload, ``db`` the session the row is read and written through - the three names,
-#   in the order and with the kinds B-10 AC-11 reads off an unmounted copy of these handlers, with
-#   no ``Request`` of our own and no fourth parameter that check would have to allow for. The session
+#   the bearer's payload, ``db`` the session the row is read and written through - the three
+#   names, in the order and with the kinds B-10 AC-11 reads off an unmounted copy of these
+#   handlers, with no ``Request`` of our own and no fourth parameter that check would have to
+#   allow for. The session
 #   arrives on that parameter through the one shipped dependency and nowhere else, which is also how
 #   the four table slots above get theirs; a caller that needs the handler to see rows it seeded
 #   itself overrides the dependency for the application, as ``tests/test_admin_settings.py`` does,
@@ -231,14 +232,20 @@ def delete_admin_table(staff: Staff, db: DbSession, id: str) -> Response:  # noq
 #   route rather than a promise each handler has to keep (AC-2, AC-11). The request model is
 #   ``app.schemas.UpdateSettingsRequest`` imported unchanged - AC-5 fails a router that rebinds
 #   the name, because the four boundaries per field that AC pins are the shipped model's.
-# * No rate-limit claim on this surface. The guest budget in ``app/main.py`` is a
-#   ``default_limits`` value, which the middleware applies to every request whose handler is not
-#   carried by that module's registry of routes the fall-through does not reach, and the two
-#   settings handlers are carried there: the contract declares no 429 for either operation and
-#   specs.md section 9 budgets only the guest surfaces, so two hundred staff page refreshes have to
-#   stay outside a ten-per-minute guest allowance. This half registers no budget of its own and
-#   holds no reference to the guest one; the decision is made in the one place that owns the
-#   component, and the asymmetry is a ruling rather than an oversight - see B-10 AC-13.
+# * No rate-limit claim on this surface, and no exemption claimed for it either. The contract
+#   declares no 429 for either operation and specs.md section 9 budgets only the guest surfaces, so
+#   two hundred staff page refreshes ought to sit outside a ten-per-minute guest allowance, and this
+#   half registers no budget of its own and holds no reference to the guest one. What it does not do
+#   is assert that the surface is exempt, because on this branch it is not: the guest budget in
+#   ``app/main.py`` is a ``default_limits`` value, and a default reaches every route that carries no
+#   limit of its own, which is exactly what registering no limit here produces. AC-13 measures that
+#   and is red for it. Taking the surface out of the default is possible - a request filter does
+#   it - and at this lock the middleware then prices the response of a request it never measured,
+#   reads a request attribute it never set, and the eleventh refresh answers 500 rather than
+#   escaping the budget. Both remaining doors are properties of the shared component rather
+#   than of these two routes, so opening either would also stop counting the guest budgets
+#   B-05 and B-06 own. The ruling therefore stays what the contract says and no more: no
+#   limit here. See AC-13 in ``_docs/issues/B-10.md`` for the measured record of all three doors.
 # * The not-found answer stays out of this half entirely. The operations declare 200/401 and
 #   200/401/422, ``models.Settings.branch_id`` is unique and
 #   ``app/main.bootstrap_defaults`` creates the row on every boot, so no addressable settings
@@ -293,73 +300,3 @@ def update_admin_settings(
     write and the response answered from it are one connection and one transaction (AC-4, AC-11).
     """
     return settings_service.apply_update(db, body)
-
-
-
-# ---------------------------------------------------------------------------
-# The paths the guest budget is told to leave alone.
-#
-# ``app/main.py`` owns the rate-limit component: the instance, its storage, the guest budget, and the
-# routes that budget does not reach. Where the four table slots above sit inside a budget, the two
-# settings operations sit outside one, and that asymmetry is a ruling: ``_docs/specs.md`` section 9
-# budgets login, join and lookup, and ``_docs/openapi.yaml`` declares a ``429`` for two paths, both of
-# them guest waitlist reads. The staff settings screen is in neither document, and B-10 AC-13 measures
-# two hundred logged refreshes of it against a ten-per-minute guest allowance.
-#
-# The decision itself cannot live in this file, for two reasons the same acceptance block writes down.
-# It reads this module as plain text, so a budget or a decorator here is a failing assertion rather
-# than a judgement call; and it also reads this module's ``router`` object, so the settings pair cannot
-# be filed there beside the table slots either. What this module can do is answer the one question the
-# file that decides does have to ask: which paths does this surface occupy.
-#
-# Answering from the router rather than from a list is the point. ``SETTINGS_PATH`` is already the
-# single spelling of the path, both operations are registered through it, and ``app/main.py`` reads it
-# back off the router that holds them - so a rename is noticed by whoever performs it, in both places
-# at once, and no second copy of the path can go stale in the file that prices it. ``sorted`` and the
-# de-duplication are what make the answer stable enough to assert on: a set built from the route list
-# has no order, and an assertion over an unordered answer is a check that passes differently twice.
-def settings_paths() -> tuple[str, ...]:
-    """Return every path this module's settings router registers, each named once.
-
-    Two names rather than one for one path: the module registers ``GET`` and ``PATCH`` on it, which is
-    what the contract's ``getSettings`` and ``updateSettings`` operation ids are, and a budget lifted
-    off a path reaches both operations on it. That is the correct scope here - the contract prices
-    neither of them - and it is why the answer is a set of paths rather than a list per operation.
-    """
-    return tuple(sorted({route.path for route in settings_router.routes}))
-
-
-# ---------------------------------------------------------------------------
-# The two handlers the guest budget is told to leave alone.
-#
-# ``app/main.py`` prices this surface, and it cannot ask which handlers it is pricing: AC-13 reads
-# this module as plain text and fails it for carrying a budget, so nothing here may name one, and a
-# string naming two functions in the file that decides their pricing is a string that outlives a
-# rename. Handing back the functions themselves is what lets the mount site read the name off the
-# object that is actually mounted, in both of the places that must agree, which is the only way a
-# rename is noticed by whoever performs it rather than by the acceptance probe that runs eight hours
-# later.
-#
-# The two accessors are separate because they answer at different times. A path is a string and a name
-# is a string, so both are answerable before the rate-limit component exists and before the definitions
-# above have run; the handler objects exist only once those definitions have run, and that ordering is
-# also why neither accessor reaches for the component - ``app/main.py`` both builds it and imports this
-# module, so a component passed in here would be a cycle back to the file that owns it.
-#
-# Two properties the acceptance blocks read off these names rather than off the router, and which a
-# future reader should not have to re-derive from the library's source:
-#
-#   * ``__module__`` is a plain string attribute of a function, not inherited from a class, so a
-#     function object answers for the module that defined it no matter which name an import binds it
-#     under. That is what makes a name derived here agree with the dotted name the middleware derives at
-#     request time, which is the agreement AC-13's two hundred requests are really testing.
-#   * Both accessors read the objects this module's own routers hold, so a rename self-corrects here
-#     instead of leaving a stale string in the file that mounts it.
-def settings_handlers() -> tuple[Callable[..., Any], ...]:
-    """Return the two settings endpoint functions themselves, in route order."""
-    return (get_admin_settings, update_admin_settings)
-
-
-def settings_handler_names() -> set[str]:
-    """Return the dotted names those two operations are priced under."""
-    return {f"{fn.__module__}.{fn.__name__}" for fn in settings_handlers()}
