@@ -88,8 +88,15 @@ def test_handler_validation_error():
     assert resp.status_code == 422
     json = resp.json()
     assert json["error"]["code"] == "VALIDATION_ERROR"
+    # ``details.fields`` is a flat ``field -> message`` map, which is the shape
+    # ``_docs/openapi.yaml`` ``components.responses.ValidationError`` carries its example in
+    # (``fields: {phone: Invalid format}``) and the shape B-10 AC-10 measures. The list-of-dicts
+    # reading this assertion used to make is the one the contract contradicts, so the map is what
+    # a rejection is required to produce.
     fields = json["error"]["details"]["fields"]
-    assert any("pin" in f.get("field", "") for f in fields)
+    assert isinstance(fields, dict)
+    assert any("pin" in name for name in fields)
+    assert all(isinstance(message, str) for message in fields.values())
 
 
 def test_handler_unhandled_exception():
