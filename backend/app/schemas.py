@@ -120,6 +120,9 @@ class UpdateSettingsRequest(BaseModel):
     AC-5 holds this model's four boundary literals - ``ge=5``, ``le=15``, ``le=60``, the
     ``[A-Z]{1,3}`` and ``\d{2}:\d{2}`` patterns - as the shipped contract, and fails a router that
     rebinds the class rather than importing it, so the validators belong here and nowhere else.
+    The "no JSON null for a field whose column cannot be null" rule below is the same argument in
+    a different shape: the bound is the contract's, so it belongs to the model rather than to a
+    500 the store would otherwise raise.
 
     ``open_time`` and ``close_time`` carry two validators each, and the second one is not a
     duplicate of the first. The pattern is the contract's, spelled in ``_docs/openapi.yaml`` as
@@ -128,6 +131,17 @@ class UpdateSettingsRequest(BaseModel):
     so the range is checked below the pattern rather than folded into it - a rejected value earns
     the same 422 ``VALIDATION_ERROR`` envelope either way, and the two checks together are what
     AC-5's twenty-two boundary probes measure.
+
+    Every field except ``notification_templates`` is required to be *present* when it is sent at
+    all. ``_docs/openapi.yaml`` spells each one as a bare ``type`` - ``integer``, ``string``,
+    ``boolean`` - and never as ``nullable: true`` or as a ``[T, "null"]`` union, while the column it
+    addresses is ``nullable=False`` in ``app/models.py`` (the one exception is ``address``, whose
+    ``String(500)`` column is likewise not nullable, so the contract and the store agree there too).
+    A JSON ``null`` therefore describes a row the schema says cannot exist, and the store answers it
+    with ``IntegrityError`` - which is a 500 for a body the contract can describe. AC-10's control
+    arm pins the three UNBOUNDED bodies (``restaurant_name: ""``, a 21-character ``phone``, a
+    201-character ``address``) at 200 rather than at a fourth boundary; none of them is a null, so
+    this rule leaves that arm standing, and no length, range or pattern was added or tightened.
     """
 
     address: str | None = None
@@ -142,6 +156,44 @@ class UpdateSettingsRequest(BaseModel):
     queue_prefix: str | None = Field(default=None, pattern=r"^[A-Z]{1,3}$")
     restaurant_name: str | None = None
     sound_enabled_default: bool | None = None
+
+    @field_validator(
+        "restaurant_name",
+        "branch_name",
+        "address",
+        "phone",
+        "open_time",
+        "close_time",
+        "hold_minutes",
+        "avg_seat_minutes",
+        "queue_prefix",
+        "is_waitlist_open",
+        "sound_enabled_default",
+        mode="before",
+    )
+    @classmethod
+    def _a_named_field_is_never_null(cls, value: Any) -> Any:
+        """Reject an explicit JSON ``null`` on any field whose column cannot hold one.
+
+        ``mode="before"`` is what makes this the model's answer rather than a type-checker's
+        complaint. The annotations stay ``T | None`` because *absent* is still the commonest input -
+        a one-field PATCH sends one field and AC-4 requires the other eleven to keep their values -
+        and pydantic runs a before-validator only on a key the body actually named. So ``{}`` and
+        ``{"hold_minutes": 11}`` pass untouched, ``{"hold_minutes": null}`` does not.
+
+        The rejected body leaves through the shipped ``RequestValidationError`` handler, which is
+        the same door ``ge=5`` uses: 422, ``VALIDATION_ERROR``, ``details.fields`` naming the key.
+        ``notification_templates`` is deliberately absent from this list. Its column is
+        ``nullable=False`` but ``_docs/openapi.yaml`` declares no ``required`` list and no
+        ``additionalProperties: false`` for the object, so ``null`` there is the one body shape the
+        contract genuinely leaves open; rejecting it here would narrow an observable the contract
+        does not price. It keeps the service's 422 (AC-6), which is the same envelope by a different
+        route, and that is the honest split: this rule enforces a type the contract spells, and it
+        does not invent a shape rule the contract has not.
+        """
+        if value is None:
+            raise ValueError("must carry a value; null is not a value this field accepts")
+        return value
 
     @field_validator("close_time", "open_time")
     @classmethod
