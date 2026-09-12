@@ -169,8 +169,8 @@ variables are honoured: `TQ_VENV` (interpreter with the app's dependencies, defa
 Three measured facts explain the shape of the blocks below, and all three are the reason a green here
 is a green on the merged tree rather than a green on this checkout:
 
-- **A tree containing the merge does not exist yet.** AC-3, AC-4, AC-5, AC-7 and AC-8 therefore build
-  the resolution THEMSELVES: `backend/app/main.py` and `backend/tests/test_admin_settings.py` are copied
+- **A tree containing the merge does not exist on `main` yet.** AC-3, AC-4, AC-5, AC-7 and AC-8 therefore
+  build the resolution THEMSELVES: `backend/app/main.py` and `backend/tests/test_admin_settings.py` are copied
   from this working tree (a scratch fallback to the branch revision lets the same block run in a clean
   checkout), every other file of `backend/app` and `backend/tests` is unioned from
   `origin/issue/B-10-admin-settings` first and `origin/main` second, so main's staff surface joins the
@@ -396,15 +396,37 @@ PROBE
   rm -rf "$work"
   ```
 
-- [ ] **AC-5** the merged tree passes its own whole backend suite
+- [ ] **AC-5** the three surfaces the union joins pass TOGETHER in one pytest process
 
-  - the union's `backend/app` and the union's `backend/tests` run together and exit `0`
-  - that is B-10's eighty-three admin settings tests and B-08's staff table tests in one process
-  - Green now: no, 107 tests fail on today's tree: `origin/main` carries `test_admin_tables.py` while no
-    `admin.py` exists there, and `test_admin_settings.py` is not tracked yet either.
+  - on the merged tree, B-10's admin settings suite, B-11's admin tables suite and B-08's staff tables
+    suite are passed in a SINGLE `python -m pytest` invocation - `tests/test_admin_settings.py
+    tests/test_admin_tables.py tests/test_staff_tables.py` - so the shared limiter, the shared router
+    module and the single app import survive the resolution
+  - PASS needs that one process to exit `0`, to report zero `FAILED` and zero `ERROR` lines, and to print
+    a passed count of at least 98 (the 83 admin settings tests plus the admin/staff table tests)
+  - the three suites passing SEPARATELY is explicitly NOT a pass: the proposition AC-5 exists for is
+    inter-surface interaction, and a separate-process run cannot see limiter or router state leaking
+    across surfaces. The block therefore names all three files in one argv and never loops over them.
+  - why the wording is what it is (do not "restore" the old text): the previous revision demanded that
+    a bare `pytest -q` over the whole union suite exit `0`, and that demand is unsatisfiable before this
+    issue closes - MF-1 gates B-10's merge, the stopped merge queue blocks B-17's merge, and B-17 owns
+    the 27 pre-existing failures inside that very suite. AC-5's green would have depended on a merge that
+    AC-5's own issue gates: a circular AC, red by construction rather than by defect.
+  - AC-8, unchanged, is the whole-suite no-new-failures guard: it compares candidate failure ids against
+    a `git archive` baseline computed identically from `origin/main` and needs zero new ids. The 27
+    belong to B-17 and stay B-17's; nobody may re-add an exit-0 demand to AC-5 to "prove" them away.
+  - Green now: no. The merged tree this block needs lives on branch
+    `issue/MF-1-b10-merge-resolution`, not on `main`, so in the main checkout the export has no
+    `tests/test_admin_settings.py` and the run cannot even start.
 
-  Measured today: `FAIL AC-5: union suite exit 1 with 107 failed`, first failure line
-  `FAILED tests/test_admin_settings.py::test_settings_router_registers_get_and_patch_only`.
+  Measured today: `FAIL AC-5: union triple rc=1 with 68 FAILED or ERROR lines and 30 passed counted`, from the
+  block's own report line `UNION_TRIPLE rc=1 counts=68 failed,30 passed 30 counted`, run in the main checkout
+  (the export there still gets main's pre-merge `backend/app/main.py`, so the admin surfaces are unreachable). The same block's
+  logic was executed against a `git archive` export of
+  `origin/issue/MF-1-b10-merge-resolution` at `87d7747616ca3f13bca1fc440d8ec99ac6396e9d`: one process over
+  the three files prints `98 passed, 2 warnings in 10.90s`. Whole-suite figures for the record, both
+  measured on that branch tip: `UNION_SUITE rc=1 counts=27 failed` (all 27 are B-17's, AC-8's territory)
+  and B-10's own gate reads `green=15 red=0`.
 
   ```bash
   set -u
@@ -429,14 +451,21 @@ PROBE
   if [ -f backend/app/main.py ]; then cp backend/app/main.py "$work/backend/app/main.py"; else git show origin/issue/B-10-admin-settings:backend/app/main.py > "$work/backend/app/main.py"; fi
   if [ -f backend/tests/test_admin_settings.py ]; then cp backend/tests/test_admin_settings.py "$work/backend/tests/test_admin_settings.py"; fi
   cd "$work/backend"
-  out="$(timeout 1700 ../backend-venv/bin/python -m pytest tests -q --no-header -p no:cacheprovider 2>&1)"; rc=$?
-  n="$(printf '%s\n' "$out" | grep -oE '[0-9]+ (failed|errors)' | paste -sd, -)"
-  echo "UNION_SUITE rc=$rc counts=${n:-none}"
+  missing=0
+  for t in tests/test_admin_settings.py tests/test_admin_tables.py tests/test_staff_tables.py; do
+      [ -f "$t" ] || { echo "TRIPLE_MISSING $t"; missing=1; }
+  done
+  [ "$missing" -eq 0 ] || { echo "FAIL AC-5: a surface file is absent from the union"; rm -rf "$work"; exit 0; }
+  out="$(timeout 1700 ../backend-venv/bin/python -m pytest tests/test_admin_settings.py tests/test_admin_tables.py tests/test_staff_tables.py -q --no-header -p no:cacheprovider 2>&1)"; rc=$?
+  nbad="$(printf '%s\n' "$out" | grep -cE '^(FAILED|ERROR) ')"
+  npass="$(printf '%s\n' "$out" | grep -oE '[0-9]+ passed' | head -1 | grep -oE '[0-9]+')"
+  npass="${npass:-0}"
+  echo "UNION_TRIPLE rc=$rc counts=$(printf '%s\n' "$out" | grep -oE '[0-9]+ (passed|failed|errors)' | paste -sd, -) $npass counted"
   printf '%s\n' "$out" | grep -E '^(FAILED|ERROR) ' | head -3
-  if [ "$rc" -eq 0 ]; then
-      echo "PASS AC-5: union app plus union tests exit 0 with 0 failed"
+  if [ "$rc" -eq 0 ] && [ "$nbad" -eq 0 ] && [ "$npass" -ge 98 ]; then
+      echo "PASS AC-5: three surfaces in one process exit 0 with 0 failed and ${npass} passed"
   else
-      echo "FAIL AC-5: union suite exit $rc with ${n:-no summary line}"
+      echo "FAIL AC-5: union triple rc=$rc with $nbad FAILED or ERROR lines and ${npass} passed counted"
   fi
   rm -rf "$work"
   ```
@@ -655,8 +684,10 @@ dependencies, default `/home/te/tq/suite/backend/.venv`) and `TQ_HARNESS` (direc
 ## Definition of Done
 
 - [ ] All acceptance criteria pass
-- [ ] Backend tests pass (AC-5: union app plus the union tests directory exits 0; AC-7: B-10's own file
-      answers 83 passed inside that union)
+- [ ] Backend tests pass (AC-5: B-10 settings + B-11 admin tables + B-08 staff tables all pass in ONE
+      pytest process on the merged tree, `>=98 passed` and zero FAILED/ERROR lines; AC-7: B-10's own file
+      answers 83 passed inside that union; AC-8: the whole-suite run adds no failure id over the
+      `origin/main` baseline, whose 27 B-17 owns)
 - [ ] Frontend tests pass (if applicable) - not applicable, MF-1 touches no frontend file
 - [ ] No lint errors (AC-6: `ruff check .` clean from `backend/`)
 - [ ] Manual verification completed (if applicable) - none needed: every gate above is executable
