@@ -456,6 +456,39 @@ If a dependency is not done, do not start the issue.
 
 If tests fail, fix them before opening a PR.
 
+## Constraints Convention
+
+Every issue file carries a `## Constraints` section that lists the files the issue may add or
+modify, and most of them close that list with the words "Nothing else". That sentence is a
+*review* signal, not a licence to write an unsatisfiable issue: three merged issues (B-08 #34,
+B-10 #36, B-12 #38) shipped a list narrower than their own ACs needed, and all three branches
+ended up exceeding the list while every AC stayed green (debt register row D9). The convention
+below is what to write instead. The worked example is
+[`_docs/examples/T7-worked-example.md`](_docs/examples/T7-worked-example.md), which includes the
+fourth instance - T7 #59 committing the same defect on itself at groom round 2.
+
+- **`services/` allowance.** Implementation may add a new file under `backend/app/services/`
+  (and its `backend/tests/test_<service>.py` counterpart) without a docs round, when an AC forces
+  logic that does not belong in a route module. State the added path in the PR description, and
+  never move an existing service file's contract-carrying behaviour into it silently.
+- **`Nothing else` is never a reason to edit a merged issue file.** When the list is too narrow,
+  the file to change is the *live* groom, or the register gets a row; the merged issue file stays
+  byte-identical, because a frozen gate (`runacs <issue> --only AC-14` and friends) scans it.
+  The only exception is a groom explicitly sanctioned by the debt register, bounded to named line
+  kinds - see T7's AC-2 and its three permitted line-kinds in `_docs/issues/B-11.md`.
+- **Extending a Constraints file list without touching a frozen AC.** The list lives in the
+  Constraints *prose*, never in an AC block: AC text is frozen once groomed and the AC blocks are
+  what the gate runs, so a list change must be a Constraints-section edit, plus the matching entry
+  in the issue's own scope-discipline probe (its AC-8-style allowed-path regex) in the *same*
+  commit. Keep the two in sync deliberately: prose list and probe regex are one set, and if they
+  drift apart the issue becomes unsatisfiable, which is exactly the round-2 T7 failure. If the
+  issue is already merged, the extension is a new docs ticket, not an edit.
+- **Bounded exceptions beat whole-directory grants.** Name a section (`the test_*.py entries in
+  the ### Structure block`), a prefix (`_docs/baselines/T7-`), or a filename set, rather than
+  widening a directory, so the next issue's owner can see what was actually conceded.
+- **Record it.** Every widening gets a one-line reason in the Constraints entry and a row in
+  `_docs/debt-register.md` when it was forced by a defect rather than planned.
+
 ## File Ownership
 
 This table widens [`_docs/documents.md`](_docs/documents.md), which assigns no
