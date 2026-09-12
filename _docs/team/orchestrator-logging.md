@@ -137,9 +137,9 @@ If `retention.compliance_years` set: quarterly archives kept longer.
 
 ### 4.3 Rotation atomicity
 
-月末归档流程：
-1. 设置 marker `state/log-rotating`.
-2. Flush。
+Month-end archive flow:
+1. Set the marker `state/log-rotating`.
+2. Flush.
 3. Rename `YYYY-MM-DD.md` → `.md.gz`.
 4. Delete marker.
 5. Resume.
