@@ -10,3 +10,4 @@ Runtime-maintained by Orchestrator.
 | B-12 | Admin reset endpoint | 2026-09-12T17:49:00Z | sw=1 qa=1 | 445e85a4eac8d9abd6370319fe666f5f5b1ef788 |
 | T8 | Repair B-11 AC-1 admin-slot set-difference | 2026-09-12T19:37:55Z | pm=2 sw=2 qa=1 (sw r2 timeout, work complete, not charged) | e5e4817d3097f88b9e65aa96098f9c46aa95caf3 |
 | B-07 | Staff waitlist endpoints | 2026-09-12T19:41:54Z | pm=7 sw=4 qa=2 (r1 stale-abort; r4 timeout uncharged) | 341361f48769d7ca72b04b48cc28fcb85e5613ca |
+| B-09 | Staff dashboard endpoint | 2026-09-12T21:22:04Z | pm=2 sw=2 qa=1 (two lane timeouts on the timer-thread spin, root-caused) | e4a127756fa5c5632ea027fe043ec034c88b4470 |
