@@ -441,6 +441,21 @@ mount(staff_router.router)
 # their own module configures.
 mount(admin_router.settings_router)
 mount(admin_router.tables_router)
+# B-12's reset slot is a third admin router for the same reason B-10's settings pair is a router on
+# its own: B-10 AC-1 reads `settings_router.routes` and fails it for any path besides the settings
+# one, so the reset operation cannot ride along there. One mount line, and the same assert-after-
+# include check that guards the other two.
+mount(admin_router.reset_router)
+# B-12's document seam, installed after every router is mounted because it reads the whole route
+# list. FastAPI has no `components.responses` merge step, so a `$ref` a route declares for a
+# components/responses shape is published pointing at a component that is never created; this hook
+# lets the reset operation advertise the 403 body `_docs/openapi.yaml` declares for it, read from
+# that file, and leaves every other path, schema and security scheme to FastAPI's own generator.
+# Document-build time only - `app.openapi()` is the only caller, never a request path. It is
+# installed here rather than on `fastapi.openapi.utils.get_openapi` because FastAPI's `openapi()`
+# calls the name it imported into `fastapi.applications` at import time, so a late install on the
+# utils module would be a seam no code ever reaches.
+admin_router.publish_reset_contract_on(app)
 
 # The settings pair additionally LEAVES the guest budget, and the two references below are the
 # whole exemption. specs.md section 9 budgets three surfaces - "Rate limit on login, join, lookup"
