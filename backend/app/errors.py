@@ -147,7 +147,8 @@ def _field_message(err: dict[str, Any]) -> str:
     name or token can reach them on this surface.
     """
     ctx = err.get("ctx") or {}
-    detail = ", ".join(f"{k}={v}" for k, v in sorted(ctx.items()) if isinstance(v, (int, float, str)))
+    scalars = sorted((k, v) for k, v in ctx.items() if isinstance(v, (int, float, str)))
+    detail = ", ".join(f"{k}={v}" for k, v in scalars)
     msg = str(err.get("msg") or "Invalid value")
     return f"{msg} ({detail})" if detail else msg
 
@@ -219,9 +220,10 @@ def _handle_generic_exception(request: Request, exc: Exception) -> JSONResponse:
     a 500 that leaked ``detail`` through the envelope the rest of the application renders.
     """
     # The exception is logged against the request path so a 500 stays findable in a deployment, and
-    # never into a response body: B-04's test for this handler feeds the handler a canary message and
-    # asserts the rendered text does not carry it. The path, not the URL, because a query string is
-    # caller-supplied and this is the one log line an unhandled failure is allowed to write.
+    # never into a response body: B-04's test for this handler feeds the handler a canary
+    # message and asserts the rendered text does not carry it. The path, not the URL, because a
+    # query string is caller-supplied and this is the one log line an unhandled failure is
+    # allowed to write.
     log.error("Unhandled exception while serving %s", request.url.path, exc_info=exc)
     generic = AppError("INTERNAL_ERROR", message=INTERNAL_ERROR_MESSAGE)
     return JSONResponse(

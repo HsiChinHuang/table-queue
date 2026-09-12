@@ -115,7 +115,7 @@ class UpdateTableRequest(BaseModel):
 
 
 class UpdateSettingsRequest(BaseModel):
-    """The settings PATCH body: any subset of the twelve writable fields.
+    r"""The settings PATCH body: any subset of the twelve writable fields.
 
     AC-5 holds this model's four boundary literals - ``ge=5``, ``le=15``, ``le=60``, the
     ``[A-Z]{1,3}`` and ``\d{2}:\d{2}`` patterns - as the shipped contract, and fails a router that
@@ -146,7 +146,7 @@ class UpdateSettingsRequest(BaseModel):
     @field_validator("close_time", "open_time")
     @classmethod
     def _is_a_real_clock_time(cls, value: str | None) -> str | None:
-        """Reject a two-digit pair that is not a clock time once the pair is read as numbers.
+        r"""Reject a two-digit pair that is not a clock time once the pair is read as numbers.
 
         Runs after the pattern above, so ``value`` is already known to be ``NN:NN`` and only the
         ranges are judged here. AC-5 requires both halves: it fails if the ``^\d{2}:\d{2}$``

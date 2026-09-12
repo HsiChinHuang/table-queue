@@ -1,8 +1,8 @@
 """Database configuration and session management."""
 
 from sqlalchemy import create_engine
-from sqlalchemy.pool import NullPool
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from sqlalchemy.pool import NullPool
 
 from app.config import get_settings
 
@@ -11,8 +11,9 @@ settings = get_settings()
 # Create SQLAlchemy engine.
 #
 # ``connect_args`` is SQLite's own: what ``check_same_thread=False`` permits is one connection being
-# handed to another thread, and the test client runs the application on a worker thread, so it has to
-# stay False. What is NOT here is a pool, and that absence is the part worth reading twice.
+# handed to another thread, and the test client runs the application on a worker thread, so
+# it has to stay False. What is NOT here is a pool, and that absence is the part worth reading
+# twice.
 #
 # SQLite's default pool for a file-backed database is a single connection held for the life of the
 # process. One property follows that a reader cannot see in the code above it: a session built
