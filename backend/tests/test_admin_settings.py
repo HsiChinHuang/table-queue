@@ -787,9 +787,16 @@ def test_every_writable_field_is_named_by_the_contract_and_the_model(field):
     start = raw.index("    UpdateSettingsRequest:")
     nxt = re.compile(r"^    [A-Za-z][A-Za-z0-9]*:$", re.M).search(raw, start + 1)
     section = raw[start : nxt.start() if nxt else len(raw)]
-    declared = set(re.findall(r"^        ([a-z_]+):$", section, re.M))
+    # Only keys at the property indent count. A looser pattern also matches each property's own
+    # `type:` / `default:` lines, and with twelve properties that happens to total twelve matches -
+    # so the set comparison below was green on the *wrong* twelve names, and stayed green when the
+    # file lost a property. Anchoring on the model's own names is what makes the count mean what it
+    # says, and the exact-equality form makes a surprise property a red rather than an off-by-one.
+    declared = set(
+        re.findall(r"^        ([a-z_]+):(?:\s|$)", section, re.M)
+    ) & set(UpdateSettingsRequest.model_fields)
     assert field in declared, "_docs/openapi.yaml declares no " + field + " property there"
-    assert sorted(declared) == sorted(UpdateSettingsRequest.model_fields), (
+    assert declared == set(UpdateSettingsRequest.model_fields), (
         "the contract file and the generated model name different properties: "
         + str(sorted(declared ^ set(UpdateSettingsRequest.model_fields)))
     )
