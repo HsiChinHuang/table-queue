@@ -668,7 +668,7 @@ COLUMN_NULLABLE = {
 }
 """Where each writable field actually lands, read from ``app.models`` rather than restated."""
 
-CONTRACT_NULLABLE_EXCEPTION: set[str] = {"notification_templates", "address"}
+CONTRACT_NULLABLE_EXCEPTION: set[str] = {"notification_templates"}
 """The one field the contract leaves nullable although its column is NOT NULL.
 
 The single deliberate disagreement this module tolerates, named here so a second one has to be added
@@ -695,12 +695,25 @@ def _not_null_writable_fields() -> set[str]:
 
 
 def _null_rule_fields() -> list[str]:
-    """The field names the shipped null rule carries, read out of the model's own validators."""
-    for validator in UpdateSettingsRequest.__pydantic_decorators__.field_validators.values():
-        info = validator.info
-        if info.mode == "before" and "restaurant_name" in info.fields:
-            return sorted(info.fields)
-    return []
+    """The field names the shipped null rule carries, read out of the model's own validators.
+
+    The lookup is positional rather than by name, so a rename cannot make it read nothing: the
+    rule is the only ``mode="before"`` field validator this model declares, and the assertion
+    below prices the search itself, because a helper that returns ``[]`` can never satisfy it.
+    A field validator's declared fields are a tuple in ``validator.info``, not an attribute of the
+    decorator itself - the first version of this helper reached for the wrong object and read
+    nothing at all, which is the silent-green shape this module exists to avoid.
+    """
+    rules = [
+        sorted(validator.info.fields)
+        for validator in UpdateSettingsRequest.__pydantic_decorators__.field_validators.values()
+        if validator.info.mode == "before"
+    ]
+    assert len(rules) == 1, (
+        "this helper identifies the null rule by being the model's only before-validator, and "
+        "there are now " + str(len(rules)) + ": " + str(rules)
+    )
+    return rules[0]
 
 
 def test_the_null_rule_covers_exactly_the_columns_that_cannot_hold_null():
