@@ -441,6 +441,11 @@ mount(staff_router.router)
 # their own module configures.
 mount(admin_router.settings_router)
 mount(admin_router.tables_router)
+# B-12's reset slot is the third admin router for the same reason B-10's settings pair is a router of
+# its own: B-10 AC-1 reads `settings_router.routes` and fails it for any path besides the settings
+# one, so the reset operation cannot ride along there. One mount line, and the same assert-after-
+# include check that guards the other two.
+mount(admin_router.reset_router)
 
 # The settings pair additionally LEAVES the guest budget, and the two references below are the
 # whole exemption. specs.md section 9 budgets three surfaces - "Rate limit on login, join, lookup"

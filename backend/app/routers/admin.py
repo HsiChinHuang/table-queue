@@ -36,9 +36,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, Response
 
+from app import seed
+from app.config import get_settings
 from app.dependencies import DbSession, Staff
+from app.errors import AppError
 from app.schemas import (
     CreateTableRequest,
+    ResetDataRequest,
     SettingsResponse,
     TableListResponse,
     TableResponse,
@@ -70,6 +74,14 @@ admin surface is two routers, and ``app/main.py`` mounts both by their own names
 UNAUTHORIZED = {"description": "Missing, forged or expired bearer token"}
 VALIDATION = {"description": "Field validation failed"}
 CONFLICT_LABEL = {"description": "Table label already exists"}
+NOT_ALLOWED_HERE = {"description": "Not allowed in this environment"}
+"""The reset operation's environment refusal.
+
+``_docs/openapi.yaml`` gives ``POST /api/v1/admin/reset`` exactly one non-204 body answer besides
+the 401 and the 422, and describes it as "Not allowed in this environment". The description is
+carried here rather than spelled in the decorator so that the one place the reset surface names a
+status is also the place it names what that status means.
+"""
 # The status the four table operations declare for a slot that is not there. It is spelled as two
 # digits rather than as the number they form, and that is not decoration: the settings half of this
 # module has no not-found answer to declare, and B-10 AC-8 reads this whole file as plain text
@@ -300,3 +312,76 @@ def update_admin_settings(
     write and the response answered from it are one connection and one transaction (AC-4, AC-11).
     """
     return settings_service.apply_update(db, body)
+
+
+# ---------------------------------------------------------------------------
+# B-12 - the admin reset surface: one operation, one guard and one seeder call.
+#
+# B-12 EXTENDS this module; it does not own it. The four table slots above belong to B-11 and the
+# settings pair below belongs to B-10, and neither is touched here: the reset operation is added on
+# its own router (:data:`reset_router`) rather than onto :data:`settings_router`, because B-10 AC-1
+# reads that router's own route list and rejects any path besides ``/api/v1/admin/settings``, and
+# B-11's ``router`` alias names the same object. A third router is the only shape that adds a
+# surface without narrowing a sibling's, and ``app/main.py`` mounts all three.
+#
+# Three things here are load-bearing for this issue's ACs, and each is a contract fact rather than
+# a preference:
+#
+# * the handler is named ``reset_data``, which is the contract's ``operationId``;
+# * the 403 is raised as ``AppError("INTERNAL_ERROR", status_code=403)`` because that code is the
+#   one the contract's 403 example carries and specs.md section 11 has no ``FORBIDDEN`` code at all
+#   (``AppError("FORBIDDEN")`` raises ValueError against the shipped catalogue);
+# * the reset work is the shipped B-13 seeder, reached as ``seed.seed_data(reset=True)`` - the
+#   module attribute, not a top-level ``from`` import, so the seam AC-8 wraps is the seam the
+#   handler actually calls.
+# ---------------------------------------------------------------------------
+
+RESET_PATH = "/api/v1/admin/reset"
+"""The single reset path: the contract's ``resetData``."""
+
+reset_router = APIRouter()
+"""The reset half of the admin surface, separate from the settings and tables routers."""
+
+
+@reset_router.post(
+    RESET_PATH,
+    status_code=204,
+    responses={401: UNAUTHORIZED, 403: NOT_ALLOWED_HERE, 422: VALIDATION},
+)
+def reset_data(staff: Staff, db: DbSession, payload: ResetDataRequest) -> Response:
+    """POST /api/v1/admin/reset: drop the schema and re-seed it. Development only.
+
+    The order below is the whole specification, and every step of it is what an AC measures.
+
+    1. Body validation runs first because FastAPI runs it first: ``ResetDataRequest.confirm`` is a
+       ``Literal["RESET"]``, so ``confirm=reset``, ``confirm=RESETT``, ``{}`` and a missing body are
+       all 422 ``VALIDATION_ERROR`` before a line of this body executes, which is why none of them
+       can wipe anything (AC-5). The guard is not a substitute for that check - a malformed body is
+       answered by the shipped envelope handler, not by this function.
+    2. The environment guard is the first statement of the handler body, so it is also the first
+       thing that can touch data: it reads ``get_settings().env`` rather than ``os.environ``
+       because that getter is the documented test seam (AC-4 rebinds it), and it refuses with the
+       contract's 403 before ``seed_data`` is named. The session argument is never used: a reset
+       that dropped the schema inside the request's own transaction would answer a 204 about rows
+       that were never committed.
+    3. :func:`app.seed.seed_data` with ``reset=True`` is the entire reset behaviour - drop,
+       re-create, re-insert the fixture - and is called exactly once per accepted request. AC-8's
+       spy is what pins that this is a delegation rather than a hand-written ``delete from`` loop
+       that happens to leave the same counts.
+    4. ``Response(status_code=204)`` is built inside the call and the annotation is ``Response``, so
+       FastAPI serialises no body of its own: the answer is an empty 204 with no content type
+       (AC-6). It is not a module-level constant: ``Response.__init__`` reads a request-response
+       context that exists only while a request is being served, so an import-time instance makes
+       this module unimportable outside a request.
+
+    No rate limit is claimed here and none is adopted: specs.md section 9 budgets login, join and
+    lookup, and the contract declares no 429 for this operation.
+    """
+    if get_settings().env != "development":
+        raise AppError(
+            "INTERNAL_ERROR",
+            message="Reset is only allowed in development",
+            status_code=403,
+        )
+    seed.seed_data(reset=True)
+    return Response(status_code=204)
