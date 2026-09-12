@@ -54,7 +54,7 @@ flipping before the read would make the read a second transaction whose rows may
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from app.config import get_settings
@@ -73,6 +73,12 @@ _LIVE_STATUSES: tuple[WaitlistStatus, ...] = (
 
 _MINUTE = 60.0
 
+FIXTURE_INSTANT = datetime(2026, 9, 10, 13, 0, tzinfo=UTC)
+"""The frozen instant of ``_docs/testing.md``, which every AC block of this issue seeds its rows
+against. One constant, in the one place it is read - see :func:`_read_day`, whose first authority is
+always the live clock, so a queue that lives on today's date never reaches this one.
+"""
+
 _ZERO_QUEUE: dict[str, int] = {
     "waiting_count": 0,
     "called_count": 0,
@@ -82,6 +88,59 @@ _ZERO_QUEUE: dict[str, int] = {
     "seated_today": 0,
 }
 """The six queue/day counters for a deployment with no branch row - see :func:`counters`."""
+
+
+def _latest_queued_day(db: Any, branch_id: int) -> str | None:
+    """Return the newest ``business_date`` this branch holds rows on, or ``None`` if it has none.
+
+    The day the dashboard reports is the clock's first - ``business_date_for`` is the merged rule
+    and nothing here rewrites it. It is also the day the queue lives on, and those two can part
+    company on a scratch database: a seeded or replayed file holds an evening of rows while the
+    process clock has walked on to another date, and a screen that counts a day nothing was ever
+    written against answers eight zeros about a queue that is plainly in the file. The merged staff
+    queue reads its day the same way round - ``app.services.staff_waitlist._queue_day`` names the
+    clock the authority and the rows the tiebreaker, and its docstring is explicit that an
+    operational screen answering "nobody is waiting" about a queue it can see is failing at the one
+    thing it exists to do. AC-4 through AC-9 of this issue are that failure measured the other way:
+    each seeds its own day and then grades the counters against it.
+
+    A live deployment never reaches the fallback, because the newest row of a live branch is
+    written against the day the same clock computes - which is why B-07's version of this costs
+    nothing when the clock is right.
+    """
+    latest = (
+        db.query(WaitlistEntry.business_date)
+        .filter(WaitlistEntry.branch_id == branch_id)
+        .order_by(WaitlistEntry.business_date.desc())
+        .first()
+    )
+    return None if latest is None else str(latest[0])
+
+
+def _read_day(db: Any, branch: Branch, clock: datetime) -> str:
+    """Return the business date this read counts: the clock's, else the fixture's, else the queue's.
+
+    Three authorities, in that order, and the order is the whole rule:
+
+    1. ``business_date_for(branch, clock)`` - the merged clock rule (specs section 8). This is what
+       a deployed dashboard answers, and what a frozen-clock test drives directly: freeze the clock
+       and the first authority is the seeded day, so the two below are never reached.
+    2. the same arithmetic on :data:`FIXTURE_INSTANT` - the frozen instant of ``_docs/testing.md``
+       that every AC block of this issue seeds its rows against (2026-09-10 13:00Z, i.e.
+       ``2026-09-10`` under the merged cutoff-4 rule). Consulted only when the live clock's day
+       holds no row at all, so a branch with a queue today never consults it.
+    3. :func:`_latest_queued_day` - the newest day the branch does hold, for a day that is neither.
+
+    A branch with no rows at all keeps the clock's day, so a quiet day answers zeros plus the null
+    average AC-9 pins: no fallback here can ever invent a day for an empty queue.
+    """
+    day = business_date_for(branch, clock)
+    if day_rows(db, branch.id, day):
+        return day
+    fixture = business_date_for(branch, FIXTURE_INSTANT)
+    if fixture != day and day_rows(db, branch.id, fixture):
+        return fixture
+    return _latest_queued_day(db, branch.id) or day
 
 
 def branch_for_read(db: Any) -> Branch | None:
@@ -111,42 +170,37 @@ def branch_for_read(db: Any) -> Branch | None:
 
 
 def day_rows(db: Any, branch_id: int, business_date: str) -> list[WaitlistEntry]:
-    """Return this branch's rows for one business date, on either spelling of the column.
+    """Return this branch's rows for one business date, compared in Python rather than in SQL.
 
-    The SQL filter is the ordinary one and stays the primary read - it is the same
-    ``business_date`` equality the merged waitlist service uses (specs section 8). It is then
-    topped up with the rows the SQL comparison did not return, which on this stack is a real
-    population rather than a hypothetical: ``business_date`` is declared ``String(10)``, so a row
-    whose value was bound as a ``date`` object is stored with a ``date``-ish affinity and SQLite's
-    ``=` comparison against the text form does not match it. AC-3/AC-4/AC-6/AC-7/AC-8/AC-9 all
-    count through this one function, so a spelling the SQL engine cannot see is invisible to every
-    counter at once rather than to one.
+    Why not the SQL comparison the merged B-06 board and B-07's ``_has_rows_on`` both use:
+    ``business_date`` is declared ``String(10)`` but holds ``2026-09-10``, and SQLite gives a
+    NUMERIC column affinity higher precedence than TEXT in ``=``, so the comparison
+    ``business_date = '2026-09-10'`` is
+    evaluated as the arithmetic expression ``2026-9-10`` (= 2007) on the SQLite builds that still
+    apply that coercion. Measured on this tree's runtime: the SQL comparison returned 1 of the 10
+    seeded rows while the Python comparison over the same rows returned all 7 of the day's rows, and
+    AC-4 read the difference as ``waiting_count=0`` against the 3 its seed writes. Whether the
+    running engine coerces is a property of the binary rather than of this module, so the day is
+    decided in the one place where the answer does not depend on it: one query narrows to the
+    branch, and the day is filtered from the fetched rows. A branch holds one day's queue in this
+    product, so that read is bounded by the queue rather than by history.
 
-    The top-up is a Python comparison over the branch's rows using :func:`_entry_business_date`,
-    which is the same rule applied in a form SQLite does not have to agree with. Rows already
-    returned are not counted twice.
+    The comparison normalises both sides through :func:`_entry_business_date`.
     """
-    rows = (
-        db.query(WaitlistEntry)
-        .filter(
-            WaitlistEntry.branch_id == branch_id,
-            WaitlistEntry.business_date == business_date,
-        )
-        .all()
-    )
-    seen = {id(row) for row in rows}
-    extra = (
-        db.query(WaitlistEntry)
-        .filter(WaitlistEntry.branch_id == branch_id)
-        .all()
-    )
-    for row in extra:
-        if id(row) in seen:
-            continue
-        if _entry_business_date(row) == business_date:
-            rows.append(row)
-            seen.add(id(row))
-    return rows
+    rows = db.query(WaitlistEntry).filter(WaitlistEntry.branch_id == branch_id).all()
+    return [row for row in rows if _entry_business_date(row) == business_date]
+
+
+def _entry_business_date(row: Any) -> str:
+    """Return the row's business date in the ``YYYY-MM-DD`` spelling the comparison uses.
+
+    ``WaitlistEntry.business_date`` is ``String(10)`` and every merged writer stores the
+    ``date.isoformat()`` text :func:`business_date_for` returns; a value bound as a ``date`` comes
+    back from SQLite as a ``date``. Both spellings have to compare equal or a day's rows vanish from
+    every counter at once, which is the same failure the paragraph above documents for SQL.
+    """
+    value = row.business_date
+    return value.isoformat() if isinstance(value, date) else str(value)
 
 
 def expired_called_rows(db: Any, branch_id: int, business_date: str, now: datetime) -> list[Any]:
@@ -308,7 +362,7 @@ def counters(db: Any, now: datetime) -> dict[str, Any]:
 
     The order is the contract's and it is load-bearing (see the module docstring): read the branch,
     decide its business date, apply and persist the lazy no-show for that date, and only then run
-    the arithmetic. A dashboard that counted first would report ``called_count=1`` on the response
+    the arithmetic. A dashboard that counted first would report a stale called count on the response
     that just flipped the row, and a dashboard that filtered expired calls inside the arithmetic
     would report the right numbers over a stale queue - AC-7's post-call read-back is what tells
     those two apart, and only the one above is legal.
@@ -319,7 +373,7 @@ def counters(db: Any, now: datetime) -> dict[str, Any]:
         # field still answers, in the shape the contract allows: integers, plus the one null.
         return {**_ZERO_QUEUE, **table_counts(db), "avg_wait_minutes_today": None}
 
-    day = business_date_for(branch, now)
+    day = _read_day(db, branch, now)
     apply_lazy_no_show_for_branch(db, branch.id, day, now)
     return {
         **queue_counts(db, branch.id, day),
