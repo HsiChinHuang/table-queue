@@ -48,6 +48,25 @@ backend/tests/
 - `staff_token`: valid JWT for staff endpoints.
 - `auth_headers`: `{"Authorization": f"Bearer {staff_token}"}`.
 
+### Ordering pin for suite-wide claims
+
+A **suite-wide** `pytest` run - one that names no path and therefore takes the whole backend suite -
+must pin its test ordering with `-p no:randomly` in the command line that makes the claim. The suite
+installs `pytest-randomly`, so an unpinned run reshuffles modules between invocations and a verdict
+then depends on which order the machine happened to draw rather than on the code under test.
+Cross-module state left behind by one module (a rebound engine, a stale session factory, a mutated
+environment variable) only shows up in some orders, so an unpinned suite-wide claim flaps green and
+red on the same commit.
+
+- Always pin: `python -m pytest -q -p no:randomly` - so the order the file writes is the order that
+  runs, and a green means what it says on every machine and in every run.
+- Deliberately unpinned: a narrow probe whose *purpose* is to expose ordering pollution (for example
+  a "victim first, then the suspected polluter" pair). Pinning such a probe would blind it, and it
+  names the ordering dependency in prose instead.
+
+Write the pin into the command line of the AC that makes the claim, not into `addopts` or a
+plugin-removal step: the shuffling plugin stays installed so the pollution probe keeps working.
+
 ### Factories (`factories.py`)
 - `make_branch(db, **kwargs)`
 - `make_table(db, **kwargs)`

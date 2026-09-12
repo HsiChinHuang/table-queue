@@ -51,6 +51,15 @@ def reset_login_counters(lim) -> None:
                 del hits[:]
 
 
+# B-17: the state this module is allowed to borrow, read from the module globals at *import*
+# time rather than inside the swap. The swap cannot be its own snapshot: a second use/release
+# cycle, or an earlier module that left a rebound engine behind, would make borrowed state look
+# like the original and the restore would repoint the app at the wrong file.
+_ORIGINAL_DATABASE_URL = os.environ.get("DATABASE_URL")
+_ORIGINAL_ENGINE = database.engine
+_ORIGINAL_SESSION_LOCAL = database.SessionLocal
+
+
 def use_temp_database():
     """Point the engine at this module's private file database and drop the settings cache.
 
@@ -67,10 +76,29 @@ def use_temp_database():
 
 
 def release_temp_database():
-    """Restore the imported environment and delete this module's database file."""
-    os.environ.pop("DATABASE_URL", None)
-    use_temp_database()
+    """Give back every piece of process-global state ``use_temp_database`` took (B-17 AC-7).
+
+    Three things are restored because three are what the swap touches: the engine global, the
+    session-factory global and ``DATABASE_URL``. This is *symmetry*, not the old "re-run the swap
+    and pop the variable", and the difference is the whole defect. The previous body called
+    ``use_temp_database()`` again and then popped ``DATABASE_URL``, which (a) left both module
+    globals bound to this file's engine instead of putting back what was there before this module
+    started, so a later ``create_all`` from another module landed on a deleted file and the first
+    seeded read died with ``NoResultFound``, and (b) popped a ``DATABASE_URL`` that may have been
+    supplied from outside the module, so ``get_settings()`` re-read a default URL no run asked for.
+    The env var therefore goes back to its prior value, which includes "it was absent".
+
+    Order matters: unlink this module's file first, then hand the globals back, so no other
+    module's engine can reach it and this module's file never outlives the session that made it.
+    """
     Path("_b05_auth_tests.db").unlink(missing_ok=True)
+    database.engine = _ORIGINAL_ENGINE
+    database.SessionLocal = _ORIGINAL_SESSION_LOCAL
+    if _ORIGINAL_DATABASE_URL is None:
+        os.environ.pop("DATABASE_URL", None)
+    else:
+        os.environ["DATABASE_URL"] = _ORIGINAL_DATABASE_URL
+    get_settings.cache_clear()
 
 
 @pytest.fixture(scope="session", autouse=True)
