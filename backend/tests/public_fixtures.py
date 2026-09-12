@@ -36,7 +36,7 @@ if os.sep == "/":  # WSL: the Windows drive is not writable by the venv's platfo
 # ``app.main`` is imported for its side effect only: it must be loaded after the env bootstrap
 # above, and importing it here means a test module that imports this one first still gets a fully
 # configured app rather than a half-built module.
-from app.database import Base, engine  # noqa: E402,F401  # env bootstrap must precede app imports
+from app import database  # noqa: E402  # B-17: the module, so a swapped-in engine is seen here
 from app.main import app  # noqa: E402,F401
 from app.models import (  # noqa: E402
     Branch,
@@ -61,11 +61,11 @@ def fresh_session():
     rows: shared fixtures would otherwise leak a queue into the next module and change its
     ``waiting_count``.
     """
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+    database.Base.metadata.drop_all(bind=database.engine)
+    database.Base.metadata.create_all(bind=database.engine)
     from sqlalchemy.orm import Session
 
-    return Session(bind=engine)
+    return Session(bind=database.engine)
 
 
 def seed_branch(db, *, branch_id: int = 1, is_open: bool = True, prefix: str = "A"):
