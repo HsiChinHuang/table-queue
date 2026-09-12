@@ -69,6 +69,24 @@ Quick check:
 On conflict: resolve per layer.
 On AC change >= [limits.ac_change_blocker_pct]%: BLOCKER.
 
+### API query policy
+
+Default platform query fields:
+- `state` (open/closed)
+- `labels` (array)
+- `updated_at`
+
+NOT fetched by default:
+- Issue body (AC is local: `issues/<ID>.md`).
+- Comment history (only latest 1 if needed).
+- Metadata beyond above.
+
+Full body or comments:
+- Only on explicit `[REQUEST_OUTPUT]`.
+- Result externalized immediately.
+
+Rationale: platform body is not authoritative; local AC is.
+
 ## Failure routing
 
 See `orchestrator-failures.md` Sec. 3 (Routing).

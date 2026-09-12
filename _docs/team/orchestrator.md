@@ -41,6 +41,31 @@ Output: `log/dry-run-<ts>.md`.
   - `read_memory: true` + memory paths (if SW retry >= 2)
   - `retry_count` (numeric)
 
+### Context discipline (MUST)
+
+After any subagent completes:
+
+1. Read its output ONCE.
+2. Extract only:
+   - `reached_state`
+   - Key result (1-2 lines)
+   - File paths changed
+   - Test summary (counts only)
+3. Write full content to:
+   `_docs/state/outputs/<issue>-<role>-<seq>.md`
+4. Keep ONLY:
+   - The extracted summary
+   - The output file path
+5. Discard raw comment from context after transition.
+
+Subagents that need prior full content:
+- Read from platform directly (not via Orchestrator).
+- Orchestrator never re-reads subagent comments.
+
+failure_history passed to SW:
+- Only the LATEST full FAIL comment.
+- Not older summaries (SW reads platform if needed).
+
 ## Slot definition
 
 - 1 slot = 1 active subagent session (PM, SW, or QA).
@@ -79,6 +104,32 @@ Summary:
 - Starvation detection: every loop.
 - Slot crash detection: heartbeat-based.
 - Idle behavior: sleep + opportunistic work.
+
+### Cache scope
+
+Cache lifetime = ONE Lifecycle iteration.
+
+Iteration = scan → pick → spawn → wait completion.
+
+Within iteration:
+- Read `backlog.md`, `snapshot.json`, platform list ONCE.
+- Cache in memory.
+- On any write: update cache immediately.
+
+At iteration end:
+- Discard cache.
+- Next iteration: fresh read.
+
+### Sub-file cache (same iteration)
+
+Within one iteration:
+- `orchestrator-*.md` files: read at most ONCE per file.
+- Cache content in memory.
+- If multiple transitions in same iteration: reuse cache.
+
+Across iterations:
+- Discard cache.
+- Re-read if needed.
 
 ## State machine (MUST enforce)
 
