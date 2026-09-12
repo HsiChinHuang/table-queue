@@ -38,6 +38,7 @@ backend/tests/
 ├── test_admin_tables.py
 ├── test_admin_reset.py
 ├── test_seed.py
+├── test_staff_dashboard.py
 ├── test_config.py
 ├── test_dependencies.py
 ├── test_errors.py
