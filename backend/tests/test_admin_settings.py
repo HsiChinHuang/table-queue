@@ -488,6 +488,143 @@ def test_valid_template_object_round_trips(client, engine):
     assert json.loads(stored_settings(engine).notification_templates) == TEMPLATES
 
 
+# ---------- the round-2A product finding: a null-valued field is a 422, not a 500 ----------
+
+NULLABLE_FIELDS = [
+    "restaurant_name",
+    "branch_name",
+    "address",
+    "phone",
+    "open_time",
+    "close_time",
+    "hold_minutes",
+    "avg_seat_minutes",
+    "queue_prefix",
+    "is_waitlist_open",
+    "sound_enabled_default",
+]
+"""The eleven writable fields whose column ``app/models.py`` declares ``nullable=False``.
+
+``address`` is one of them because its ``String(500)`` column carries no ``nullable`` flag either,
+so the contract's bare ``type`` and the store's NOT NULL agree there.
+``notification_templates`` is absent on purpose: the contract declares no ``required`` list and no
+``additionalProperties: false`` for that object, so its 422 stays the service's (AC-6) rather than
+being narrowed into a schema rule the contract does not carry.
+"""
+
+
+@pytest.mark.parametrize("field", NULLABLE_FIELDS)
+def test_null_for_a_not_null_field_answers_422_not_500(client, field):
+    """A body that names a NOT NULL knob with JSON null is a validation failure, not a crash.
+
+    Round 2A recorded this for ``hold_minutes`` alone; the measurement on the base showed all
+    eleven answer 500 ``INTERNAL_ERROR``, because the null passed a ``T | None`` annotation, rode
+    ``exclude_unset`` into the service, and died on SQLite's NOT NULL constraint. The contract
+    declares each of these as a bare type and never as nullable, so ``422`` - the response the
+    operation already declares for a bad body - is the only honest answer.
+    """
+    response = client.patch(PATH, headers=staff_headers(), json={field: None})
+    assert response.status_code == 422
+    assert error_code(response) == "VALIDATION_ERROR"
+    assert "detail" not in response.json()
+    assert field in json.dumps(rejected_fields(response))
+
+
+def test_a_null_body_writes_nothing(client, engine):
+    """A rejected null cannot half-apply: a shared body leaves every knob alone (AC-6)."""
+    before = stored_settings(engine).hold_minutes
+    response = client.patch(
+        PATH,
+        headers=staff_headers(),
+        json={"restaurant_name": "Renamed", "hold_minutes": None},
+    )
+    assert response.status_code == 422
+    assert stored_settings(engine).hold_minutes == before
+    assert stored_branch(engine).restaurant.name == "Sunny Bistro"
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("restaurant_name", "Sunny Bistro"),
+        ("branch_name", "Taipei Xinyi"),
+        ("address", "No. 123, Example Rd., Xinyi Dist., Taipei City 110, Taiwan"),
+        ("phone", "02-1234-5678"),
+        ("open_time", "11:00"),
+        ("close_time", "21:00"),
+        ("avg_seat_minutes", 15),
+        ("queue_prefix", "A"),
+        ("is_waitlist_open", False),
+        ("sound_enabled_default", True),
+        ("notification_templates", {}),
+    ],
+)
+def test_absence_is_still_a_half_write_under_the_null_rule(client, field, value):
+    """The null rule answers only a key the body NAMED, so AC-4's one-field PATCH still works.
+
+    A ``mode="before"`` validator runs on a key that is present, which is the whole reason the
+    annotations stay ``T | None``: absence has to keep meaning "leave the column alone", whatever
+    the column was created with. Each field is read back at its seeded value under a body that
+    names one sibling, and ``is_waitlist_open`` is closed to ``False`` first because its creation
+    value is ``True`` - seeded alone it would read ``True`` however the handler behaved, so only an
+    open-then-never-named sequence can catch a write that silently reopens the queue (AC-4's
+    clobber arm names exactly that failure).
+    """
+    if field == "is_waitlist_open":
+        # Close it first: the column is created True, so reading a True back would prove nothing.
+        client.patch(PATH, headers=staff_headers(), json={"is_waitlist_open": False})
+    response = client.patch(PATH, headers=staff_headers(), json={"hold_minutes": 9})
+    assert response.status_code == 200
+    assert response.json()[field] == value
+    assert response.json()["hold_minutes"] == 9
+
+
+def test_the_null_rule_writes_nothing_even_when_the_write_would_be_the_seed_value(client, engine):
+    """The null rule is priced by the mutation, not by a value the seed happens to already hold.
+
+    Every field the ``db`` fixture seeds is also read back at its seed value by
+    ``test_partial_update_leaves_the_other_eleven_alone``, so a handler that wrote ``None`` onto a
+    NOT NULL column and then answered the seeded row could satisfy an arms-only reading of that
+    test. Here the field names a value no seed carries and is read back at that value, so a write
+    of ``None`` has nowhere to hide: the UPDATE dies on the constraint, the commit rolls back, and
+    the assertions below fail on both the response and the stored row.
+    """
+    response = client.patch(
+        PATH, headers=staff_headers(), json={"restaurant_name": "Bistro Nine"}
+    )
+    assert response.status_code == 200
+    assert response.json()["restaurant_name"] == "Bistro Nine"
+    assert stored_branch(engine).restaurant.name == "Bistro Nine"
+
+
+def test_an_empty_body_is_still_a_no_op_write(client, engine):
+    """``{}`` names no field, so the null rule cannot reach it and nothing moves (AC-4)."""
+    before = stored_settings(engine).hold_minutes
+    response = client.patch(PATH, headers=staff_headers(), json={})
+    assert response.status_code == 200
+    assert response.json()["hold_minutes"] == before
+
+
+def test_the_null_rule_narrows_no_bound_the_contract_prices(client, engine):
+    """AC-10's control arm survives: the three UNBOUNDED bodies the contract prices still write.
+
+    ``hold_minutes`` is the field the null rule touches and the field whose only bound is the
+    ``5..15`` AC-5 pins, so it is the one a repair could silently widen. Both its endpoints and
+    the unbounded string arms are re-measured here rather than assumed.
+    """
+    for body in (
+        {"hold_minutes": 5},
+        {"hold_minutes": 15},
+        {"restaurant_name": ""},
+        {"phone": "1" * 21},
+        {"address": "x" * 201},
+    ):
+        response = client.patch(PATH, headers=staff_headers(), json=body)
+        assert response.status_code == 200, body
+    assert stored_settings(engine).hold_minutes == 15
+    assert len(stored_branch(engine).address) == 201
+
+
 # ---------- AC-9: auth ----------
 
 
