@@ -122,6 +122,47 @@ def seeded(scratch) -> Settings:
 
 
 @pytest.fixture()
+def dev_env(scratch, monkeypatch) -> Settings:
+    """Rebind every ``get_settings`` reference to the fixture's development settings.
+
+    Why this exists at all: ``backend/tests/conftest.py`` sets ``ENV`` with ``os.environ.setdefault``,
+    so an ``ENV`` the runner exports wins for the whole process, and a module that reached the
+    handler through the *imported* ``app.config.get_settings`` name would then answer the
+    environment's setting rather than this issue's. Measured at this lock: the 204/403/422 tests of
+    this module passed under ``ENV=development`` and failed under any other value for exactly that
+    reason. AC-6's own acceptance block therefore rebinds the cached getter before it requests
+    anything, and this fixture is the same mechanism, applied per test.
+
+    The rebind is late-binding on purpose (``lambda: scratch`` calls the getter the fixture installed
+    when it resolves, not when this lambda is built) and it covers all five references that a reset
+    request can reach, because each module imported the name its own way:
+
+    * ``app.config`` - the module attribute, which is the seam AC-4 names and the one a caller that
+      does ``from app.config import get_settings`` never moves at all;
+    * ``app.routers.admin`` - the handler reads ``get_settings().env`` through its own module global;
+    * ``app.dependencies`` - the staff bearer decoder reads ``settings.jwt_secret`` the same way;
+    * ``app.main`` - ``/health`` reports ``settings.env``, the name it captured at import time
+      (``AppSettings`` is frozen, so that name is rebound rather than mutated).
+
+    ``app.database`` is deliberately absent from that list: it holds its own import-time ``settings``
+    but reads it only to build the engine, and the ``scratch`` fixture already rebinds that engine and
+    its session factory, which is what every request session comes from.
+
+    ``monkeypatch`` restores every one of them at teardown, so a rebind cannot leak into the next
+    module in the same process - the failure mode the issue's test requirements name.
+    """
+    import app.dependencies as dependencies_module
+    import app.main as main_module
+    import app.routers.admin as admin_module
+
+    monkeypatch.setattr(config_module, "get_settings", lambda: scratch)
+    monkeypatch.setattr(admin_module, "get_settings", lambda: scratch)
+    monkeypatch.setattr(dependencies_module, "get_settings", lambda: scratch)
+    monkeypatch.setattr(main_module, "settings", scratch)
+    return scratch
+
+
+@pytest.fixture()
 def client(seeded) -> Iterator[TestClient]:
     """A client for the redirected application, with the guest budget disabled.
 
@@ -238,7 +279,7 @@ def contract_document() -> dict[str, Any]:
     )
 
 
-def test_reset_route_is_reachable(client, seeded) -> None:
+def test_reset_route_is_reachable(client, dev_env) -> None:
     """AC-2: routable, present in the generated document, and it reaches body validation.
 
     The third arm is the one that proves a handler was chosen rather than a guard answering ahead of
@@ -259,7 +300,7 @@ def test_reset_route_is_reachable(client, seeded) -> None:
     assert envelope(wrong).get("code") == "VALIDATION_ERROR"
 
 
-def test_reset_requires_staff_bearer(client, seeded) -> None:
+def test_reset_requires_staff_bearer(client, dev_env) -> None:
     """AC-3: missing, forged and expired bearers each answer 401 ``AUTH_TOKEN_EXPIRED``.
 
     Six probes rather than three: each token state is tried with and without a body, because a
@@ -286,14 +327,14 @@ def test_reset_requires_staff_bearer(client, seeded) -> None:
             assert error.get("message"), label + " carried an empty error.message"
 
 
-def test_reset_refuses_non_development(client, seeded) -> None:
+def test_reset_refuses_non_development(client, dev_env) -> None:
     """AC-4: outside ``development`` a well-formed request is refused before any data work.
 
     The environment is selected through the seam the issue names - a rebind of the cached getter,
-    on the config module and on the application that captured it at import - rather than through
-    ``os.environ['ENV']``, which those import-time reads make meaningless once ``app.main`` is
-    loaded. The sentinel is the application's own ``/health`` answer, so a production refusal cannot
-    be a development refusal in disguise.
+    applied on every module reference the request can reach (the ``dev_env`` fixture above lists
+    them) - rather than through ``os.environ['ENV']``, which those import-time reads make
+    meaningless once ``app.main`` is loaded. The sentinel is the application's own ``/health``
+    answer, so a production refusal cannot be a development refusal in disguise.
 
     The code is ``INTERNAL_ERROR`` and that is the contract, not a shortcut: the 403 example in
     ``_docs/openapi.yaml`` carries it, ``_docs/specs.md`` section 11 lists no ``FORBIDDEN`` code at
@@ -301,20 +342,31 @@ def test_reset_refuses_non_development(client, seeded) -> None:
     one would be a contract change owned by Platform Issue #3.
 
     The data assertion is the other half of the criterion: a reset that wiped first and refused
-    afterwards would still answer 403, so the seeded rows are counted after the refusal.
+    afterwards would still answer 403, so the seeded rows are counted after the refusal, and the
+    staff bearer is signed with the production settings' own secret so the refusal cannot be
+    attributed to an authentication answer the request never earned.
     """
     production = Settings(
         _env_file=None,
-        database_url=seeded.database_url,
-        jwt_secret=seeded.jwt_secret,
-        staff_pin=seeded.staff_pin,
-        jwt_expire_hours=seeded.jwt_expire_hours,
+        database_url=dev_env.database_url,
+        jwt_secret=dev_env.jwt_secret,
+        staff_pin=dev_env.staff_pin,
+        jwt_expire_hours=dev_env.jwt_expire_hours,
         env="production",
     )
+    import app.dependencies as dependencies_module
     import app.main as main_module
+    import app.routers.admin as admin_module
 
-    previous = (config_module.get_settings, main_module.settings)
+    previous = (
+        config_module.get_settings,
+        admin_module.get_settings,
+        dependencies_module.get_settings,
+        main_module.settings,
+    )
     config_module.get_settings = lambda: production
+    admin_module.get_settings = lambda: production
+    dependencies_module.get_settings = lambda: production
     main_module.settings = production
     try:
         sentinel = (client.get("/health").json() or {}).get("env")
@@ -322,7 +374,9 @@ def test_reset_refuses_non_development(client, seeded) -> None:
             f"the application still reports env={sentinel}; the rebind did not take effect, so "
             "no refusal below is evidence of anything"
         )
-        answer = client.post(PATH, headers=staff_headers(), json={"confirm": "RESET"})
+        answer = client.post(
+            PATH, headers=staff_headers(production.jwt_secret), json={"confirm": "RESET"}
+        )
         assert answer.status_code == 403, (
             f"production answered {answer.status_code}; the contract prices 403"
         )
@@ -332,13 +386,18 @@ def test_reset_refuses_non_development(client, seeded) -> None:
         )
         assert error.get("message"), "the 403 envelope carried an empty message"
     finally:
-        config_module.get_settings, main_module.settings = previous
+        (
+            config_module.get_settings,
+            admin_module.get_settings,
+            dependencies_module.get_settings,
+            main_module.settings,
+        ) = previous
         get_settings.cache_clear()
 
     assert counts() == WANT_COUNTS, "the production refusal wiped the seeded data"
 
 
-def test_reset_confirm_guard(client, seeded) -> None:
+def test_reset_confirm_guard(client, dev_env) -> None:
     """AC-5: every wrong ``confirm`` is a 422 with populated ``details``, and touches no data.
 
     Four bodies - lowercase, over-long, empty object, absent - each answered 422 by the shipped
@@ -359,7 +418,7 @@ def test_reset_confirm_guard(client, seeded) -> None:
         assert counts() == WANT_COUNTS, label + " changed the seeded rows"
 
 
-def test_reset_success_is_204_empty(client, seeded) -> None:
+def test_reset_success_is_204_empty(client, dev_env) -> None:
     """AC-6: an accepted reset answers 204 and writes nothing at all.
 
     ``text == ''`` rather than a falsy check: a serialised ``"null"`` is also empty to
@@ -367,17 +426,14 @@ def test_reset_success_is_204_empty(client, seeded) -> None:
     away from the serialiser. The content-type arm catches the variant that is empty and still
     advertises JSON.
     """
-    from app.routers import admin as _a
-    print("AC6 getter-identity", config_module.get_settings is _a.get_settings)
     answer = client.post(PATH, headers=staff_headers(), json={"confirm": "RESET"})
-    print("DBG", answer.status_code, answer.text[:100])
     assert answer.status_code == 204, f"status={answer.status_code} body={answer.text[:80]!r}"
     assert answer.text == "", f"204 with a non-empty body: {answer.text[:80]!r}"
     content_type = (answer.headers.get("content-type") or "").lower()
     assert "json" not in content_type, f"204 advertises content-type {content_type!r}"
 
 
-def test_reset_restores_seed(client, seeded) -> None:
+def test_reset_restores_seed(client, dev_env) -> None:
     """AC-7: one accepted reset restores the fixture over a dirtied database, and is idempotent.
 
     The dirties are the criterion's own, and the assertion after each reset is a full six-value
@@ -400,7 +456,7 @@ def test_reset_restores_seed(client, seeded) -> None:
     assert counts() == WANT_COUNTS, f"after reset #2: {counts()} - reset is not idempotent"
 
 
-def test_reset_delegates_to_seeder(client, seeded) -> None:
+def test_reset_delegates_to_seeder(client, dev_env) -> None:
     """AC-8: an accepted request calls the seeder once with ``reset=True``; a rejected one, never.
 
     ``app.seed.seed_data`` is wrapped rather than replaced: the wrapper records the flag and then
@@ -438,7 +494,7 @@ def test_reset_delegates_to_seeder(client, seeded) -> None:
     )
 
 
-def test_reset_contract_shape(client, seeded) -> None:
+def test_reset_contract_shape(client, dev_env) -> None:
     """AC-9, with AC-1's arms: the generated document matches the contract for this operation.
 
     Read against the contract file rather than a restatement of it, on the axes AC-9 names - verb
@@ -506,7 +562,7 @@ def test_reset_contract_shape(client, seeded) -> None:
     assert admin_module.RESET_PATH == PATH
 
 
-def test_no_new_endpoints(client, seeded) -> None:
+def test_no_new_endpoints(client, dev_env) -> None:
     """AC-10: nothing outside the contract is served, and the reset slot is among what is.
 
     The route table is walked rather than the document, because a handler mounted with
@@ -515,10 +571,15 @@ def test_no_new_endpoints(client, seeded) -> None:
     version - ``include_router`` appends a container - so the walk recurses ``routes`` and
     ``original_router`` exactly as ``app/main.py::_reachable_paths`` and AC-9's own block do.
 
-    Routability is a live probe rather than a grep, and its failure condition is specific: a 404
-    carrying FastAPI's own ``Not Found`` detail means nothing was routed, while a 401/403/422 from a
-    real handler is a pass. Operation paths carrying parameters are excluded from the probe - a real
-    row id is another issue's fixture - but not from the invented-route check above.
+    The three arms below are AC-10's own three, in the order its block writes them: no served
+    path+verb outside the contract, ``POST /api/v1/admin/reset`` among the served pairs and routed,
+    and ``/health`` answering 200 with its own pair in the served table. The block's PASS line names
+    the same three, and its ``missing`` list - the contract paths this issue does not own - is
+    printed but never gates it, which the issue says outright: the ``admin/settings``,
+    ``admin/tables`` and ``staff/dashboard`` slots go green when B-10, B-11 and B-09 land, and
+    "a red that names ONLY them is not this issue's failure". A fourth arm here would therefore
+    assert another issue's scope and could not pass before that issue merges; what this module adds
+    to the AC's own list is the live probe of the two surfaces it does gate on.
     """
     contract = contract_document().get("paths") or {}
     declared = {
@@ -556,30 +617,44 @@ def test_no_new_endpoints(client, seeded) -> None:
 
     documentation_routes = {"/docs", "/redoc", "/openapi.json", "/docs/oauth2-redirect"}
     declared_normalised = {(re.sub(r"\{[^}]+\}", "{}", path), verb) for path, verb in declared}
-    invented = sorted(
-        pair
-        for pair in served - declared_normalised
-        if pair[0] not in documentation_routes and pair[0] != "/openapi.json/"
+    invented = sorted(pair for pair in served - declared_normalised if pair[0] not in documentation_routes)
+    assert invented == [], (
+        "the application serves path+verbs the contract does not declare: " + str(invented)
     )
-    assert invented == [], "the application serves a path+verb the contract does not declare"
     assert (PATH, "POST") in served, "the served route table has no POST " + PATH
+    assert not [pair for pair in declared_normalised if pair[0] == PATH and pair not in served], (
+        f"POST {PATH} is declared and not routed at all"
+    )
+    assert ("/health", "GET") in served, "the served route table has no GET /health"
 
-    own_missing = [pair for pair in declared_normalised if pair[0] == PATH and pair not in served]
-    assert own_missing == [], f"POST {PATH} is not routed at all"
+    health = client.get("/health")
+    assert health.status_code == 200, f"/health answered {health.status_code} to GET"
+    reset_probe = client.post(PATH, headers=staff_headers(), json={"confirm": "NOPE"})
+    assert not _fastapi_not_found(reset_probe), (
+        "POST "
+        + PATH
+        + f" answered FastAPI's unroutable 404 ({reset_probe.status_code}), so no handler is "
+        "behind the slot the route table names"
+    )
+    invented_probe = client.post("/api/v1/admin/reset/status", json={})
+    assert _fastapi_not_found(invented_probe), (
+        f"a path the contract does not declare answered {invented_probe.status_code} rather than "
+        "FastAPI's unroutable 404, so the route table grew"
+    )
 
-    assert client.get("/health").status_code == 200, "/health is not reachable"
-    for path, verb in sorted(declared_normalised):
-        if "{}" in path:
-            continue
-        answer = client.request(verb, path)
-        detail = ""
-        if answer.text[:1] in "{[":
-            try:
-                detail = str(answer.json().get("detail", ""))
-            except Exception:  # pragma: no cover - a non-JSON body is not the 404 sentinel
-                detail = ""
-        unroutable = answer.status_code == 404 and detail == "Not Found"
-        assert not unroutable, f"{verb} {path} answered FastAPI's unroutable 404"
+
+def _fastapi_not_found(answer) -> bool:
+    """Whether ``answer`` carries FastAPI's own unroutable ``{"detail":"Not Found"}`` body.
+
+    The sentinel AC-10's block uses, factored out because two probes here read it and a 404 from a
+    real handler (a not-found envelope, for instance) is not the same fact at all.
+    """
+    if answer.status_code != 404 or answer.text[:1] != "{":
+        return False
+    try:
+        return answer.json().get("detail") == "Not Found"
+    except Exception:  # pragma: no cover - a malformed 404 body is not the router's sentinel
+        return False
 
 
 AC1_OPERATION_ID_MESSAGE = (
