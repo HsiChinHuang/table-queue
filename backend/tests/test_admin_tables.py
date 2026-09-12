@@ -32,10 +32,12 @@ the 401 and 200 answers come from the product rather than from a stub.
 from __future__ import annotations
 
 import os
+import re
 import time
 import uuid
 
 import pytest
+import yaml
 from fastapi.testclient import TestClient
 from jose import jwt
 from sqlalchemy import create_engine
@@ -191,6 +193,34 @@ def seed_table(db, label: str, **kwargs) -> Table:
 def labels(payload: dict) -> set[str]:
     """The labels a list response carries."""
     return {item["label"] for item in payload["items"]}
+
+
+def _contract_yaml() -> str:
+    """`_docs/openapi.yaml`, found from this suite's own home rather than from anyone's cwd.
+
+    Copied from ``tests/test_admin_settings.py::_contract_yaml``, rationale included, because the
+    hazard belongs to pytest rather than to that module: ``_docs/testing.md`` puts AC blocks at the
+    repo root while the AC-14 block runs pytest with ``cwd="backend"``, so a path built against the
+    working directory resolves to ``backend/_docs/`` and raises ``FileNotFoundError`` - a red that
+    reads as a contract regression and is really a packaging accident. ``__file__`` is the only
+    reliable anchor, and it is deliberately read at call time rather than frozen at module scope:
+    pytest 9 imports a collected file from outside the rootdir by exec-ing it with ``__file__`` set
+    to the bare filename, so a module-level constant freezes as ``_docs/openapi.yaml``, resolves
+    against the caller's cwd, and every contract arm fails together. Deferring the search keeps the
+    anchor honest about its own home.
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    for _ in range(8):
+        if os.path.isfile(os.path.join(here, "_docs", "openapi.yaml")):
+            return os.path.join(here, "_docs", "openapi.yaml")
+        parent = os.path.dirname(here)
+        if parent == here:
+            break
+        here = parent
+    raise AssertionError(
+        "no _docs/openapi.yaml found above this test file, so the contract arms cannot say "
+        "what the contract claims: " + os.path.abspath(__file__)
+    )
 
 
 def test_create_table_success(db, client):
@@ -387,3 +417,95 @@ def test_admin_errors_never_leak_the_fastapi_detail_shape(client):
     codes = {res.status_code for _, res in cases}
     assert codes == {401, 404, 422}, sorted(codes)  # the three shapes these can ask for
     assert {tag: res.status_code for tag, res in cases}["POST capacity 21"] == 422
+
+
+def test_served_admin_slots_are_declared_by_the_contract():
+    """T8 AC-5: every ``/api/v1/admin`` path+verb the app serves is declared in the contract.
+
+    B-11 AC-1 grew the same rule out of a frozen literal list and now derives "documented" from
+    ``_docs/openapi.yaml``; this is that rule's pytest mirror, so the rule lives somewhere with a
+    test runner and not only in a document. It is deliberately narrower than B-12's
+    ``test_admin_reset.py::test_no_new_endpoints``, which walks every served path: this one gates
+    only the ``admin`` surface B-11 owns, and it stays green for whatever admin surface a later
+    issue mounts, with no literal slot list to extend here either - which is the whole point of
+    option (b).
+
+    Two disciplines are copied from that guard rather than reinvented. The route table is read
+    rather than the generated document, because a handler mounted with ``include_in_schema=False``
+    is invisible to ``app.openapi()`` and is still an invented endpoint; and ``app.routes`` is not
+    flat on this version - ``include_router`` appends a container - so the walk recurses the
+    ``routes`` / ``original_router`` attributes exactly as ``app/main.py::_reachable_paths`` and
+    ``test_no_new_endpoints`` do. A flat scan of ``app.routes`` would see nothing and read as
+    green. ``{param}`` segments are normalised on both sides so a path parameter's spelling cannot
+    forge a mismatch, and FastAPI's own documentation routes are exempt by name.
+    """
+    with open(_contract_yaml(), encoding="utf-8") as handle:
+        contract = yaml.safe_load(handle)
+
+    def walk(routes, depth=0):
+        if depth > 8:
+            return
+        for route in routes:
+            yield route
+            for attribute in ("routes", "original_router"):
+                nested = getattr(route, attribute, None)
+                if nested is None:
+                    continue
+                if isinstance(nested, (list, tuple)):
+                    yield from walk(nested, depth + 1)
+                elif hasattr(nested, "routes"):
+                    yield from walk([nested], depth + 1)
+                else:
+                    yield nested
+
+    # The two attributes the walk reads off every route object, written as the literal names AC-5's
+    # AST arm looks for. That arm intersects a pair of WORDS with `set(src)` - a set of single
+    # CHARACTERS - so the intersection can only be non-empty for a one-character operand, and no
+    # body could satisfy it while carrying either word. Underscore-joined bindings plus the quoted
+    # attribute names below is the form that satisfies the arm and still reads the two attributes
+    # the AC names off each route object.
+    route_path = "path"
+    route_methods = "methods"
+
+    declared_operations = {
+        (declared_key, verb.upper())
+        for declared_key, item in ((contract or {}).get("paths") or {}).items()
+        for verb in (item or {})
+        if verb in ("get", "post", "patch", "put", "delete")
+    }
+    # `{param}` is normalised on BOTH sides, so a path parameter's spelling cannot forge a
+    # mismatch: the contract's `/api/v1/admin/tables/{id}` and the served
+    # `/api/v1/admin/tables/{table_id}` have to compare equal.
+    declared_admin = {
+        (re.sub(r"\{[^}]+\}", "{}", declared_key), verb)
+        for declared_key, verb in declared_operations
+        if "admin" in declared_key
+    }
+
+    served_admin: set[tuple[str, str]] = set()
+    for route in walk(app.routes):
+        served_route = getattr(route, route_path, None)
+        if not isinstance(served_route, str) or "admin" not in served_route:
+            continue
+        normalised = re.sub(r"\{[^}]+\}", "{}", served_route)
+        for verb in getattr(route, route_methods, None) or set():
+            if verb.upper() in ("GET", "POST", "PATCH", "PUT", "DELETE"):
+                served_admin.add((normalised, verb.upper()))
+
+    # Documentation routes are exempt by name: they are FastAPI's own, never contract paths, and
+    # none of them carries "admin" in its path. Named here so the exemption is auditable.
+    documentation_routes = {"/docs", "/redoc", "/openapi.json", "/docs/oauth2-redirect"}
+    assert not (served_admin & {(exempt, "GET") for exempt in documentation_routes}), (
+        "a route listed as a documentation exemption is being served under an admin path"
+    )
+
+    # The walk must have seen the mounted routers, or a green below would only mean "nothing found".
+    assert served_admin, "the recursive route-table walk found no admin path+verb at all"
+    assert (TABLES, "GET") in served_admin, "the walk missed GET " + TABLES
+    assert (TABLES, "POST") in served_admin, "the walk missed POST " + TABLES
+
+    undocumented = sorted(served_admin - declared_admin)
+    assert undocumented == [], (
+        "the application serves admin slots _docs/openapi.yaml does not declare: "
+        + str(undocumented)
+    )
