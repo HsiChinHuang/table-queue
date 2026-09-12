@@ -37,7 +37,7 @@ Work order is topological: every issue appears after all of its `depends`.
 | B-04 | Errors and dependencies | [B-01] | #30 | closed |
 | B-05 | Auth endpoints | [B-02, B-03, B-04, B-15] | #31 | closed |
 | B-06 | Public endpoints | [B-02, B-03, B-04] | #32 | closed |
-| B-07 | Staff waitlist endpoints | [B-02, B-03, B-04, B-06] | #33 | groomed |
+| B-07 | Staff waitlist endpoints | [B-02, B-03, B-04, B-06] | #33 | closed |
 | B-08 | Staff tables endpoints | [B-02, B-03, B-04] | #34 | closed |
 | B-09 | Staff dashboard endpoint | [B-02, B-03, B-04, B-07, B-08] | #35 | backlog |
 | B-10 | Admin settings endpoints | [B-02, B-03, B-04] | #36 | closed |

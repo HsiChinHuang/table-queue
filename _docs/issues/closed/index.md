@@ -9,3 +9,4 @@ Runtime-maintained by Orchestrator.
 | B-17 | Fix cross-module test pollution and pin -p no:randomly | 2026-09-12T13:24:00Z | pm=2 sw=5 qa=6 | 36b80f4a60a7b23de903fc8dfe3f7b97b2f8270e |
 | B-12 | Admin reset endpoint | 2026-09-12T17:49:00Z | sw=1 qa=1 | 445e85a4eac8d9abd6370319fe666f5f5b1ef788 |
 | T8 | Repair B-11 AC-1 admin-slot set-difference | 2026-09-12T19:37:55Z | pm=2 sw=2 qa=1 (sw r2 timeout, work complete, not charged) | e5e4817d3097f88b9e65aa96098f9c46aa95caf3 |
+| B-07 | Staff waitlist endpoints | 2026-09-12T19:41:54Z | pm=7 sw=4 qa=2 (r1 stale-abort; r4 timeout uncharged) | 341361f48769d7ca72b04b48cc28fcb85e5613ca |
