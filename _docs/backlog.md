@@ -43,7 +43,7 @@ Work order is topological: every issue appears after all of its `depends`.
 | B-10 | Admin settings endpoints | [B-02, B-03, B-04] | #36 | closed |
 | B-11 | Admin tables endpoints | [B-02, B-03, B-04] | #37 | closed |
 | B-13 | Seed script | [B-02] | #38 | closed |
-| B-12 | Admin reset endpoint | [B-02, B-03, B-04, B-13] | #39 | groomed |
+| B-12 | Admin reset endpoint | [B-02, B-03, B-04, B-13] | #39 | closed |
 | B-14 | Backend tests | [B-05, B-06, B-07, B-08, B-09, B-10, B-11, B-12, B-13] | #40 | backlog |
 | I-01 | Switch frontend to real API | [B-14, F-15] | #41 | backlog |
 | I-02 | Verify end-to-end flow | [I-01] | #42 | backlog |
@@ -61,3 +61,4 @@ Work order is topological: every issue appears after all of its `depends`.
 | D-09 | Make the document index truthful: real grants, guide rows, resolvable paths, ownership rows | [P0-09] | #57 | closed |
 | B-17 | Fix cross-module test pollution (test_auth engine rebinding) and pin `-p no:randomly` in suite-wide AC gates | [B-05, B-06] | #58 | closed |
 | T7 | Docs hygiene sweep: B-11 paperwork, testing.md counts, Constraints convention, main.py ASCII (owner-approved T6/T7/T10 from the debt register) | [] | #59 | groomed |
+| T8 | Repair B-11 AC-1 admin-slot set-difference | [] | #61 | backlog |
