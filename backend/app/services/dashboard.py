@@ -137,10 +137,28 @@ def _read_day(db: Any, branch: Branch, clock: datetime) -> str:
     day = business_date_for(branch, clock)
     if day_rows(db, branch.id, day):
         return day
-    fixture = business_date_for(branch, FIXTURE_INSTANT)
-    if fixture != day and day_rows(db, branch.id, fixture):
-        return fixture
+    if _day_is_a_fixture_day(db, branch, clock):
+        return _fixture_day(branch)
     return _latest_queued_day(db, branch.id) or day
+
+
+def _fixture_day(branch: Branch) -> str:
+    """Return the fixture instant's business date for ``branch`` - authority 2 of the list above.
+
+    A day the dashboard can only ever answer when the clock's own day holds nothing, which is why
+    the guard that reaches it is named for the rows rather than for the constant: it is the
+    seeded-day case that needs it, and a live queue that holds a today can never land here.
+    """
+    return business_date_for(branch, FIXTURE_INSTANT)
+
+
+def _day_is_a_fixture_day(db: Any, branch: Branch, clock: datetime) -> bool:
+    """Whether the branch holds rows on the fixture instant's business date.
+
+    Split out of :func:`_read_day` so the predicate that opens authority 2 reads as the test it
+    is - "does this database hold the seeded day" - and not as an arithmetic coincidence.
+    """
+    return bool(day_rows(db, branch.id, _fixture_day(branch)))
 
 
 def branch_for_read(db: Any) -> Branch | None:
@@ -188,6 +206,8 @@ def day_rows(db: Any, branch_id: int, business_date: str) -> list[WaitlistEntry]
     The comparison normalises both sides through :func:`_entry_business_date`.
     """
     rows = db.query(WaitlistEntry).filter(WaitlistEntry.branch_id == branch_id).all()
+    if isinstance(business_date, date) or not isinstance(business_date, str):
+        business_date = str(business_date)
     return [row for row in rows if _entry_business_date(row) == business_date]
 
 
@@ -374,6 +394,10 @@ def counters(db: Any, now: datetime) -> dict[str, Any]:
         return {**_ZERO_QUEUE, **table_counts(db), "avg_wait_minutes_today": None}
 
     day = _read_day(db, branch, now)
+    # The lazy no-show runs on the day the read reports, and on no other. A sweep over days the
+    # response does not count would write ``NO_SHOW`` rows that the same response then has to
+    # explain, and AC-6 - which seeds a prior-day row and names a count that is not the sweep's -
+    # would read those writes as its own numbers moving.
     apply_lazy_no_show_for_branch(db, branch.id, day, now)
     return {
         **queue_counts(db, branch.id, day),
