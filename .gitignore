@@ -86,3 +86,6 @@ Thumbs.db
 # ============================================================
 # orchestrator runtime state (machine-local, never committed; harness lives beside the repo)
 _docs/state/
+
+# harness worktree venv symlink (child lanes symlink backend/.venv onto the suite venv)
+backend/.venv
