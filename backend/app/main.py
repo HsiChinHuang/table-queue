@@ -33,6 +33,7 @@ from app.routers import admin as admin_router
 from app.routers import auth as auth_router
 from app.routers import public as public_router
 from app.routers import staff as staff_router
+from app.routers import staff_waitlist as staff_waitlist_router
 
 settings = get_settings()
 
@@ -492,6 +493,14 @@ exempt_surface(
     admin_router.get_admin_settings,
     admin_router.update_admin_settings,
 )
+
+# B-07's staff waitlist surface (#33): the nine operations of AC-1, in their own module beside
+# B-08's table module so the two lanes never edit one file. Same configure-then-mount sequence as
+# every other router, and the same reason for it - ``mount`` asserts after the fact that each of the
+# nine declared paths really ended up reachable. No limit is registered here either: section 15
+# budgets login, join and lookup only, and the contract declares no 429 for these operations.
+staff_waitlist_router.configure_limiter(limiter)
+mount(staff_waitlist_router.router)
 
 # ---------------------------------------------------------------------------
 # Probe routes for test ACs.
