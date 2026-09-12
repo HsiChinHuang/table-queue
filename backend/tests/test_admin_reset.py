@@ -125,28 +125,29 @@ def seeded(scratch) -> Settings:
 def dev_env(scratch, monkeypatch) -> Settings:
     """Rebind every ``get_settings`` reference to the fixture's development settings.
 
-    Why this exists at all: ``backend/tests/conftest.py`` sets ``ENV`` with ``os.environ.setdefault``,
-    so an ``ENV`` the runner exports wins for the whole process, and a module that reached the
-    handler through the *imported* ``app.config.get_settings`` name would then answer the
+    Why this exists at all: ``backend/tests/conftest.py`` sets ``ENV`` with
+    ``os.environ.setdefault``, so an ``ENV`` the runner exports wins for the whole process, and a
+    module that reached the handler through the *imported* ``app.config.get_settings`` name would
+    then answer the
     environment's setting rather than this issue's. Measured at this lock: the 204/403/422 tests of
     this module passed under ``ENV=development`` and failed under any other value for exactly that
     reason. AC-6's own acceptance block therefore rebinds the cached getter before it requests
     anything, and this fixture is the same mechanism, applied per test.
 
-    The rebind is late-binding on purpose (``lambda: scratch`` calls the getter the fixture installed
-    when it resolves, not when this lambda is built) and it covers all five references that a reset
-    request can reach, because each module imported the name its own way:
+    The rebind is late-binding on purpose (``lambda: scratch`` calls the getter the fixture
+    installed when it resolves, not when this lambda is built) and it covers the four references a
+    reset request can reach, because each module imported the name its own way:
 
     * ``app.config`` - the module attribute, which is the seam AC-4 names and the one a caller that
       does ``from app.config import get_settings`` never moves at all;
-    * ``app.routers.admin`` - the handler reads ``get_settings().env`` through its own module global;
+    * ``app.routers.admin`` - the handler reads ``get_settings().env`` through its own global;
     * ``app.dependencies`` - the staff bearer decoder reads ``settings.jwt_secret`` the same way;
     * ``app.main`` - ``/health`` reports ``settings.env``, the name it captured at import time
       (``AppSettings`` is frozen, so that name is rebound rather than mutated).
 
-    ``app.database`` is deliberately absent from that list: it holds its own import-time ``settings``
-    but reads it only to build the engine, and the ``scratch`` fixture already rebinds that engine and
-    its session factory, which is what every request session comes from.
+    ``app.database`` is deliberately absent from that list: it holds its own import-time
+    ``settings`` but reads it only to build the engine, and the ``scratch`` fixture already rebinds
+    that engine and its session factory, which is what every request session comes from.
 
     ``monkeypatch`` restores every one of them at teardown, so a rebind cannot leak into the next
     module in the same process - the failure mode the issue's test requirements name.
@@ -229,7 +230,9 @@ def counts() -> tuple[int, ...]:
             session.execute(text("select count(*) from restaurants")).scalar(),
             session.execute(text("select count(*) from branches")).scalar(),
             session.execute(text("select count(*) from settings")).scalar(),
-                    session.execute(text("select count(*) from tables where is_active = 1")).scalar(),
+            session.execute(
+                text("select count(*) from tables where is_active = 1")
+            ).scalar(),
             session.execute(text("select count(*) from waitlist_entries")).scalar(),
             session.execute(text("select hold_minutes from settings")).scalar(),
         )
@@ -257,10 +260,10 @@ def envelope(answer) -> dict[str, Any]:
 def contract_document() -> dict[str, Any]:
     """``_docs/openapi.yaml``, found from this file's own home rather than from anyone's cwd.
 
-    ``tests/test_admin_settings.py::_contract_yaml`` records why this is a function: the suite runs
-    with cwd ``backend/`` while the acceptance blocks run from the repo root, so a path built against
-    the working directory resolves to ``backend/_docs/`` and every contract arm fails as a packaging
-    accident. The search walks up from ``__file__``, at call time.
+    ``tests/test_admin_settings.py::_contract_yaml`` records why this is a function: the suite
+    runs with cwd ``backend/`` while the acceptance blocks run from the repo root, so a path built
+    against the working directory resolves to ``backend/_docs/`` and every contract arm fails as a
+    packaging accident. The search walks up from ``__file__``, at call time.
     """
     import yaml
 
@@ -498,10 +501,10 @@ def test_reset_contract_shape(client, dev_env) -> None:
     """AC-9, with AC-1's arms: the generated document matches the contract for this operation.
 
     Read against the contract file rather than a restatement of it, on the axes AC-9 names - verb
-    set, declared response codes, the 403 content schema resolving to the ``ErrorResponse`` envelope,
-    no content on the 204, a required body resolving to ``ResetDataRequest``, and a non-empty bearer
-    requirement - plus AC-1's freeze facts: exactly one verb on the contract side, the
-    ``resetData`` operation id, and the request body still marked required there.
+    set, declared response codes, the 403 content schema resolving to the ``ErrorResponse``
+    envelope, no content on the 204, a required body resolving to ``ResetDataRequest``, and a
+    non-empty bearer requirement - plus AC-1's freeze facts: exactly one verb on the contract side,
+    the ``resetData`` operation id, and the request body still marked required there.
 
     The comparison runs in the AC's direction on purpose: the generated document may carry FastAPI's
     own descriptions, and may not add a verb, a response code or a security scheme the contract does
@@ -617,7 +620,11 @@ def test_no_new_endpoints(client, dev_env) -> None:
 
     documentation_routes = {"/docs", "/redoc", "/openapi.json", "/docs/oauth2-redirect"}
     declared_normalised = {(re.sub(r"\{[^}]+\}", "{}", path), verb) for path, verb in declared}
-    invented = sorted(pair for pair in served - declared_normalised if pair[0] not in documentation_routes)
+    invented = sorted(
+        pair
+        for pair in served - declared_normalised
+        if pair[0] not in documentation_routes
+    )
     assert invented == [], (
         "the application serves path+verbs the contract does not declare: " + str(invented)
     )
