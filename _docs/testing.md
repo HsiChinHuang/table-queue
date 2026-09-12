@@ -34,11 +34,19 @@ backend/tests/
 ├── test_public_board.py
 ├── test_staff_waitlist.py
 ├── test_staff_tables.py
-├── test_staff_dashboard.py
 ├── test_admin_settings.py
 ├── test_admin_tables.py
-├── test_state_machine.py
-└── test_seed.py
+├── test_admin_reset.py
+├── test_seed.py
+├── test_config.py
+├── test_dependencies.py
+├── test_errors.py
+├── test_health.py
+├── test_middleware.py
+├── test_models.py
+├── test_schemas.py
+├── test_startup.py
+└── test_startup_bootstrap_settings.py
 
 
 ### Fixtures (`conftest.py`)
