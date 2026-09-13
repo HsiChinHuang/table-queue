@@ -18,3 +18,4 @@ Runtime-maintained by Orchestrator.
 | I-02 | Verify end-to-end flow | 2026-09-13T06:20:00Z | pm=1 sw=1 qa=1 | a7244c2b30a2735a897a5b84939f9a3b70ca50bb |
 | D-01 | Swap mock store for real SQLAlchemy DB | 2026-09-13T07:25:00Z | pm=1 sw=1 qa=1 | 1dd00d85f37a0d545490a5f3f03cb61650ab2bcb |
 | D-02 | Add more tests | 2026-09-13T12:05:00Z | pm=3 sw=1 qa=1 | 160ab19c953fd0fa820c14ee32419c89de816107 |
+| D-03 | Verify all tests pass (final verification gate) | 2026-09-13T16:20:00Z | pm=2 sw=1 qa=1 (qa r1 ceiling-death, inventory-resume, zero loss) | d5d97d74587e0a32dca485ac17535ff0102e1564 |
