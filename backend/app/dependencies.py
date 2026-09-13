@@ -98,9 +98,12 @@ def get_current_staff(
     from app import database as database_module
 
     override = main_module.app.dependency_overrides.get(get_db)
-    with database_module.SessionLocal() as ambient:
+    ambient = database_module.SessionLocal()
+    try:
         served = override() if callable(override) else ambient
         return _verify(credentials.credentials, get_settings(), ambient, served)
+    finally:
+        ambient.close()
 
 
 def _verify(

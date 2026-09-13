@@ -86,6 +86,93 @@ so a fresh hash per process costs nothing and keeps a plaintext PIN out of the f
 """
 
 
+def ensure_credential(session) -> None:
+    """Give a scratch settings row the credential a bootstrapped application always carries.
+
+    T9 (D-1, AC-1) made the credential a precondition of every authenticated request, and several
+    older staff suites seed their settings row with ``staff_pin_hash=None`` because that is exactly
+    what the shipped bootstrap used to write. Rather than make each of those fixtures say where a
+    credential comes from, a test that owns a store calls this on it, which states the honest claim:
+    this store is the bootstrapped state, including the one column the test itself never reads. It
+    is an UPDATE, so it works whether the row was written by the ORM, by a seeder or by the
+    application's own bootstrap, and it is a no-op on a row that already carries a hash.
+    """
+    from sqlalchemy import text
+
+    session.execute(
+        text("update settings set staff_pin_hash=:h "
+             "where (staff_pin_hash is null or trim(staff_pin_hash) = :blank)"),
+        {"h": TEST_CREDENTIAL_HASH, "blank": ""},
+    )
+    session.commit()
+
+
+def credential_ready_store():
+    """A throwaway store that is bootstrapped: schema, settings row, credential.
+
+    ``scratch_credential_session`` below is this helper's narrower cousin and stays for probes whose
+    subject is a store that must NOT hold a restaurant or a branch. This one writes the real mapped
+    rows, so a caller can ask a route a question about its own subject and have the application's
+    every-request reads - the queue prefix, the hold window, the naming of the day - answered too.
+    It is a memory database with one connection, which is what keeps it private to the caller while
+    still being one database rather than one database per connection.
+    """
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+
+    from app.models import Base, Branch, Restaurant
+    from app.models import Settings as SettingsModel
+
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine)()
+    session.add_all(
+        [
+            Restaurant(id=1, name="Sunny Bistro"),
+            Branch(
+                id=1,
+                restaurant_id=1,
+                name="Taipei Xinyi",
+                address="1 Example Rd.",
+                phone="02-1234-5678",
+                timezone="Asia/Taipei",
+                business_day_cutoff_hour=4,
+                open_time="11:00",
+                close_time="21:00",
+            ),
+            SettingsModel(id=1, branch_id=1, staff_pin_hash=TEST_CREDENTIAL_HASH),
+        ]
+    )
+    session.commit()
+    return session
+
+
+def bootstrap_ambient_store() -> None:
+    """Put the store the APPLICATION reaches into its bootstrapped state, credential included.
+
+    A test that builds a bare ``TestClient(app)`` never opens a session of its own - the application
+    opens one per request, off the ambient factory - so anything a test needs that store to hold has
+    to be written through that same factory and committed before the request is built. This does the
+    two things the application's own startup does and nothing else: build the schema, then make sure
+    the settings row carries a credential.
+
+    It exists because T9 (D-1, AC-1) made the credential a precondition of every authenticated
+    request rather than a detail of login. A store with no settings row is not a state the shipped
+    application ever boots into, and it now answers 401; a test that borrows the ambient store to
+    ask about something else entirely has to borrow the state the application is in, not an empty
+    file.
+    """
+    from app import database as database_module
+
+    with database_module.SessionLocal() as session:
+        database_module.Base.metadata.create_all(database_module.engine)
+        session.commit()
+        ensure_credential(session)
+
+
 def scratch_credential_session():
     """A throwaway in-memory store carrying a credential, for a bearer the store must not depend on.
 
