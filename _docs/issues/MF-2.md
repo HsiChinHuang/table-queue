@@ -463,7 +463,7 @@ diff3 view does not match the working-tree layout. Both regions were resolved by
 as one alphabetical listing that is the union of both sides' real entries (`public_fixtures.py`
 kept; `factories.py` dropped - `git log --all --oneline -- backend/tests/factories.py` prints 0
 lines, the file exists in no commit; `test_state_machine.py` named in no listing). Marker scan after
-resolution: `grep -n '^<<<<<<<\|^=======\|^>>>>>>>' _docs/testing.md` -> no output (0 lines).
+resolution: running that grep for conflict markers (`^<<<<<<<` / `^=======` / `^>>>>>>>`) -> no output, 0 lines.
 
 `git diff 0483e29 HEAD -- _docs/testing.md` came out byte-identical to the Orchestrator's rehearsal
 (`diff` against `git -C /home/te/tq/g-mf2 diff 0483e29 c5e7ea4 -- _docs/testing.md` -> empty,
