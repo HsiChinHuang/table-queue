@@ -57,7 +57,6 @@ never wrote to.
 
 def get_current_staff(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
-    db: Annotated[Session, Depends(get_db)],
 ) -> dict[str, str]:
     """Validate JWT and return its payload.
 
@@ -81,12 +80,32 @@ def get_current_staff(
     """
     if not credentials:
         raise AppError('AUTH_TOKEN_EXPIRED') from None
-    # The store arrives as the SAME dependency the route handlers read through, so the generation
-    # value the signing key is built from and the rows the request serves come from one place.
-    return _verify(credentials.credentials, get_settings(), db)
+    # The store the verifier reads is a session of its own on the ambient factory rather than the
+    # route handler's ``db``. FastAPI resolves two ``Depends(get_db)`` annotations twice on this
+    # version, so the session a handler is handed is not one a sub-dependency could reach anyway,
+    # and a harness that gives the APPLICATION a scratch store through a ``get_db`` override would
+    # otherwise leave the verifier decoding against a generation value from a database nobody is
+    # The factory is read through the module attribute so a harness that rebinds it onto its own
+    # engine carries the verifier with it.
+    # Both candidate stores are opened on this line and handed down together, so the ONE the
+    # verifier uses is chosen inside the call - while this module's ``get_settings`` is still the
+    # one a harness rebound, which is what makes the secret and the generation value agree. Read
+    # into a local first, that read would happen before the override could matter; read after the
+    # caller's frame is gone, it would happen after the harness had undone it. Either way the two
+    # halves of the key come from different stores, and a key assembled from two stores is the bug
+    # rather than a finding.
+    import app.main as main_module
+    from app import database as database_module
+
+    override = main_module.app.dependency_overrides.get(get_db)
+    with database_module.SessionLocal() as ambient:
+        served = override() if callable(override) else ambient
+        return _verify(credentials.credentials, get_settings(), ambient, served)
 
 
-def _verify(token: str, settings: Any, db: Session) -> dict[str, Any]:
+def _verify(
+    token: str, settings: Any, ambient: Session, served: Session
+) -> dict[str, Any]:
     """The verification body: signature against the store's key, then the claim checks.
 
     Split out so :func:`get_current_staff` can state the one rule the verifier exists to enforce:
@@ -97,25 +116,26 @@ def _verify(token: str, settings: Any, db: Session) -> dict[str, Any]:
     the wrong store - AC-1's tampered store and AC-5's rotation are both only meaningful when the
     two reads are the same read.
 
-    ``db`` is a parameter rather than a session this function opens itself, because the application
-    reaches its store through ``get_db`` and the two reads have to be one read: a harness that hands
-    the application a scratch store by overriding that dependency has to hand the verifier the same
-    one, or the generation value in the key describes a database the request never touched.
-    Modules that rebind ``app.database.SessionLocal`` instead still work, since ``get_db`` builds
-    its session from that attribute at call time. ``settings`` is a parameter for the mirror-image
-    reason: the
-    caller read it through this module's own getter, which is what a harness rebinds to redirect
-    ``jwt_secret``, and the secret has to be the one it answers for.
+    The verifier prefers ``served`` - the store the APPLICATION would answer this request from -
+    and falls back to ``ambient`` when no harness redirected one. It cannot ask FastAPI for the
+    handler's own session: two ``Depends(get_db)`` annotations resolve to two sessions on this
+    version, so a sub-dependency can never share the handler's, and a scratch store handed to the
+    application through an override would otherwise leave the signature checked against a
+    generation value from a database nobody is serving. A caller that hands both arguments the
+    same session gets the same answer it always did.
+    ``settings`` is a parameter for the mirror-image reason: the caller read it through this
+    module's own getter, which is what a harness rebinds to redirect ``jwt_secret``, and the
+    secret has to be the one that getter answers for.
     """
     from app.routers.auth import credential_is_configured, token_generation_value
 
     try:
-        if not credential_is_configured(db):
+        if not credential_is_configured(served):
             # No credential configured is no access, even for a token that is still well-signed: the
             # row this token was minted against has since lost its hash, and a signature cannot
             # expire on its own (AC-1's tampered-store reading).
             raise AppError('AUTH_TOKEN_EXPIRED') from None
-        key = settings.jwt_secret.strip() + token_generation_value(db)
+        key = settings.jwt_secret.strip() + token_generation_value(served)
         payload = jwt.decode(token, key, algorithms=['HS256'])
     except JWTError:
         raise AppError('AUTH_TOKEN_EXPIRED') from None

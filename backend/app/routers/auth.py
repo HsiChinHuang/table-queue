@@ -197,6 +197,12 @@ def mint_staff_token(db: Session, *, role: str = "staff", lifetime_seconds: int 
     ``jwt_secret`` signature, so the payload cannot carry a hint a caller could re-sign on its own.
 
     It is not a route, a field or a response code, so ``_docs/openapi.yaml`` does not move.
+
+    The horizon is measured against the clock the VERIFIER will later read, which is the same
+    ``time.time`` both sides call. A harness under ``freeze_time`` moves that clock for the mint and
+    restores it before the request lands, so minting at the frozen instant hands the caller a token
+    that is already expired when it is presented; the caller is expected to mint outside such a
+    block. The ``exp`` claim stays the login response's own shape.
     """
     now = int(time.time())
     return jwt.encode(

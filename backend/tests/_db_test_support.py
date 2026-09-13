@@ -164,10 +164,12 @@ def store_session(session):
     """
     if session is not None:
         return session
+    # Read through the module attribute so a harness that rebound ``app.main.app`` follows onto the
+    # instance under test rather than the import-time one.
+    from app import main as main_module
     from app.database import get_db
-    from app.main import app
 
-    override = app.dependency_overrides.get(get_db)
+    override = main_module.app.dependency_overrides.get(get_db)
     if override is not None:
         return override()
     from app import database as database_module

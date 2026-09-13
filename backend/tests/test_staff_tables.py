@@ -20,6 +20,7 @@ from __future__ import annotations
 import os
 import warnings
 from datetime import UTC, datetime, timedelta
+from functools import lru_cache
 from pathlib import Path
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///./_b08_test.db")
@@ -51,6 +52,10 @@ from app.models import (  # noqa: E402
     TableStatus,
     WaitlistEntry,
     WaitlistStatus,
+)
+from tests._db_test_support import (  # noqa: E402
+    TEST_CREDENTIAL_HASH,
+    staff_token,
 )
 
 # ---------------------------------------------------------------------------
@@ -133,8 +138,8 @@ def _seed_branch(session) -> None:
                 is_waitlist_open=True,
                 sound_enabled_default=True,
                 notification_templates="{}",
-                # T9 (D-1 fail-closed, AC-1): the verifier refuses a store that carries no credential
-                # at all, so the seed row carries one - as the bootstrapped application always does.
+                # T9 (D-1 fail-closed, AC-1): the verifier refuses a store with no credential at
+                # all, so the seed row carries one - as the bootstrapped app always does.
                 staff_pin_hash=TEST_CREDENTIAL_HASH,
             )
         )
@@ -187,8 +192,25 @@ def _make_entry(session, queue_number, status, table=None, seated_at=None, party
     return entry
 
 
+@lru_cache(maxsize=1)
+def _bearer_once() -> str:
+    """The module's one staff bearer, minted lazily and never inside a frozen block.
+
+    It is minted the first time a request asks for it and cached, which is both correct and enough:
+    the credential and the token-generation value the key is built from are seeded once for the whole
+    module and nothing here rotates them, so one signature serves every request in the file.
+
+    Caching is what keeps the mint out of the four ``freeze_time`` blocks below. Those blocks freeze
+    the clock the mint and the verifier both read, and the request is served after the block has
+    closed - so a bearer minted inside one would carry a horizon measured from the frozen instant and
+    would already be expired when presented. Minting outside the block and reusing the result is the
+    simple version of the same fix, and it leaves the frozen-clock assertions untouched.
+    """
+    return _staff_token()
+
+
 def _headers():
-    return {"Authorization": "Bearer " + _staff_token()}
+    return {"Authorization": "Bearer " + _bearer_once()}
 
 
 def test_list_tables_active():
