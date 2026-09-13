@@ -24,9 +24,12 @@ async function mockRequest(method: string, path: string, body?: unknown): Promis
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T | null> {
   const { method = 'GET', body, headers: customHeaders = {} } = options;
 
-  // AC-8: Check for mock mode
+  // AC-8: Check for mock mode.
+  // I-01 mock-request-handler marker: with VITE_USE_MOCK=false this whole branch is
+  // dead code, rollup eliminates it and the mock chunk is never linked, so a built
+  // asset that contains 'mock-request-handler' means the mock layer is still reachable.
   if (import.meta.env.VITE_USE_MOCK === 'true') {
-    return mockRequest(method, path, body) as T | null;
+    return mockRequest(method, path, body) as T | null; // mock-request-handler
   }
 
   const url = `${API_BASE_URL}${path}`;
