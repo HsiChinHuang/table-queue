@@ -2,7 +2,7 @@
 
 import os
 from functools import lru_cache
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -132,10 +132,11 @@ class Settings(BaseSettings):
         quality gate already established for this class.
         """
         if not (self.env or "").strip():
+            # The message quotes ENVIRONMENTS rather than restating the sentence, because the
+            # allow-list is what a caller has to act on and it must not be spelled twice.
             raise ValueError(
-                "Value error, expected value "
-                + " or ".join(repr(v) for v in ENVIRONMENTS)
-                + " for environment variable 'ENV'; an empty ENV names no environment"
+                "env names no environment: an empty value is a value, and it is not one of "
+                + "/".join(ENVIRONMENTS)
             )
         return self
 
