@@ -1,8 +1,10 @@
 """Application configuration using pydantic-settings."""
 
+import os
 from functools import lru_cache
+from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Secret material this repository publishes (backend/.env.example, README.md, docs).
@@ -12,11 +14,22 @@ PUBLISHED_JWT_SECRETS: tuple[str, ...] = ("change-me-in-production", "test-secre
 # Minimum length for a JWT signing secret, matching `secrets.token_urlsafe(32)` output.
 JWT_SECRET_MIN_LENGTH = 32
 
+# The complete set of environments this application recognises (security audit A-3 / D-2, decision
+# D-1). The list lives in one place because two consumers read the label - the reset guard in
+# `app/routers/admin.py` and the `/health` field in `app/main.py` - and nothing else does now that
+# SQL echo answers to its own flag (see `sql_echo` below). A third `if settings.env == ...` would
+# re-open exactly the hole this field closes, so anything that asks whether a label is a name this
+# program recognises asks this tuple instead of spelling a comparison.
+ENVIRONMENTS: tuple[str, ...] = ("development", "test", "production")
+
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables.
 
-    All required settings use Field with default=... to fail fast if missing.
+    Every required setting is a ``Field(...)`` with no default, so a missing one fails the whole
+    construction instead of resolving quietly. ``env`` is one of them, and
+    ``_refuse_an_unnamed_environment`` records why that one is checked ahead of field validation
+    rather than inside it.
     """
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
@@ -59,6 +72,73 @@ class Settings(BaseSettings):
             )
         return secret
 
+    @model_validator(mode="before")
+    @classmethod
+    def _refuse_an_unnamed_environment(cls, data: Any) -> Any:
+        """Refuse a namespace in which ``ENV`` was never named (audit A-3 / D-2, decision D-1).
+
+        This is the *presence* half of the check, and it has to run before field validation rather
+        than inside it. Two measured facts fix the shape:
+
+        * pydantic-settings v2 folds ``os.environ`` (and ``.env``) into the same validated namespace
+          as constructor kwargs, so on a finished instance a default-applied field and a value that
+          came from ``ENV=...`` are indistinguishable. That is why an ``env_explicit``-style
+          companion attribute is not the mechanism and nothing may require one.
+        * the *absence* of a key is only visible on the raw incoming namespace. Measured at the base
+          of this fix: with no ``ENV`` anywhere, ``model_fields_set`` on the finished instance was
+          ``['database_url', 'jwt_secret', 'staff_pin']`` - no ``env`` - while exporting
+          ``ENV=production`` made it ``['database_url', 'env', 'jwt_secret', 'staff_pin']``. A
+          ``field_validator`` cannot see the field it is validating in ``info.data``, so it cannot
+          answer "was this ever named?" at all; ``mode="before"`` sees the namespace exactly as the
+          caller and the environment left it, which is the only place an absence can be observed.
+
+        The scan is case-insensitive and covers the three sources pydantic-settings folds together
+        (init kwargs, ``os.environ``, the loaded ``.env`` files), so naming the environment in any of
+        them satisfies the requirement - a ``.env`` that states ``ENV`` is a stated choice, not a
+        default, which is what D-1 asks for. A value of ``None`` does not count as a name, so nothing
+        can reach the value check without first being named.
+        """
+        # ``data`` is the namespace the caller and the environment produced, folded together by
+        # pydantic-settings before any default is applied: init kwargs, ``os.environ`` and the
+        # configured ``.env`` files all reach it, so scanning it alone reaches all three. It is
+        # consulted case-insensitively because the loader's own key matching is too, and because a
+        # validator that recognised ``ENV`` but not ``env`` would refuse a name the application then
+        # honoured - a refusal with no reason in it.
+        sources: list[dict] = [data]
+        for namespace in sources:
+            if not isinstance(namespace, dict):
+                continue
+            if any(
+                str(key).lower() == "env" and value is not None
+                for key, value in namespace.items()
+            ):
+                return data
+        raise ValueError(
+            "env is required: set ENV to one of "
+            + "/".join(ENVIRONMENTS)
+            + "; the environment is never resolved implicitly, because the value it used to resolve "
+            "to implicitly was the permissive one this issue exists to remove"
+        )
+
+    @model_validator(mode="after")
+    def _reject_an_environment_that_names_nothing(self) -> "Settings":
+        """Refuse an ``ENV`` that is present but names nothing: an empty string is a value, D-1.
+
+        ``Field(...)`` establishes that a value must arrive; it says nothing about a value that
+        arrives empty, and ``ENV=`` is precisely that. The message keeps pydantic's own wording for
+        an off-list ``Literal`` - it names the field and quotes the accepted values - so a caller
+        reads one failure ("that is not a recognised environment") rather than two near-identical
+        ones, and both paths raise the same ``ValidationError`` shape family that T10's secret
+        quality gate already established for this class.
+        """
+        if not (self.env or "").strip():
+            raise ValueError(
+                "Value error, expected value "
+                + " or ".join(repr(v) for v in ENVIRONMENTS)
+                + " for environment variable 'ENV'; an empty ENV names no environment"
+            )
+        return self
+
     # Authentication
     staff_pin: str = Field(..., description="Staff PIN for authentication")
 
@@ -70,8 +150,26 @@ class Settings(BaseSettings):
         default="http://localhost:5173", description="CORS allowed origins"
     )
 
-    # Environment
-    env: str = Field(default="development", description="Environment name")
+    # Environment. Required, no default: see _refuse_an_unnamed_environment for why absence is
+    # refused rather than defaulted, and why the allow-list travels in the type rather than in a
+    # comment. The label drives exactly two things - the reset guard and the /health field - and
+    # never SQL echo.
+    env: Literal["development", "test", "production"] = Field(
+        ...,
+        description=(
+            "Environment name: required, and one of development / test / production; there is no "
+            "implicit value"
+        ),
+    )
+
+    # SQL echo. Deliberately independent of `env` (audit A-3's second half, decision D-3): the label
+    # a process reports must never decide whether every bound parameter - guest names and phone
+    # numbers included - reaches the process log. Off unless asked for, in every environment, on both
+    # engines (app/database.py and app/seed.py).
+    sql_echo: bool = Field(
+        default=False,
+        description="Log every SQL statement and its bound parameters (off unless asked for)",
+    )
 
     # App version
     app_version: str = Field(default="0.1.0", description="Application version")
