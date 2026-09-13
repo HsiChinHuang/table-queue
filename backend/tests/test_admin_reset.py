@@ -669,3 +669,110 @@ AC1_OPERATION_ID_MESSAGE = (
     "contract of record no longer name the same operation"
 )
 """AC-1's third arm, named because the assertion that uses it is already a long line."""
+
+
+# ---------- T20 / AC-2: the guard's refusal is the environment's, in every named label -------
+
+
+def _env_rebound(label: str, base: Settings):
+    """Build a ``Settings`` for one named environment and rebind every reachable reference to it.
+
+    Same seam ``test_reset_refuses_non_development`` pins and the same four module references it
+    lists - the module attribute, the handler's own global, the bearer decoder's, and the object
+    ``app.main`` reports. A test that rebound only one of them would measure a request that read a
+    different environment than the one it named, which is how a 403 can be green evidence for
+    nothing. The caller must run ``get_settings.cache_clear()`` afterwards, as the callers below do.
+    """
+    named = Settings(
+        _env_file=None,
+        database_url=base.database_url,
+        jwt_secret=base.jwt_secret,
+        staff_pin=base.staff_pin,
+        jwt_expire_hours=base.jwt_expire_hours,
+        env=label,
+    )
+    import app.dependencies as dependencies_module
+    import app.main as main_module
+    import app.routers.admin as admin_module
+
+    previous = (
+        config_module.get_settings,
+        admin_module.get_settings,
+        dependencies_module.get_settings,
+        main_module.settings,
+    )
+    config_module.get_settings = lambda: named
+    admin_module.get_settings = lambda: named
+    dependencies_module.get_settings = lambda: named
+    main_module.settings = named
+    return named, previous
+
+
+@pytest.mark.parametrize("label", ["test", "production"])
+def test_t20_reset_refuses_every_named_non_development_environment(
+    client, dev_env, label: str
+) -> None:
+    """AC-2 / D-2: only ``development`` passes, and the 403 is documented rather than bare.
+
+    T10's ``test_config.py`` already exercises ``production`` through this seam; what it could not
+    exercise is the *pair* of claims this issue adds. (1) ``test`` is refused too - the guard is an
+    equality against one permissive value, not a check for "not the most dangerous one", so a label
+    that a default flip might introduce must refuse on the same terms. (2) The refusal carries the
+    documented error code: ``_docs/openapi.yaml``'s ``'403'`` example for this operation names
+    ``INTERNAL_ERROR``, ``_docs/specs.md`` section 11 lists no ``FORBIDDEN`` code, and a bare 403
+    with no envelope would be a contract change owned by Platform Issue #3 rather than a fix.
+
+    The store is counted afterwards, on the same reasoning ``test_reset_refuses_non_development``
+    records: a handler that wiped first and refused afterwards answers 403 just the same.
+    """
+    import app.dependencies as dependencies_module
+    import app.main as main_module
+    import app.routers.admin as admin_module
+
+    named, previous = _env_rebound(label, dev_env)
+    try:
+        sentinel = (client.get("/health").json() or {}).get("env")
+        assert sentinel == label, (
+            f"the application reports env={sentinel!r}; the rebind did not take effect, so the "
+            "refusal below is evidence about nothing"
+        )
+        answer = client.post(
+            PATH, headers=staff_headers(named.jwt_secret), json={"confirm": "RESET"}
+        )
+        assert answer.status_code == 403, (
+            f"ENV={label} answered {answer.status_code}; the contract prices 403"
+        )
+        error = envelope(answer)
+        assert error.get("code") == "INTERNAL_ERROR", (
+            f"ENV={label} 403 carried code={error.get('code')!r} rather than the documented one"
+        )
+        assert error.get("message"), f"ENV={label} 403 carried an empty message"
+    finally:
+        (
+            config_module.get_settings,
+            admin_module.get_settings,
+            dependencies_module.get_settings,
+            main_module.settings,
+        ) = previous
+        get_settings.cache_clear()
+
+    assert counts() == WANT_COUNTS, f"the ENV={label} refusal rewrote the seeded store"
+
+
+def test_t20_the_documented_development_reset_needs_no_second_flag(client, dev_env) -> None:
+    """AC-11's pytest half: the named-development reset works on the environment README names.
+
+    D-2 rejects a second opt-in variable (`ALLOW_DATA_RESET` and friends) because a second flag
+    whose default is also a default is the same class of bug one level down, and AC-11's block
+    refuses a fix that "passes" by adding one. This is that refusal from the inside: the documented
+    call - an explicitly development process, the documented ``confirm``, a staff bearer - still
+    answers 204 and still re-seeds, with no extra variable exported by the test.
+    """
+    answer = client.post(
+        PATH, headers=staff_headers(dev_env.jwt_secret), json={"confirm": "RESET"}
+    )
+    assert answer.status_code == 204, (
+        "the development reset stopped answering 204, so any fix that added an opt-in flag would "
+        "have to be read as breaking the documented dev workflow as well"
+    )
+    assert counts() == WANT_COUNTS, "the development reset did not restore the seed fixture"
