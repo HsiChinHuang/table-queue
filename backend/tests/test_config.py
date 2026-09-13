@@ -34,7 +34,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 
 # Gate-compliant test signing secret (41 chars, not a published literal). Every harness file
 # that bootstraps ``os.environ`` boots on this value.
-TEST_JWT_SECRET = "tq-test-jwt-secret-value-0123456789abcdef"
+TEST_JWT_SECRET = "tq-test-jwt-secret-value-0123456789abcdef"  # noqa: S105
 
 # The literals this repo used to ship. They stay in the test suite because rejecting them is
 # the behaviour under test; AC-5's grep covers only the shipped-docs surface, not this file.
@@ -216,9 +216,8 @@ def test_jwt_secret_gate_is_environment_independent(env):
     """The gate has no environment branch and no bypass flag (T10 design decision)."""
     from app.config import Settings
 
-    with _clean_env(PUBLISHED_SECRETS[0]):
-        with pytest.raises(ValidationError):
-            Settings(_env_file=None, env=env, **_REQUIRED)
+    with _clean_env(PUBLISHED_SECRETS[0]), pytest.raises(ValidationError):
+        Settings(_env_file=None, env=env, **_REQUIRED)
     with _clean_env(TEST_JWT_SECRET):
         assert Settings(_env_file=None, env=env, **_REQUIRED).jwt_secret == TEST_JWT_SECRET
 
@@ -343,9 +342,9 @@ def test_harness_secret_guard_is_falsifiable(tmp_path):
     """The guard above must be able to go RED - replay the pre-T10 harness and watch it fire.
 
     AC-6's total>=1 / bad=0 pair is the whole point of the harness half of this issue, and a green
-    that cannot be turned red is not evidence. The replay overwrites each bootstrap site with the
-    recorded pre-T10 value in a throwaway copy under ``tmp_path``; the real ``backend/tests`` tree is
-    only ever read, so no run of this file can leave a weak secret behind.
+    that cannot be turned red is not evidence. The replay overwrites each bootstrap site with
+    the recorded pre-T10 value in a throwaway copy under ``tmp_path``; the real ``backend/tests``
+    tree is only ever read, so no run of this file can leave a weak secret behind.
     """
     sources = sorted((BACKEND_DIR / "tests").glob("*.py"))
     for source in sources:
@@ -357,12 +356,8 @@ def test_harness_secret_guard_is_falsifiable(tmp_path):
         name, pre_t10 = rot13(name), rot13(pre_t10)
         path = tmp_path / name
         text = path.read_text(encoding="utf-8")
-        rewritten = re.sub(
-            _AC6_CALL_GREP,
-            lambda m: "JWT_SECRET" + chr(34) + ", " + chr(34) + pre_t10 + chr(34),
-            text,
-            count=1,
-        )
+        replacement = "JWT_SECRET" + chr(34) + ", " + chr(34) + pre_t10 + chr(34)
+        rewritten = re.sub(_AC6_CALL_GREP, replacement, text, count=1)
         assert rewritten != text, f"{name} has no AC-6-shaped JWT_SECRET call site to replay into"
         path.write_text(rewritten, encoding="utf-8")
 
