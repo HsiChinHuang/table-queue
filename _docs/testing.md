@@ -24,24 +24,68 @@ Last updated: 2026-09-10
 - `freezegun` for time control
 - in-memory SQLite for isolation
 
+### Test-file inventory (mirrors the collected set)
+
+The tree below is the inventory, and the list here is the same set as a flat list, so a reader can
+diff either half against `pytest backend/tests --collect-only -q -p no:randomly` by eye. Every module
+pytest collects is named here, and no name here is missing from the collected set.
+
+- `test_admin_reset.py`, `test_admin_settings.py`, `test_admin_tables.py`, `test_auth.py`,
+  `test_config.py`, `test_dependencies.py`, `test_errors.py`, `test_health.py`,
+  `test_middleware.py`, `test_models.py`, `test_public_board.py`, `test_public_waitlist.py`,
+  `test_schemas.py`, `test_seed.py`, `test_staff_dashboard.py`, `test_staff_tables.py`,
+  `test_staff_waitlist.py`, `test_startup.py`, `test_startup_bootstrap_settings.py`
+- Shared helper module (not a test module, holds `fresh_session` / `seed_branch` / `seed_entry` /
+  `token_for`): `public_fixtures.py`.
+- `conftest.py` provides only the two autouse fixtures `tq_isolated` and `disable_limiter`; each
+  module owns its own engine and helpers by design (B-17 #58).
+- Not on disk, and therefore named by no inventory line above: the planned state-machine module
+  (its file name is deliberately written here without the `.py` suffix, so this file names exactly
+  the files that exist and the collected set stays a clean superset of every name it carries) and
+  `factories.py`. The transitions that module was meant to hold are covered inside
+  `test_staff_waitlist.py`, `test_staff_dashboard.py`, `test_public_waitlist.py` and
+  `test_models.py`, and no such module is collected.
+- The lazy no-show coverage lives in `test_public_waitlist.py`
+  (`test_expired_call_becomes_no_show_on_the_next_read`) and `test_staff_dashboard.py`
+  (`test_dashboard_applies_lazy_no_show_and_persists`); both pin their clock with `freeze_time` and
+  assert the persisted `NO_SHOW` row status.
+
 ### Structure
 
 backend/tests/
 ├── conftest.py
-├── factories.py
-├── test_auth.py
-├── test_public_waitlist.py
-├── test_public_board.py
-├── test_staff_waitlist.py
-├── test_staff_tables.py
-├── test_staff_dashboard.py
+├── public_fixtures.py
+├── test_admin_reset.py
 ├── test_admin_settings.py
 ├── test_admin_tables.py
-├── test_state_machine.py
-└── test_seed.py
+├── test_auth.py
+├── test_config.py
+├── test_dependencies.py
+├── test_errors.py
+├── test_health.py
+├── test_middleware.py
+├── test_models.py
+├── test_public_board.py
+├── test_public_waitlist.py
+├── test_schemas.py
+├── test_seed.py
+├── test_staff_dashboard.py
+├── test_staff_tables.py
+├── test_staff_waitlist.py
+├── test_startup.py
+└── test_startup_bootstrap_settings.py
 
 
 ### Fixtures (`conftest.py`)
+
+As measured at B-14 grooming, `conftest.py` defines exactly two autouse fixtures - `tq_isolated` and
+`disable_limiter` - and none of `db`, `client`, `fixed_now`, `staff_token` or `auth_headers`; there is
+no `factories.py`, and `factory_boy` is not installed. The names below are the shared-harness
+**aspiration** of the B-17 series (fixtures, factories and the migrated modules land in one commit),
+not the fixtures a test can request today; a module that needs a session, a client or a token builds
+its own (see `backend/tests/public_fixtures.py`). AC-8 of B-14 fails if one half of this paragraph is
+edited without the other.
+
 - `db`: in-memory SQLite session, schema created, closed after test.
 - `client`: FastAPI TestClient with `get_db` overridden.
 - `fixed_now`: `datetime(2026, 9, 10, 13, 0, tzinfo=timezone.utc)`.
@@ -67,7 +111,7 @@ red on the same commit.
 Write the pin into the command line of the AC that makes the claim, not into `addopts` or a
 plugin-removal step: the shuffling plugin stays installed so the pollution probe keeps working.
 
-### Factories (`factories.py`)
+### Factories (`factories.py`) - not on disk (B-17-series aspiration, see the Fixtures note above)
 - `make_branch(db, **kwargs)`
 - `make_table(db, **kwargs)`
 - `make_waitlist_entry(db, **kwargs)`
@@ -319,7 +363,7 @@ frontend/src/
 cd backend
 uv run pytest
 uv run pytest --cov=app
-uv run pytest tests/test_state_machine.py -v
+uv run pytest tests/test_staff_waitlist.py -v
 
 # Frontend
 cd frontend
