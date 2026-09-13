@@ -38,6 +38,7 @@ from app.main import app, limiter
 from app.models import Branch, Restaurant
 from app.models import Settings as SettingsRow
 from app.schemas import SettingsResponse, UpdateSettingsRequest
+from app.services.waitlist import business_date_for, utc_now
 
 PATH = "/api/v1/admin/settings"
 """The one settings path: the contract's ``getSettings`` and ``updateSettings``."""
@@ -989,7 +990,7 @@ def test_the_settings_exemption_reaches_the_counters_the_contract_names(client, 
             full_queue_number="A-20260910-013",
             queue_prefix="A",
             seq=13,
-            business_date=time.strftime("%Y-%m-%d"),
+            business_date=business_date_for(db.get(Branch, 1), utc_now()),
             name="Exemption",
             phone="0900000013",
             party_size=2,
