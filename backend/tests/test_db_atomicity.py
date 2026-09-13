@@ -361,10 +361,9 @@ def _half_freed_table(db: Database) -> object:
     The last resort of a claim that cannot be reached through one write path, and the reason this
     body earns its marker rather than a skip. Section 14's promise is that a two-row move lands in
     **one** commit, so the state it forbids is exactly what two separate commits produce: the party
-    closed, its table left in the intermediate status the release path never reaches. Each commit is
-    committed and nothing is rolled back, so no transaction stays open - the file simply holds the
-    image of a write that stopped halfway, which is what an interrupted process leaves behind and
-    what the next reader has to survive.
+    closed, its table left ``OCCUPIED``. Each commit is committed and nothing is rolled back, so no
+    transaction stays open - the file simply holds the image of a write that stopped halfway, which
+    is what an interrupted process leaves behind and what the next reader has to survive.
 
     Forging it is honest only because of what the body then asks. It asks the store whether the
     table is free, and the store says no: the claim under test is not "nobody ever wrote this pair"
@@ -377,7 +376,7 @@ def _half_freed_table(db: Database) -> object:
         row.status = WaitlistStatus.DONE
         row.closed_at = datetime.now(UTC)
     with db.session() as session:
-        session.get(Table, table.id).status = TableStatus.CLEANING
+        session.get(Table, table.id).status = TableStatus.OCCUPIED
     return table.id
 
 
