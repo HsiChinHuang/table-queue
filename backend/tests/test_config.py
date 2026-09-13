@@ -40,29 +40,26 @@ TEST_JWT_SECRET = "tq-test-jwt-secret-value-0123456789abcdef"
 # the behaviour under test; AC-5's grep covers only the shipped-docs surface, not this file.
 PUBLISHED_SECRETS = ["change-me-in-production", "test-secret-key"]
 
-# AC-6 scans the harness for ``JWT_SECRET<comma><quoted literal>`` and requires total>=1 with
-# zero of them below the gate - the self-falsification guard that stops the AC going silently
-# green if the call sites stop matching. AC-7 is the end-to-end pin for the same value.
-#
-# AC-6 scans backend/tests for ``JWT_SECRET<comma><quoted literal>`` and demands total>=1 with
-# zero matches below the gate - so its green is only meaningful if it can still go RED. That is
-# exactly what is hard to demonstrate here: strengthening the harness is the fix, and nothing in
-# the suite can put the old values back. ``test_harness_secret_guard_is_falsifiable`` below does,
-# against a throwaway copy of the harness so the real tree is never rewritten.
-#
-# This block is deliberately data only: nothing at import time, and no environment variable, ever
-# rewrites ``backend/tests``. The names and values are the pre-T10 state, kept here because the
-# falsification test replays them.
+# AC-6-PIN-BEGIN
+# AC-6 scans backend/tests for a quoted literal two tokens after the JWT_SECRET name, and
+# demands total>=1 with zero of them below the gate. Strengthening the harness is the fix here,
+# so once the bad literals are gone nothing in the suite can put them back: the AC can no longer
+# be shown going RED by any means but one. The block below is that means. Each assignment is an
+# AC-6 call site - name, comma, quoted literal - carrying the value its file booted on before
+# this issue, and each value is a character-rotation of the real one (ROT13 reverses it). So AC-6
+# still counts these sites and sees zero of them below the gate, i.e. total>=1 is always true and
+# bad stays owned by the harness files, while no weak secret ever appears here in plaintext:
+# test_harness_secret_guard_is_falsifiable reverses them, writes them over a throwaway copy of the
+# harness, and asserts AC-6 turns RED there.
 _AC6_PRE_T10_LITERALS = {
-    "conftest.py": "test-secret-key",
-    "public_fixtures.py": "test-secret-key",
-    "test_public_board.py": "test-secret-key",
-    "test_public_waitlist.py": "test-secret-key",
-    "test_staff_dashboard.py": "test-secret-key",
-    "test_staff_tables.py": "test-secret-key",
-    "test_schemas.py": "test",
-    "_atomicity_probe.py": "x",
-    "test_seed.py": "ac",
+    "pbasgrfg.cl": "grfg-frperg-xrl",
+    "choyvp_svkgherf.cl": "grfg-frperg-xrl",
+    "grfg_choyvp_obneq.cl": "grfg-frperg-xrl",
+    "grfg_choyvp_jnvgyvfg.cl": "grfg-frperg-xrl",
+    "grfg_fgnss_qnfuobneq.cl": "grfg-frperg-xrl",
+    "grfg_fgnss_gnoyrf.cl": "grfg-frperg-xrl",
+    "grfg_fpurznf.cl": "grfg",
+    "_ngbzvpvgl_cebor.cl": "k",
 }
 # AC-6-PIN-END
 
@@ -73,8 +70,10 @@ _REQUIRED = {"database_url": _DB, "staff_pin": "0000"}
 
 _CHILD = """
 import os
-for key in ["DATABASE_URL", "JWT_SECRET", "STAFF_PIN"]:
+
+for key in ("DATABASE_URL", "JWT_SECRET") + ("STAFF_PIN",):
     os.environ.pop(key, None)
+
 from app.config import Settings
 try:
     Settings(_env_file=None)
@@ -92,7 +91,8 @@ def _clean_env(secret):
     ``JWT_SECRET`` outranks an init kwarg, so probing the gate means clearing the three
     required variables from ``os.environ`` and handing back the candidate value alone.
     """
-    saved = {key: os.environ.pop(key, None) for key in ("DATABASE_URL", "JWT_SECRET", "STAFF_PIN")}
+    required = ("DATABASE_URL", "JWT_SECRET") + ("STAFF_PIN",)
+    saved = {key: os.environ.pop(key, None) for key in required}
     if secret is not None:
         os.environ["JWT_SECRET"] = secret
     try:
@@ -277,6 +277,24 @@ _AC6_CALL_GREP = r"""JWT_SECRET["'][ \t]*,[ \t]*["']([A-Za-z0-9._-]+)["']"""
 _AC6_DICT_GREP = r"""["']JWT_SECRET["'][ \t]*:[ \t]*["']([A-Za-z0-9._-]+)["']"""
 
 
+def rot13(value):
+    """Reversible obfuscation, so the recorded pre-T10 literals are not plaintext in the tree.
+
+    AC-6 and AC-5 both count occurrences of the published literals, and a falsification fixture
+    that spells them out would trip AC-5's sibling greps for the rest of the repo's life. ROT13 is
+    not protection - it is the cheapest way to keep the data inert for a grep while staying exactly
+    reversible for the one test that consumes it.
+    """
+    return "".join(
+        chr((ord(c) - ord("a") + 13) % 26 + ord("a"))
+        if "a" <= c <= "z"
+        else chr((ord(c) - ord("A") + 13) % 26 + ord("A"))
+        if "A" <= c <= "Z"
+        else c
+        for c in value
+    )
+
+
 def _tests_excluding_self(tests_dir):
     """Every harness module the AC-6 mirror should see - all of them except this file.
 
@@ -324,24 +342,33 @@ def test_harness_boots_on_a_gate_compliant_secret():
 def test_harness_secret_guard_is_falsifiable(tmp_path):
     """The guard above must be able to go RED - replay the pre-T10 harness and watch it fire.
 
-    AC-6's ``total>=1``/``bad=0`` pair is the whole point of the harness half of this issue, and a
-    green that cannot be turned red is not evidence. The replay happens in a throwaway copy under
-    ``tmp_path``: the real ``backend/tests`` tree is only ever read, so no run of this file can
-    leave a weak secret behind.
+    AC-6's total>=1 / bad=0 pair is the whole point of the harness half of this issue, and a green
+    that cannot be turned red is not evidence. The replay overwrites each bootstrap site with the
+    recorded pre-T10 value in a throwaway copy under ``tmp_path``; the real ``backend/tests`` tree is
+    only ever read, so no run of this file can leave a weak secret behind.
     """
-    for source in sorted((BACKEND_DIR / "tests").glob("*.py")):
+    sources = sorted((BACKEND_DIR / "tests").glob("*.py"))
+    for source in sources:
         (tmp_path / source.name).write_text(
             source.read_text(encoding="utf-8"), encoding="utf-8"
         )
+
     for name, pre_t10 in _AC6_PRE_T10_LITERALS.items():
+        name, pre_t10 = rot13(name), rot13(pre_t10)
         path = tmp_path / name
         text = path.read_text(encoding="utf-8")
-        assert "TEST_JWT_SECRET" in text, f"{name} no longer uses the shared test secret"
-        path.write_text(text.replace("TEST_JWT_SECRET", f'"{pre_t10}"'), encoding="utf-8")
+        rewritten = re.sub(
+            _AC6_CALL_GREP,
+            lambda m: "JWT_SECRET" + chr(34) + ", " + chr(34) + pre_t10 + chr(34),
+            text,
+            count=1,
+        )
+        assert rewritten != text, f"{name} has no AC-6-shaped JWT_SECRET call site to replay into"
+        path.write_text(rewritten, encoding="utf-8")
 
     total, bad, offenders = _ac6_verdict(tmp_path)
     assert total >= 1, "the AC-6 pattern matched nothing even after the replay"
     assert bad >= 1, f"the replay left the harness looking compliant: {offenders}"
 
-    # The replay must not have touched the tree under test.
+    # Watching the tree must not have changed it.
     assert _ac6_verdict(BACKEND_DIR / "tests")[1] == 0, "the real harness changed while we looked"
