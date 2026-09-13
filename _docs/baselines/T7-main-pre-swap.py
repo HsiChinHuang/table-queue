@@ -1,10 +1,10 @@
 """FastAPI application for TableQueue.
 
-Features added for B-04:
-- Request-ID middleware (X-Request-ID header, uuid4 generation/echo)
-- Security-header middleware
+Features added for B‑04:
+- Request‑ID middleware (X-Request-ID header, uuid4 generation/echo)
+- Security‑header middleware
 - CORS configuration from ``settings.cors_origins``
-- Rate-limiting via ``slowapi`` with ``app.state.limiter``
+- Rate‑limiting via ``slowapi`` with ``app.state.limiter``
 - Global error handlers from ``app.errors``
 - ``bootstrap_defaults`` function exported for tests.
 """
@@ -38,7 +38,7 @@ from app.routers import staff_waitlist as staff_waitlist_router
 settings = get_settings()
 
 # ---------------------------------------------------------------------------
-# Rate limiter - module-level so tests can import ``app.main.limiter``.
+# Rate limiter – module‑level so tests can import ``app.main.limiter``.
 # ---------------------------------------------------------------------------
 
 GUEST_LIMIT = "10/minute"
@@ -218,7 +218,7 @@ del _hook, _bound
 def bootstrap_defaults(db: Any) -> None:
     """Insert default restaurant/branch/settings rows when tables are present.
 
-    This mirrors the original implementation but is now a top-level function so
+    This mirrors the original implementation but is now a top‑level function so
     ``tests/test_startup.py`` can import it.
     """
     from sqlalchemy import func, inspect, select, text
@@ -339,7 +339,7 @@ app.add_middleware(
 # ``tests/test_public_waitlist.py`` measures the ten-then-429 boundary directly.
 app.add_middleware(SlowAPIMiddleware)
 
-# Request-ID and security-header middleware.
+# Request‑ID and security‑header middleware.
 def _add_security_headers(response: Response) -> None:
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
