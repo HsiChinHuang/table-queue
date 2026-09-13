@@ -89,3 +89,6 @@ _docs/state/
 
 # harness worktree venv symlink (child lanes symlink backend/.venv onto the suite venv)
 backend/.venv
+
+# harness worktree frontend deps symlink (Orchestrator-owned shared install; trailing-slash node_modules/ does not match symlinks)
+frontend/node_modules
