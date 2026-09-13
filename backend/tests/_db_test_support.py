@@ -28,7 +28,6 @@ What lives here and why:
 from __future__ import annotations
 
 import contextlib
-import os
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -36,9 +35,9 @@ from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
+import bcrypt
 from fastapi.testclient import TestClient
 from freezegun import freeze_time
-from jose import jwt
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
@@ -74,19 +73,115 @@ def taipei(
     return datetime(year, month, day, hour, minute, second, tzinfo=ZoneInfo("Asia/Taipei"))
 
 
-def staff_headers() -> dict[str, str]:
-    """Mint a staff bearer token rather than logging in.
+TEST_CREDENTIAL_HASH = bcrypt.hashpw(b"1234", bcrypt.gensalt(rounds=12)).decode()
+"""A real bcrypt hash for the settings row every staff-facing test seeds.
 
-    AC-2 owns the login flow, the seeded PIN is ``1234`` while the gate exports ``STAFF_PIN=0000``,
-    and the login route is rate-limited, so every staff call here carries a JWT signed from the
-    ambient secret - the approach the merged ``test_staff_waitlist.py`` takes for the same reason.
+Two T9 properties meet in one constant here. The verifier now confirms that the store actually
+carries a credential before it accepts a signature (D-1's fail-closed reading, which AC-1's
+tampered-store arm pins), so a test that seeds a settings row to exercise a staff route has to seed
+a credential with it - a hash-less row is the tampered shape and answers 401 by design. And it is a
+hash produced by the same construction the application uses, at the pinned cost, rather than a
+placeholder string: the value never becomes an assertion anywhere (no test in this file logs in),
+so a fresh hash per process costs nothing and keeps a plaintext PIN out of the file (AC-7).
+"""
+
+
+def scratch_credential_session():
+    """A throwaway in-memory store carrying a credential, for a bearer the store must not depend on.
+
+    Some shape probes - ``test_admin_tables.py``'s AC-12 rule, for one - ask what status code a
+    request earns WITHOUT installing the fixture that binds the application to a seeded scratch
+    schema, because an empty schema is part of what they are measuring. Under T9 that is a bind: the
+    bearer is keyed on a generation value the request's own store holds, and with no fixture in play
+    that store is the ambient ``tq_isolated`` file, whose credential state belongs to the harness
+    rather than to the probe. Handing the mint a store of its own settles it - the signature is
+    well-formed and the credential check is answered by a row that exists - and the request still
+    runs against whatever store the test's arrangement leaves in place, which is the thing under
+    test. It is a memory database with one settings row and it dies with the caller's session.
     """
-    token = jwt.encode(
-        {"sub": "staff", "role": "staff", "iat": 1, "exp": 9999999999},
-        os.environ["JWT_SECRET"],
-        algorithm="HS256",
+    from sqlalchemy import create_engine, text
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
     )
-    return {"Authorization": "Bearer " + token}
+    session = sessionmaker(bind=engine)()
+    # Raw DDL for the two columns the verifier reads, rather than the mapped table: the mapped row
+    # carries NOT NULL columns of its own (branch_id and the rest), and satisfying them would mean
+    # seeding a restaurant and a branch too - a bigger claim about the store than this helper is
+    # entitled to make. The verifier asks exactly two questions of the settings row, and these are
+    # the two answers it needs.
+    session.execute(
+        text("create table settings (id integer primary key, staff_pin_hash varchar(100), "
+             "token_generation varchar(64))")
+    )
+    session.execute(
+        text("insert into settings (id, staff_pin_hash) values (1, :h)"),
+        {"h": TEST_CREDENTIAL_HASH},
+    )
+    session.commit()
+    return session
+
+
+def staff_token(
+    *, role: str = "staff", settings: Any | None = None, session: Any | None = None
+) -> str:
+    """Mint a current staff bearer through the auth module's own seam.
+
+    T9 decision D-2 folded the store's token-generation value into the HS256 key, so the key is no
+    longer something a caller can rebuild from configuration - and T9 AC-5 refuses a bare
+    ``JWT_SECRET`` signature outright, which means every hand-signed staff bearer in the suite had
+    to go. The module that owns the credential mints the token instead; the claims stay the login
+    response's own shape, so what the verifier checks is unchanged.
+
+    Which STORE the token is signed for is the whole question, and :func:`store_session` answers it:
+    ``session`` names one outright, and ``None`` resolves to whatever the running request will read.
+    ``settings`` stays a parameter for the expiry horizon only - the reset suite rebinds the
+    settings getter onto a scratch database and the horizon has to come from the settings in force
+    there. The key never comes from here: it belongs to the store, which is the whole point of the
+    revocation design.
+    """
+    from app.config import get_settings
+    from app.routers.auth import mint_staff_token
+
+    horizon = (settings or get_settings()).jwt_expire_hours * 3600
+    with contextlib.closing(store_session(session)) as owned:
+        return mint_staff_token(owned, role=role, lifetime_seconds=horizon)
+
+
+def store_session(session):
+    """Return the session the running request will use, so a mint and a request cannot diverge.
+
+    A harness gives the application its store one of two ways, and both are shipped: it rebinds
+    ``app.database.SessionLocal`` (``test_staff_tables``, ``test_staff_dashboard``, the reset
+    suite), or it overrides the ``get_db`` dependency with a session of its own
+    (``test_admin_settings``, ``test_admin_tables``). The second one never touches the factory, so
+    a mint that read the factory would sign for a database the request will not read - and after T9
+    decision D-2 that is a 401, not a shrug: the generation value a signature carries has to come
+    from the row the request will load. An override is a plain callable here and the session it
+    returns is this test's session, so one helper covers both shapes.
+    """
+    if session is not None:
+        return session
+    from app.database import get_db
+    from app.main import app
+
+    override = app.dependency_overrides.get(get_db)
+    if override is not None:
+        return override()
+    from app import database as database_module
+
+    return database_module.SessionLocal()
+
+
+def staff_headers(
+    *, role: str = "staff", settings: Any | None = None, session: Any | None = None
+) -> dict[str, str]:
+    """The bearer header every staff/admin request in the suite carries."""
+    return {
+        "Authorization": "Bearer " + staff_token(role=role, settings=settings, session=session)
+    }
 
 
 def _as_uuid(value: Any) -> UUID:
@@ -265,7 +360,7 @@ class Database:
                         is_waitlist_open=True,
                         sound_enabled_default=True,
                         notification_templates="{}",
-                        staff_pin_hash=None,
+                        staff_pin_hash=TEST_CREDENTIAL_HASH,
                     )
                 )
             session.commit()

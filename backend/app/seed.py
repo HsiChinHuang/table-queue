@@ -50,11 +50,27 @@ def drop_schema(engine) -> None:
     Base.metadata.drop_all(engine)
 
 
+BCRYPT_COST = 12
+"""The bcrypt work factor this module writes PIN hashes with, and the value ``app.routers.auth``
+pins for its own two sites. AC-6 rejects a construction that inherits the bcrypt default.
+"""
+
+
 def hash_pin(pin: str) -> str:
-    return bcrypt.hashpw(pin.encode(), bcrypt.gensalt()).decode()
+    """Hash a staff PIN at the pinned cost.
+
+    The demo fixture no longer hard-codes a PIN value (T9 AC-7: a contract file must not pair the
+    staff-PIN contract with a copy-pasteable value). It reads the same one-time ``STAFF_PIN`` seed
+    the shipped ``app.main.bootstrap_defaults`` hashes, so the fixture and the startup path agree on
+    where the initial credential comes from and neither of them states it.
+    """
+    return bcrypt.hashpw(pin.encode(), bcrypt.gensalt(rounds=BCRYPT_COST)).decode()
 
 
 def seed_data(reset: bool = False) -> int:
+    # Through the module attribute, not a direct call: the shipped reset suite rebinds this name
+    # to point the seeder at a scratch database, and a reset must seed the store the application
+    # actually reads - a direct call would jump that rebind.
     engine = get_engine()
     # Ensure schema exists before checking data.
     create_schema(engine)
@@ -91,7 +107,7 @@ def seed_data(reset: bool = False) -> int:
         )
         session.add(branch)
         session.flush()
-        pin_hash = hash_pin("1234")
+        pin_hash = hash_pin(get_settings().staff_pin)
         settings = SettingsModel(
             branch_id=branch.id,
             hold_minutes=10,

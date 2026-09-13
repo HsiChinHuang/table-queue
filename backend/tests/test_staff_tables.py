@@ -31,7 +31,6 @@ os.environ.setdefault("ENV", "test")
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from freezegun import freeze_time  # noqa: E402
-from jose import jwt  # noqa: E402
 from sqlalchemy import create_engine  # noqa: E402
 from sqlalchemy.orm import sessionmaker  # noqa: E402
 
@@ -74,11 +73,16 @@ FROZEN_DT = datetime(2026, 9, 10, 13, 0, tzinfo=UTC)
 
 
 def _staff_token() -> str:
-    return jwt.encode(
-        {"sub": "staff", "role": "staff", "iat": 1, "exp": 9999999999},
-        os.environ["JWT_SECRET"],
-        algorithm="HS256",
-    )
+    """A current staff bearer, minted by the module that owns the credential.
+
+    T9 decision D-2 puts the store's token-generation value into the HS256 key, so a bearer rebuilt
+    from ``JWT_SECRET`` alone is refused outright (AC-5) and the mint has to name the store - here
+    the file's own database, which the module fixture below binds onto
+    ``app.database.SessionLocal`` for every request in this module. It is minted per call rather
+    than at import for the same reason: the first thing that has to be true of a mint is that the
+    row it reads still exists.
+    """
+    return staff_token(role="staff")
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -129,7 +133,9 @@ def _seed_branch(session) -> None:
                 is_waitlist_open=True,
                 sound_enabled_default=True,
                 notification_templates="{}",
-                staff_pin_hash=None,
+                # T9 (D-1 fail-closed, AC-1): the verifier refuses a store that carries no credential
+                # at all, so the seed row carries one - as the bootstrapped application always does.
+                staff_pin_hash=TEST_CREDENTIAL_HASH,
             )
         )
         session.commit()

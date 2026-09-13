@@ -6,10 +6,38 @@ Endpoints (the only two paths this router mounts):
   sits outside the contract and is never emitted).
 - ``POST /api/v1/auth/change-pin``: verify the current PIN and persist a new bcrypt hash.
 
-PIN verification follows ruling R-B05-3: when ``Settings.staff_pin_hash`` holds a non-empty string
-``bcrypt.checkpw`` verifies against it, otherwise the ``STAFF_PIN`` environment value is used (the
-shape ``app.main.bootstrap_defaults`` writes). ``bcrypt`` is called directly: passlib 1.7.4 is
+PIN verification is bcrypt-only (T9, superseding ruling R-B05-3): the stored
+``Settings.staff_pin_hash`` column is the ONLY credential the staff surface accepts, and the only
+comparison left is ``bcrypt.checkpw``. R-B05-3's fall-through to the ``STAFF_PIN`` environment value
+was deleted by T9 (audit A-2/A-9): that env value is documented in the contract files and readable
+by anyone who can read the process environment, so it was a live second credential rather than a
+transitional one. ``app.main.bootstrap_defaults`` now hashes that one-time seed into the row it
+inserts, so a fresh install never sits in the hash-less state the fallback used to cover, and a row
+that is hash-less anyway (manual tampering, a half-migrated store) fails closed: every PIN
+against it answers 401 ``AUTH_INVALID_PIN``. ``bcrypt`` is called directly: passlib 1.7.4 is
 broken against bcrypt 5.x here.
+
+Token revocation follows T9 decision D-2: the HS256 signature is computed over ``jwt_secret``
+concatenated with the stored token-generation value, a settings COLUMN that
+``POST /api/v1/auth/change-pin`` replaces on every rotation. A pre-rotation token then fails
+signature verification in ``app.dependencies.get_current_staff`` and answers 401
+``AUTH_TOKEN_EXPIRED``, so rotation is a revocation event without a per-request revocation-table
+read. The generation value lives in the same SQLite row as the hash rather than in process memory,
+which is what lets two workers (``_docs/deployment.md`` prescribes ``--workers 2``) sign and verify
+with the same key.
+
+Two consequences of D-2 are recorded here because they are contract changes, and a reader has to be
+able to find them from the module that made them:
+
+1. A bearer signed with the bare ``JWT_SECRET`` no longer verifies (AC-5 pins it). Every staff and
+   admin caller must therefore hold a token login minted. The shipped suite hand-signed bearers in
+   eight test modules against the ambient secret - the shape ruling R-B05-3 and B-05 AC-4 assumed -
+   and those tokens die with the signature change by definition, so those helpers now call
+   :func:`mint_staff_token` below rather than reconstruct a key they can no longer derive.
+2. The hash column is now checked for PRESENCE on the staff/admin path as well as at login
+   (:func:`credential_is_configured`). A signature cannot expire, so without that read a token
+   minted while the row still had a hash would keep opening the API after the credential was
+   removed, and AC-1's tampered store would answer 200.
 
 Rate limiting: ``app.main`` owns the one process ``Limiter`` (B-04) and hands that exact object to
 this router through the public ``configure_limiter`` hook, which ``app.main`` calls immediately
@@ -41,18 +69,29 @@ before login runs; the 429 body comes from B-04's ``RateLimitExceeded`` handler,
 
 from __future__ import annotations
 
+import secrets
 import time
 from typing import Any
 
 import bcrypt
 from fastapi import APIRouter, Request
 from jose import jwt
+from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.dependencies import DbSession, Staff
 from app.errors import AppError
 from app.models import Settings as SettingsModel
 from app.schemas import ChangePinRequest, StaffLoginRequest, StaffLoginResponse
+
+BCRYPT_COST = 12
+"""The bcrypt work factor every PIN hash in this application is written with, named once and passed
+explicitly to every ``bcrypt.gensalt`` call (T9 AC-6). AC-6 sweeps each construction site in
+``routers/auth.py``, ``app/main.py``, ``seed.py``, ``dependencies.py`` and
+``services/settings.py`` and rejects any site that inherits the library default instead: a cost that
+is a library default is a cost a dependency bump can move, and the ``$2b$12$`` factor audit C-18
+rated clean is only a fact about new hashes while the constant that writes it is pinned.
+"""
 
 limiter = None
 """The one process limiter; ``configure_limiter`` injects app.main's instance (AC-6)."""
@@ -93,12 +132,129 @@ def _settings_row(db: Any) -> SettingsModel:
     return row
 
 
+INITIAL_TOKEN_GENERATION = "initial"  # noqa: S105
+"""The token-generation value a store carries before its first PIN rotation.
+
+Two things make this a constant rather than a generated value, and AC-5 measures both:
+
+* it must be the value EVERY worker derives for the same store, because a value generated at import
+  time would differ per process and a token minted by worker A would then die on worker B (the
+  shipped run shape is ``--workers 2``); and
+* it must be derivable from a row that never names the column. ``token_generation`` is nullable, so
+  an existing store, a store the shipped ``bootstrap_defaults`` wrote before this column existed, or
+  a settings row inserted by a script that names only the older columns all read as this value
+  instead of raising - and an unhandled exception on the verifier path would answer 500 where AC-5
+  and AC-8 require 200.
+"""
+
+
+def token_generation_value(db: Session) -> str:
+    """Read the store's current token-generation secret (T9 decision D-2).
+
+    A single scalar SELECT, not an ORM row, so the read survives a store whose ``settings`` table
+    predates the column: an ``OperationalError`` there would surface as 500 on every staff and admin
+    request. The generation value lives here - in the same SQLite row as the PIN hash - precisely
+    because the verifier has to see it in every worker, which is the property that rules out a
+    process global and rules out the per-request revocation-table read D-2 rejected.
+    """
+    from sqlalchemy import text
+
+    try:
+        row = db.execute(
+            text("select token_generation from settings order by id limit 1")
+        ).fetchone()
+    except Exception:  # noqa: BLE001 - a missing column means "never rotated", see the docstring
+        return INITIAL_TOKEN_GENERATION
+    stored = row[0] if row else None
+    text_value = (stored or "").strip() if isinstance(stored, str) else ""
+    return text_value or INITIAL_TOKEN_GENERATION
+
+
+def token_signing_key(db: Session) -> str:
+    """The HS256 key every staff token is signed with and verified with.
+
+    ``jwt_secret`` alone cannot express revocation: a signature either verifies or it does not, and
+    nothing short of changing the secret makes an already-minted signature stop verifying. Folding
+    the generation value into the key gives exactly that, which is why ``app.dependencies`` rebuilds
+    this same key to verify rather than decoding with the bare secret (AC-5 pins the consequence: a
+    token signed with the bare ``JWT_SECRET`` answers 401).
+
+    The generation value is key material only. It is never a claim: AC-8 pins the payload at exactly
+    ``sub``/``role``/``iat``/``exp``, so adding a claim would be a contract change, while a key
+    change is invisible to the schema.
+    """
+    return get_settings().jwt_secret + token_generation_value(db)
+
+
+def mint_staff_token(db: Session, *, role: str = "staff", lifetime_seconds: int = 3600) -> str:
+    """Mint a staff bearer through the same code path ``POST /api/v1/auth/login`` uses.
+
+    A supported seam rather than a convenience: once a rotation folds the stored generation into the
+    signature, a caller that is not login cannot reconstruct the signing key from configuration, so
+    the only way to hold a current staff token - from a test harness, or from any future in-process
+    caller - is to ask the module that owns the credential. AC-5's revocation property is what makes
+    this necessary: it pins the payload at ``sub``/``role``/``iat``/``exp`` and refuses the bare
+    ``jwt_secret`` signature, so the payload cannot carry a hint a caller could re-sign on its own.
+
+    It is not a route, a field or a response code, so ``_docs/openapi.yaml`` does not move.
+    """
+    now = int(time.time())
+    return jwt.encode(
+        {"sub": "staff", "role": role, "iat": now, "exp": now + lifetime_seconds},
+        token_signing_key(db),
+        algorithm="HS256",
+    )
+
+
+def credential_is_configured(db: Session) -> bool:
+    """Whether the store currently carries a usable staff credential (T9 decision D-1).
+
+    The verifier asks this before it accepts a signature, and that one check is what makes a
+    hash-less row fail CLOSED rather than fail OPEN. A signature cannot expire: a token minted while
+    the row still held a hash keeps verifying forever, so AC-1's tampered store - the hash removed
+    under a live session - would otherwise keep answering 200 for the old token and for a freshly
+    minted one. Checking the credential's presence on the request path is therefore the only shape
+    in which "no credential configured" can mean "no access".
+
+    It is a single scalar SELECT on the same row the generation value is read from, not the
+    per-request revocation table D-2 rejected: no rows are written, nothing is joined, and there is
+    nothing to prune. D-2's objection was to a table that has to be consulted to learn whether a
+    token is alive; this asks the store a question it can already answer, and it is the property the
+    shipped ``has_pin`` flag reports for the operator.
+    """
+    from sqlalchemy import text
+
+    try:
+        row = db.execute(
+            text("select staff_pin_hash from settings order by id limit 1")
+        ).fetchone()
+    except Exception:  # noqa: BLE001 - a store we cannot read is not a store to authorise against
+        return False
+    stored = row[0] if row else None
+    return bool(isinstance(stored, str) and stored.strip())
+
+
 def _pin_matches(pin: str, row: SettingsModel) -> bool:
-    """Compare a submitted PIN with the stored bcrypt hash, or with STAFF_PIN as fallback."""
-    stored = row.staff_pin_hash
-    if stored and stored.strip():
-        return bcrypt.checkpw(pin.encode(), stored.strip().encode())
-    return pin == get_settings().staff_pin
+    """Compare a submitted PIN with the stored bcrypt hash, the only credential that exists.
+
+    Two properties AC-2/AC-3/AC-4 measure, and the order of the two statements carries the first:
+
+    - Fail closed. A row whose hash is NULL, blank or whitespace carries NO credential, so no
+      submitted string can match it and the answer is False without consulting any other source -
+      not the environment, not a default, not a second column. The shipped code fell through to the
+      plaintext env value here, which is the hole audit A-2 reported.
+    - Bcrypt-only (T9 decision D-3). The one comparison left is ``bcrypt.checkpw``, whose work
+      factor does not depend on where a submitted PIN differs from the stored one. The
+      short-circuiting ``str ==`` it replaces is gone rather than wrapped in a constant-time
+      helper: the transitional path the audit's fix direction allowed is the path this issue
+      deletes, so AC-4 also asserts that no ``compare_digest`` call was introduced in its place.
+
+    AC-3 reads this function's source and asserts its LAST statement is the bcrypt call, so the
+    fail-closed guard has to sit above it rather than replace it.
+    """
+    if not (row.staff_pin_hash or "").strip():
+        return False
+    return bcrypt.checkpw(pin.encode(), row.staff_pin_hash.strip().encode())
 
 
 async def _handle_login(request: Request, payload: StaffLoginRequest, db: DbSession) -> dict:
@@ -115,7 +271,7 @@ async def _handle_login(request: Request, payload: StaffLoginRequest, db: DbSess
     expires_in = settings.jwt_expire_hours * 3600
     token = jwt.encode(
         {"sub": "staff", "role": "staff", "iat": now, "exp": now + expires_in},
-        settings.jwt_secret,
+        token_signing_key(db),
         algorithm="HS256",
     )
     return {"access_token": token, "expires_in": expires_in, "token_type": "bearer"}
@@ -149,5 +305,13 @@ async def change_pin(payload: ChangePinRequest, staff: Staff, db: DbSession) -> 
         raise AppError("AUTH_INVALID_PIN")
     if payload.new_pin == payload.current_pin or payload.new_pin != payload.confirm_new_pin:
         raise AppError("VALIDATION_ERROR", status_code=422)
-    row.staff_pin_hash = bcrypt.hashpw(payload.new_pin.encode(), bcrypt.gensalt()).decode()
+    row.staff_pin_hash = bcrypt.hashpw(
+        payload.new_pin.encode(), bcrypt.gensalt(rounds=BCRYPT_COST)
+    ).decode()
+    # T9 decision D-2: the rotation writes the new credential AND the new token generation in the
+    # same commit, so there is no window in which the new PIN is live while old tokens still
+    # verify. Every token minted before this line was signed with the old key and now answers 401
+    # AUTH_TOKEN_EXPIRED from the existing verifier - AC-5's revocation event, with no new field,
+    # endpoint or response code in the contract.
+    row.token_generation = secrets.token_urlsafe(32)
     db.commit()

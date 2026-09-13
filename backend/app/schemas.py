@@ -117,6 +117,10 @@ class UpdateTableRequest(BaseModel):
 class UpdateSettingsRequest(BaseModel):
     r"""The settings PATCH body: any subset of the twelve writable fields.
 
+    T9 adds one rule on top of B-10's field list: a body that names either credential
+    column is refused rather than ignored. See the model_config note below for why the
+    refusal cannot live in the write service.
+
     AC-5 holds this model's four boundary literals - ``ge=5``, ``le=15``, ``le=60``, the
     ``[A-Z]{1,3}`` and ``\d{2}:\d{2}`` patterns - as the shipped contract, and fails a router that
     rebinds the class rather than importing it, so the validators belong here and nowhere else.
@@ -143,6 +147,20 @@ class UpdateSettingsRequest(BaseModel):
     201-character ``address``) at 200 rather than at a fourth boundary; none of them is a null, so
     this rule leaves that arm standing, and no length, range or pattern was added or tightened.
     """
+
+    model_config = ConfigDict(extra="forbid")
+    # T9 AC-8: a body naming either credential column is refused, not ignored. B-10 AC-3
+    # read the whitelist the other way round and the shipped code followed it - a body with
+    # the hash column was dropped silently and the PATCH answered 200 - but accepted-and-
+    # dropped is indistinguishable to a caller from accepted-and-written, and the plaintext
+    # spelling is exactly what a caller tries once the hash key is refused. The refusal
+    # cannot live in the write service, where a reader would first look: the shipped
+    # validation handler serialises the error context, so a service-raised 400 would echo
+    # the submitted value back as plaintext (audit A-2, AC-4). extra="forbid" dies at
+    # FastAPI's own boundary instead, where the 422 names the key and never the value.
+    # B-10 AC-3 is kept rather than widened - it asserts the STORED hash is unchanged and
+    # that no body leaks the column, both of which hold; only its accepted-200 premise and
+    # its PIN-injection arm are superseded, and both are T9 AC-8's own probes.
 
     address: str | None = None
     avg_seat_minutes: int | None = Field(default=None, ge=5, le=60)

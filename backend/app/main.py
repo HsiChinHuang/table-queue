@@ -18,6 +18,7 @@ from collections.abc import Callable
 from contextlib import asynccontextmanager
 from typing import Any
 
+import bcrypt
 from fastapi import APIRouter, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from limits.storage.memory import MemoryStorage
@@ -34,6 +35,7 @@ from app.routers import auth as auth_router
 from app.routers import public as public_router
 from app.routers import staff as staff_router
 from app.routers import staff_waitlist as staff_waitlist_router
+from app.routers.auth import INITIAL_TOKEN_GENERATION
 
 settings = get_settings()
 
@@ -215,11 +217,57 @@ del _hook, _bound
 # Helper: bootstrap default data if tables exist but are empty.
 # ---------------------------------------------------------------------------
 
+BCRYPT_COST = 12
+"""The bcrypt work factor the bootstrap hash is written with (T9 AC-6).
+
+AC-6 sweeps every ``hashpw``/``gensalt`` line in ``app/main.py`` (as well as the auth router, the
+seed script, the dependencies module and the settings service) and rejects a site that inherits the
+library default, so the cost the audit rated clean is a written constant at each writer rather than
+a fact about whatever bcrypt happens to default to today.
+"""
+
+
+def bootstrap_staff_pin_hash() -> str:
+    """Derive the initial staff credential from the one-time ``STAFF_PIN`` seed (T9 decision D-1).
+
+    Three properties, each of which an acceptance block measures:
+
+    * The hash is the ONLY credential. ``STAFF_PIN`` stays a seed source that is read here and then
+      never consulted again; it is not an accepted credential, so AC-2 and AC-3 refuse it even when
+      a caller submits exactly it.
+    * A fresh install is never hash-less. The shipped INSERT used to write a NULL hash, which made
+      the hash-less state the default rather than an edge case, and the fallback that covered it
+      authenticated with the plaintext env value. Writing the hash here removes both halves.
+    * A blank or unset seed is a config error, not a licence to write NULL: this raises, so the boot
+      is refused instead of leaving a store with no credential. AC-5's own blocks set
+      ``STAFF_PIN=0000``, and the shipped ``Settings.staff_pin`` field already requires the variable
+      to be present.
+
+    The hash is produced here rather than through a SQL literal because the ``settings`` row is
+    inserted with ``text()`` and every NOT NULL column has to be named (B-15), and a bcrypt digest
+    is not something a SQL expression can compute.
+    """
+    seed = (get_settings().staff_pin or "").strip()
+    if not seed:
+        raise RuntimeError(
+            "STAFF_PIN is unset or blank, so there is no one-time seed to derive the initial "
+            "staff credential from; the app refuses to bootstrap a settings row with a NULL "
+            "staff_pin_hash (T9/D-1). Set STAFF_PIN before the first start, then rotate."
+        )
+    return bcrypt.hashpw(seed.encode(), bcrypt.gensalt(rounds=BCRYPT_COST)).decode()
+
+
 def bootstrap_defaults(db: Any) -> None:
     """Insert default restaurant/branch/settings rows when tables are present.
 
     This mirrors the original implementation but is now a top-level function so
     ``tests/test_startup.py`` can import it.
+
+    T9 changes one value in the settings INSERT: ``staff_pin_hash`` is the bcrypt hash of the
+    one-time ``STAFF_PIN`` seed instead of NULL. Everything else about this function is deliberately
+    untouched - it still runs plain ``text()`` INSERTs, it stays idempotent (the row-count guard is
+    what makes a second call a no-op, so a bootstrapped store never re-hashes or re-inserts), and it
+    still needs no network, no subprocess and no writable path beyond the database file.
     """
     from sqlalchemy import func, inspect, select, text
 
@@ -262,10 +310,16 @@ def bootstrap_defaults(db: Any) -> None:
                 text(
                     "INSERT INTO settings (id, branch_id, hold_minutes, avg_seat_minutes, "
                     "queue_prefix, is_waitlist_open, sound_enabled_default, "
-                    "notification_templates, staff_pin_hash, created_at, updated_at) "
-                    "VALUES (1, 1, 10, 15, 'A', true, true, '{}', null, :now, :now)"
+                    "notification_templates, staff_pin_hash, token_generation, "
+                    "created_at, updated_at) "
+                    "VALUES (1, 1, 10, 15, 'A', true, true, '{}', :pin_hash, "
+                    ":token_generation, :now, :now)"
                 ),
-                {"now": "2026-01-01 00:00:00"},
+                {
+                    "now": "2026-01-01 00:00:00",
+                    "pin_hash": bootstrap_staff_pin_hash(),
+                    "token_generation": INITIAL_TOKEN_GENERATION,
+                },
             )
     db.commit()
 
