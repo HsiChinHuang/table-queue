@@ -28,11 +28,25 @@ statements are about this file, so both are answered here rather than by matchin
 - **(5) and (6)**, ``xfail(run=False)`` bodies holding the forbidden outcome and the pairing AC-1's
   slot (6) names. Their reasons differ, and both are written out above the bodies.
 
-Two of AC-1's numbers are therefore not what its harness reads: ``passed`` is 4 and not 3, because
-case (4) measures true, and the three xfailed it counts are the two half-write bodies plus case (6),
-whose seed the store does agree to. AC-4's suite-wide floor counts cases and not verdicts, so both
-files land the same either way, and the arithmetic is reported in the D-02 comment rather than
-negotiated inside this one.
+Two of AC-1's numbers are therefore not what its harness reads, and both gaps are the AC's
+arithmetic rather than a claim this file withheld:
+
+- ``passed`` is 4 and not 3. AC-1's prose for case (4) is "assert the **measured** shape of that
+  failure", and what the injection measures is the allowed shape - the file holds neither half, and
+  only the request's own identity map reads a seat that landed. The same paragraph then asks for the
+  read-back to go "through a fresh session, never the request's own", which would delete the
+  artefact it had just asked to be stated; case (4) keeps the store reads fresh and labels the
+  identity-map read as the request's own, so both sentences can be checked against the code.
+  AC-1's
+  own measured-today paragraph reports this case ``PASSED`` while its counts ask for three passed,
+  so no honest reading of case (4) lands on three. It is not marked to buy the number: an ``xfail``
+  wrapped around a true claim is exactly how the seat-side id got excluded here.
+- ``xfailed`` is 2 and not 3. AC-1 excludes its third xfail id by name, and the one claim left for
+  that slot - a seat seen apart - is visible in a session and never in a file. Case (6) holds
+  the store-facing half of it, and reports honestly whichever way that half ever turns.
+
+AC-4's floor counts cases and not verdicts, so both files land the same either way; the arithmetic
+is reported in the D-02 comment rather than negotiated inside this one.
 
 Fixtures here use ``seq >= 300`` (``_db_test_support.Database.make_entry`` asserts it) because
 ``uq_queue_seq`` is ``(branch_id, business_date, queue_prefix, seq)`` and the merged seed already
