@@ -62,3 +62,26 @@ Work order is topological: every issue appears after all of its `depends`.
 | B-17 | Fix cross-module test pollution (test_auth engine rebinding) and pin `-p no:randomly` in suite-wide AC gates | [B-05, B-06] | #58 | closed |
 | T7 | Docs hygiene sweep: B-11 paperwork, testing.md counts, Constraints convention, main.py ASCII (owner-approved T6/T7/T10 from the debt register) | [] | #59 | closed |
 | T8 | Repair B-11 AC-1 admin-slot set-difference | [] | #61 | closed |
+| T9 | Staff PIN integrity: hash on bootstrap, no plaintext env fallback, constant-time | [] | #64 | backlog |
+| T10 | JWT secret strength gate: reject published/example secrets and short values at s | [] | #65 | backlog |
+| T11 | Guest capability redesign: server-minted unguessable status token, no PII in URL | [] | #66 | backlog |
+| T12 | Frontend dependency advisories: dev-server RCE-class and react-router open redir | [] | #67 | backlog |
+| T13 | FINAL regression gate: every closed-feature QA surface re-passes green after the | [] | #68 | backlog |
+| T14 | Waitlist board render scale: bound the lists or virtualise, replace 3s full-list | [] | #69 | backlog |
+| T15 | Mock data out of the shipped bundle: env-gated dynamic import, build-time CI ass | [] | #70 | backlog |
+| T16 | Contract completion: client-facing 404 trio, bodiless 422 docs, Close-Day endpoi | [] | #71 | backlog |
+| T17 | Frontend client lifecycle: expires_at honoured, router-driven redirect, shared-U | [] | #72 | backlog |
+| T18 | Response-envelope compliance: contract error envelope on every non-2xx, includin | [] | #73 | backlog |
+| T19 | Store contention is a contract outcome: busy/locked maps to a retryable code, WA | [] | #74 | backlog |
+| T20 | ENV fail-open: ENV must be explicit; development-mode reset and SQL echo must no | [] | #75 | backlog |
+| T21 | Log hygiene: no PII or tracebacks to stdout, no credentials in query strings, sp | [] | #76 | backlog |
+| T22 | eslint flat config for eslint 9: author it, get the codebase lint-clean, retire  | [] | #77 | backlog |
+| T23 | Rate limiter actually applies to API routes, honours proxy trust, covers change- | [] | #78 | backlog |
+| T24 | SQLite-only reality vs PostgreSQL affordance: add the driver and exercise the pa | [] | #79 | backlog |
+| T25 | Repository artifact hygiene: gitignore DB sidecars and local dot-env files; no D | [] | #80 | backlog |
+| T26 | Security headers on every response class plus CSP, HSTS-ready, cache policy | [] | #81 | backlog |
+| T27 | CI from nothing: lint+test+audit workflows on push, frontend build smoke, secret | [] | #82 | backlog |
+| T28 | ready.py readiness tool: closed-set by issue-map intersect platform-state, never | [] | #83 | backlog |
+| T29 | Integer and length bounds live in schemas: no overflow-500, no out-of-domain val | [] | #84 | backlog |
+| T30 | Frontend session storage: one store, one key, remember-me actually controls pers | [] | #85 | backlog |
+| T31 | Staff waitlist list paginates in SQL instead of materialising the full result | [] | #86 | backlog |
