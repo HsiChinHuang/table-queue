@@ -222,8 +222,9 @@ def test_orm_row_validation(db_session):
     assert dash.waiting_count == 1
 
 # ---------- Fixtures for ORM tests ----------
+from tests.test_config import TEST_JWT_SECRET
 os.environ.setdefault('DATABASE_URL', 'sqlite:///./test.db')
-os.environ.setdefault('JWT_SECRET', 'test')
+os.environ.setdefault('JWT_SECRET', TEST_JWT_SECRET)
 os.environ.setdefault('STAFF_PIN', '0000')
 
 @pytest.fixture(scope='module')

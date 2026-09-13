@@ -22,9 +22,10 @@ import warnings
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from tests.test_config import TEST_JWT_SECRET
 os.environ.setdefault("DATABASE_URL", "sqlite:///./_b08_test.db")
 os.environ.setdefault("STAFF_PIN", "0000")
-os.environ.setdefault("JWT_SECRET", "test-secret-key")
+os.environ.setdefault("JWT_SECRET", TEST_JWT_SECRET)
 os.environ.setdefault("JWT_EXPIRE_HOURS", "12")
 os.environ.setdefault("ENV", "test")
 

@@ -10,8 +10,9 @@ pydantic ``ValidationError`` for ``database_url`` / ``jwt_secret`` / ``staff_pin
 
 import os
 
+from tests.test_config import TEST_JWT_SECRET
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
-os.environ.setdefault("JWT_SECRET", "test-secret-key")
+os.environ.setdefault("JWT_SECRET", TEST_JWT_SECRET)
 os.environ.setdefault("STAFF_PIN", "1234")
 os.environ.setdefault("ENV", "development")
 
