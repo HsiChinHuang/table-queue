@@ -407,10 +407,96 @@ Orchestrator, not something the lane may fold into the merge commit.
 
 ## Test requirements
 
+**SW round 1 measurement, on the resolved merged tree.**
+
+Gate env for every run:
+`export DATABASE_URL="sqlite:////home/te/tq/sw-B-14-r1/_gate.db" JWT_SECRET=mf2sw STAFF_PIN=0000 ENV=test TMPDIR=/home/te/tq/pytest_tmp TZ=UTC`
+Interpreter `backend/.venv/bin/python`; runacs at
+`/mnt/c/Users/tw097/Desktop/ai-dev-tools-zoomcamp/.tq-orchestrator/runacs.py`; cwd = this worktree root.
+
+All five AC blocks, run as `runacs _docs/issues/MF-2.md --cwd .` at the merge commit `6c53426`:
+
+```
+== _docs/issues/MF-2.md: 5 blocks, cwd=/home/te/tq/sw-B-14-r1
+AC-1     rc=0   PASS | PASS AC-1: full suite green, 258 passed (expected 258)
+AC-2     rc=0   PASS | PASS AC-2: both directions empty - collected=19 modules, doc_named=19 names
+AC-3     rc=0   PASS | PASS AC-3: testing.md names exactly the 19 test_*.py files present in backend/tests, no
+AC-4     rc=0   PASS | PASS AC-4: inventory section present with exactly the 19 files on disk; the structure tr
+AC-5     rc=0   PASS | PASS AC-5: ruff check backend exit=0, last line 'All checks passed!'
+== green=5 ['AC-1', 'AC-2', 'AC-3', 'AC-4', 'AC-5']
+== red=0 []
+```
+
+Red baseline for the two construction-red ACs, measured at plain `main` by PM (`4f5070b`):
+AC-2 `FAIL AC-2: collected-not-named=0: ; named-not-collected=1: state_machine ; doc_named=20`,
+AC-4 `FAIL AC-4: inventory heading MISSING (arm a: ...)`. Both flip green on this tree with no
+change beyond the resolved `### Structure` region plus B-14's auto-merged inventory section.
+
+Cross-check duty (5.3 union), same env, same tree:
+
+- `git show 04291af:_docs/issues/B-14.md > _b14check.md && runacs _b14check.md --cwd .` ->
+  `== green=8 ['AC-1', 'AC-2', 'AC-3', 'AC-4', 'AC-5', 'AC-6', 'AC-7', 'AC-8']`, `== red=0 []`;
+  per-AC lines included `PASS AC-1: 258 passed, 3 warnings in 54.47s`, `PASS AC-3: All checks
+  passed!` and `PASS AC-4: actual=258; every collected test_*.py is named in _docs/testing.md and
+  every ...`. The temp file was deleted afterwards (`ls _b14check.md` -> No such file or directory).
+- `runacs _docs/issues/closed/T7.md --only AC-3 --cwd .` (frozen copy, untouched) ->
+  `AC-3 rc=0 PASS | PASS AC-3: testing.md names exactly the 19 test_*.py files present in
+  backend/tests`, `== green=1 ['AC-3']`, `== red=0 []`.
+- Raw suite: `backend/.venv/bin/python -m pytest -q -p no:randomly` -> rc=0,
+  `258 passed, 3 warnings in 52.67s` (full log at /tmp/mf2sw-fullsuite.log).
+- Raw lint: `backend/.venv/bin/python -m ruff check backend` -> rc=0, last line `All checks passed!`.
+
 ## Implementation notes
+
+**SW round 1 implementation notes.** Branch `issue/MERGE-FIX-B-14-testing-md` cut at
+`origin/main` = `0483e2999e58e3b71b70ad6363c53d8309031fa7` (`git merge-base --is-ancestor
+50012be01b258fa63d57724d384095a2bfe75dda HEAD` -> `T7-present`), then `git merge --no-ff --no-commit
+04291af70d39d123351ed4fc7531359cea3c95da` -> `CONFLICT (content): Merge conflict in
+_docs/testing.md`, the only conflicted path (`_docs/issues/B-14.md` and
+`backend/tests/test_admin_settings.py` auto-merged).
+
+The conflict is **two** marker regions inside `### Structure`, not one, and the working-tree markers
+are abbreviated (`>>>>>>> 04291af70d39d123351ed4fc7531359cea3c95da`), so the scaffold's single-hunk
+diff3 view does not match the working-tree layout. Both regions were resolved by content; no
+`--ours` / `--theirs` and no `-X` strategy flag was used anywhere: the block between
+`backend/tests/` + `├── conftest.py` and `└── test_startup_bootstrap_settings.py` was rewritten
+as one alphabetical listing that is the union of both sides' real entries (`public_fixtures.py`
+kept; `factories.py` dropped - `git log --all --oneline -- backend/tests/factories.py` prints 0
+lines, the file exists in no commit; `test_state_machine.py` named in no listing). Marker scan after
+resolution: `grep -n '^<<<<<<<\|^=======\|^>>>>>>>' _docs/testing.md` -> no output (0 lines).
+
+`git diff 0483e29 HEAD -- _docs/testing.md` came out byte-identical to the Orchestrator's rehearsal
+(`diff` against `git -C /home/te/tq/g-mf2 diff 0483e29 c5e7ea4 -- _docs/testing.md` -> empty,
+`IDENTICAL-TO-REHEARSAL`). That is corroborating evidence only; the five AC blocks are the claim.
+
+Line terminators untouched: `git ls-files --eol -- _docs/testing.md` -> `i/lf w/lf
+attr/text=auto eol=lf` before and after; CR bytes `origin/main:_docs/testing.md` = 0,
+`HEAD:_docs/testing.md` = 0, worktree copy = 0; repo-wide tally `271 i/lf w/lf` + `7 i/none w/none`
+unchanged; `.gitattributes` not touched.
+
+**Deviation, disclosed.** This branch was cut at `origin/main` `0483e29`, whose
+`_docs/issues/MF-2.md` is still the un-groomed scaffold (`*(PM light: fill)*`, 0 AC blocks) -
+`runacs` on that blob prints `== ... 0 blocks` and `FAIL CLOSED: no AC blocks extracted`. PM's
+groomed AC (`f5b6645`, branch `docs/PM-MF-2-groom-r1`) are not an ancestor of `main`. The AC file was
+therefore committed onto this branch as `95848ca` with PM's content unchanged so QA can run the same
+gate on the same tree; the merge commit `6c53426` (parents `0483e29` and `04291af`) is unchanged and
+every gate above was measured on that tree.
 
 ## Dependencies
 
+Unchanged from the scaffold: B-14 (content, tip `04291af`) and T7 (merged at `50012be`).
+No new dependency, no `pyproject.toml` change.
+
 ## Out of scope
 
+Unchanged from Constraints: no product code, no new test file, no `test_state_machine.py`, no
+`backend/app/main.py` edit, no T7 gate edit, no B-17 plugin paragraph, no `factories.py` creation.
+
 ## Definition of Done
+
+- `_docs/testing.md` resolved by content union; both AC-4 content arms green; merge committed
+  `--no-ff` as `6c53426`; branch pushed; B-14's branch untouched on the remote.
+- `runacs` on MF-2: green=5 red=0. Cross-checks: B-14 green=8 red=0, T7 AC-3 green from the frozen copy.
+- Full suite `258 passed` with `-p no:randomly`; `ruff check backend` -> `All checks passed!`.
+- Working tree clean (`git status --porcelain` -> 0 lines); no gate DB, scratch or `pytest-of-te/`
+  residue added to the tree.
