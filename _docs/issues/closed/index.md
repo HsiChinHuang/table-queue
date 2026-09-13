@@ -11,3 +11,4 @@ Runtime-maintained by Orchestrator.
 | T8 | Repair B-11 AC-1 admin-slot set-difference | 2026-09-12T19:37:55Z | pm=2 sw=2 qa=1 (sw r2 timeout, work complete, not charged) | e5e4817d3097f88b9e65aa96098f9c46aa95caf3 |
 | B-07 | Staff waitlist endpoints | 2026-09-12T19:41:54Z | pm=7 sw=4 qa=2 (r1 stale-abort; r4 timeout uncharged) | 341361f48769d7ca72b04b48cc28fcb85e5613ca |
 | B-09 | Staff dashboard endpoint | 2026-09-12T21:22:04Z | pm=2 sw=2 qa=1 (two lane timeouts on the timer-thread spin, root-caused) | e4a127756fa5c5632ea027fe043ec034c88b4470 |
+| T7 | Docs hygiene sweep: B-11 paperwork, testing.md counts, Constraints convention, main.py ASCII | 2026-09-13T02:25:00Z | pm=4 (r1 rejected, r2 groom, r4+4b micro-repairs) sw=2 (r2 REJECTED-then-reverted, accepted at b99e707) qa=1 | 50012be01b258fa63d57724d384095a2bfe75dda |

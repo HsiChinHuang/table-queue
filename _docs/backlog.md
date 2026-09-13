@@ -60,5 +60,5 @@ Work order is topological: every issue appears after all of its `depends`.
 | D-08 | Route QA FAIL on docs-type issues to PM, not SW | [P0-04] | #56 | closed |
 | D-09 | Make the document index truthful: real grants, guide rows, resolvable paths, ownership rows | [P0-09] | #57 | closed |
 | B-17 | Fix cross-module test pollution (test_auth engine rebinding) and pin `-p no:randomly` in suite-wide AC gates | [B-05, B-06] | #58 | closed |
-| T7 | Docs hygiene sweep: B-11 paperwork, testing.md counts, Constraints convention, main.py ASCII (owner-approved T6/T7/T10 from the debt register) | [] | #59 | groomed |
+| T7 | Docs hygiene sweep: B-11 paperwork, testing.md counts, Constraints convention, main.py ASCII (owner-approved T6/T7/T10 from the debt register) | [] | #59 | closed |
 | T8 | Repair B-11 AC-1 admin-slot set-difference | [] | #61 | closed |
