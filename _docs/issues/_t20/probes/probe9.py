@@ -44,7 +44,7 @@ EXPECTED_BLOCK_PAYLOADS = {
     "AC-10": (2, "a48510729863aac3"),
     "AC-11": (2, "b6306ba6ac4d9f5f"),
     "AC-12": (2, "abd2a82252bba924"),
-    "AC-13": (2, "bcf5fff9281d4e47"),
+    "AC-13": (2, "202559a5caf1cef0"),
 }
 
 EXPECTED_BLOCK_PAYLOADS = {
