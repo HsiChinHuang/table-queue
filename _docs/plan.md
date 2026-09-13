@@ -492,7 +492,7 @@ Legend:
   - Python 3.11+
   - No Alembic in v1
   - `create_all` on startup
-  - `ENV` variable drives `development` / `test` / `production`
+  - `ENV` variable drives `development` / `test` / `production` (T20 #75: required, no default, and no longer drives SQL statement echo)
 - **Dependencies**: Blocked by F-01. Blocks B-02, B-03, B-04.
 - **Out of scope**: Business logic, endpoints beyond `/health`.
 - **Constraints**: Files in `backend/`. Do not add features not in `_docs/specs.md`.
@@ -806,7 +806,7 @@ Legend:
 - **Deps**: B-02, B-03, B-04, B-13
 - **Goal**: Implement `POST /api/v1/admin/reset`.
 - **Acceptance criteria**:
-  - [ ] Only allowed when `ENV=development`
+  - [ ] Only allowed when `ENV=development` (T20 #75: `ENV` is a REQUIRED setting with no default, so this guard reads an explicitly named environment; it never reads a value the process fell back to. The guard is the env check alone - no second opt-in flag is added, and SQL statement echo is no longer derived from this label, see `_docs/issues/T20.md`)
   - [ ] Requires body `{ "confirm": "RESET" }`
   - [ ] Returns `204` on success
   - [ ] Returns `403` in non-development
@@ -2846,7 +2846,7 @@ Initialize FastAPI backend with uv, SQLAlchemy 2.0, Pydantic v2, config, health 
 - Pydantic v2
 - No Alembic in v1
 - `create_all` on startup
-- `ENV` drives `development` / `test` / `production`
+- `ENV` drives `development` / `test` / `production` (T20 #75: required, no default, and no longer drives SQL statement echo)
 - Never log secrets
 
 ## Dependencies
@@ -3541,7 +3541,7 @@ Implement `POST /api/v1/admin/reset`.
 - Specs: `_docs/specs.md#4-core-flows`
 
 ## Acceptance criteria
-- [ ] Only allowed when `ENV=development`
+- [ ] Only allowed when `ENV=development` (T20 #75: `ENV` is a REQUIRED setting with no default, so this guard reads an explicitly named environment; it never reads a value the process fell back to. The guard is the env check alone - no second opt-in flag is added, and SQL statement echo is no longer derived from this label, see `_docs/issues/T20.md`)
 - [ ] Requires body `{ "confirm": "RESET" }`
 - [ ] Returns `204` on success
 - [ ] Returns `403` in non-development

@@ -272,7 +272,7 @@ JWT_EXPIRE_HOURS	12	no	JWT expiry
 STAFF_PIN	1234	yes	Initial staff PIN
 DEFAULT_BRANCH_ID	1	no	Default branch
 CORS_ORIGINS	http://localhost:5173	no	Allowed origins
-ENV	development	no	Environment
+ENV	(none - required)	yes	Deployment environment. Required, no default: the process refuses to boot unless ENV names one of development, test or production. The development label alone also arms the development-only reset endpoint, so an unset or invented value is never a state the process can fall back to.
 
 Frontend (frontend/.env)
 Variable	Default	Description
