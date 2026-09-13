@@ -253,7 +253,9 @@ def test_forged_token_from_published_secret_is_rejected_by_the_verifier():
 
     The gate removes that precondition - such a server can no longer boot - and a token signed
     with the published literal still fails verification against a compliant secret. AC-7 keeps
-    the end-to-end three-arm measurement over real HTTP; this is the fast regression guard, and
+    the end-to-end measurement over real HTTP (its third arm is unsatisfiable as written -
+    see the measured note in the issue file: a refused server never binds, so curl reports
+    000 rather than the 401 asked for); this is the fast regression guard, and
     the genuine-token arm is what stops the gate reading as "fix by rejecting everything".
     """
     assert _build(PUBLISHED_SECRETS[0]) is not None, "the published literal must not be usable"
@@ -367,3 +369,32 @@ def test_harness_secret_guard_is_falsifiable(tmp_path):
 
     # Watching the tree must not have changed it.
     assert _ac6_verdict(BACKEND_DIR / "tests")[1] == 0, "the real harness changed while we looked"
+
+
+def test_the_server_refuses_to_boot_on_a_published_secret():
+    """AC-7's third arm, stated the way it can be measured: uvicorn dies at boot.
+
+    Subprocess because uvicorn imports the app at startup and dies inside that import - the same
+    path a deployment takes, and the reason D-1 point 2's silent `.env` adoption no longer works.
+    """
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import uvicorn; uvicorn.run('app.main:app', host='127.0.0.1', port=0)",
+        ],
+        cwd=str(BACKEND_DIR),
+        env={
+            **{key: value for key, value in os.environ.items() if key != "JWT_SECRET"},
+            "DATABASE_URL": "sqlite:///./t10-boot-gate.db",
+            "JWT_SECRET": PUBLISHED_SECRETS[0],
+            "STAFF_PIN": "0000",
+        },
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    combined = result.stdout + result.stderr
+    assert result.returncode != 0, "uvicorn booted on the published literal"
+    assert "ValidationError" in combined, combined[-400:]
+    assert "jwt_secret" in combined, combined[-400:]
