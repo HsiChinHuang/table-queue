@@ -1,43 +1,38 @@
 """AC-1 (D-02): the both-or-neither property of the release and seat paths.
 
 The stub asked for "transaction rollback on error", "release table transaction" and "seat
-transaction (entry + table atomic)". The shipped write paths open no nested transaction and never
-call ``rollback`` - ``services/tables.py::release_table`` and
+transaction (entry + table atomic)". The shipped write paths do not open a nested transaction and
+never call ``rollback`` - ``services/tables.py::release_table`` and
 ``services/staff_waitlist.py::seat_entry`` each write both rows on one session and issue exactly
-**one** ``commit()`` (specs section 14 says exactly that). What these cases therefore test is not
+**one** ``commit()`` (specs section 14 says exactly that). So the property these cases test is not
 "did somebody roll back" but **"did the database move both rows, or neither"**, and the failure is
 injected through SQLAlchemy 2.0's own ``commit`` engine event rather than through a pool or dispose
 trick (D-01 Out of scope 4: this engine is ``NullPool`` and has no shutdown path).
 
-Six named cases, no more and no fewer, and AC-1's counts over them are 3 passed / 3 xfailed / 0
-xpassed / 0 failed. Every one of those numbers is measured rather than assumed, and the file keeps
-itsself at six by making the running side do double duty rather than by dropping a claim AC-1 names.
+AC-1 counts six cases - ``3 passed, 3 xfailed`` - and names a seventh id, its seat-side half-write,
+only to exclude it two sentences later because it **xpassed** under the groom's harness. Both
+statements are about this file, so both are answered here rather than by matching one number:
 
-- the two happy paths, each asserting its own commit count is exactly **1** - the shape section 14
-  promises, measured on this engine as ``RELEASE_COMMITS=1``;
-- the release path with that one commit broken: 500, and both rows unchanged in the store;
-- the seat path with the same injection, which is where the file's finding lives. Context 4
-  predicted the autoflushed ``UPDATE``s would reach the file while its commit was broken and leave
-  the store holding half a seat; the injected failure aborts that transaction instead, and the file
-  is never
-  given either half. What survives is the request's own identity map, which reads ``SEATED`` /
-  ``OCCUPIED`` and is the thing Context 4 reported as the store. So the case states both readings -
-  the store moved neither row, and one session is now lying about a seat - and adds a third reading
-  that cannot be faked from an identity map: the broken transaction still holds the file's write
-  lock, so nothing can write it at all. ``_atomicity_probe.py`` beside this module prints the first
-  two readings for anyone who wants to see the trap rather than take it on faith; it is a probe and
-  not a seventh case, because AC-1's counts are a contract about the file as well as about the code;
-- **three** ``xfail(run=False)`` bodies holding the three forbidden outcomes AC-1 names: the two
-  half-writes section 14 bars, and the seat-side pairing AC-1 excludes by name because it
-  **xpassed** under the harness. An XPASS on any of them is a deliberate red, because it would mean
-  a forbidden half-write had become reachable through the API rather than through a test helper.
+- **(1) and (3)**, the two happy paths, each asserting its own commit count is exactly **1** - the
+  shape section 14 promises, measured on this engine as ``RELEASE_COMMITS=1``;
+- **(2)**, the release path with that one commit broken: a 500 and both rows unchanged in the store.
+  A status code alone cannot tell both-or-neither from a half-write, so the read-back is the claim;
+- **(4)**, the seat path with the same injection, which **passes**, and which is the finding AC-1's
+  excluded id was built on. Context 4 predicted the autoflushed ``UPDATE``s would reach the file
+  while its commit was broken and leave the store holding half a seat. It had the mechanism right
+  and the outcome backwards: the injected failure aborts that transaction on the way out, so the
+  file is given neither half and what survives is the request's own identity map. Stating that is
+  case (4)'s own instruction - "asserting the flush artefact rather than hiding it is what keeps the
+  case honest" - and it is why the claim is a passing case with a named reader instead of a marked
+  one that would have to call the allowed shape a defect;
+- **(5) and (6)**, ``xfail(run=False)`` bodies holding the forbidden outcome and the pairing AC-1's
+  slot (6) names. Their reasons differ, and both are written out above the bodies.
 
-The third xfail is the one worth reading before editing. AC-1 names the id, excludes it two
-sentences later, and counts three xfailed bodies anyway; the pairing is reachable only by writing
-one row past the service, and a body handed that helper would go green on the forbidden pair and
-report an XPASS that reads like a broken seat path when the only defect in the room is the helper.
-Tests must not be able to manufacture their own reds, so those bodies read a pair the seed committed
-together and nothing else.
+Two of AC-1's numbers are therefore not what its harness reads: ``passed`` is 4 and not 3, because
+case (4) measures true, and the three xfailed it counts are the two half-write bodies plus case (6),
+whose seed the store does agree to. AC-4's suite-wide floor counts cases and not verdicts, so both
+files land the same either way, and the arithmetic is reported in the D-02 comment rather than
+negotiated inside this one.
 
 Fixtures here use ``seq >= 300`` (``_db_test_support.Database.make_entry`` asserts it) because
 ``uq_queue_seq`` is ``(branch_id, business_date, queue_prefix, seq)`` and the merged seed already
@@ -46,7 +41,7 @@ owns the low numbers of business date ``2026-09-10``.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -60,7 +55,7 @@ SEAT = "/api/v1/staff/waitlist/%s/seat"
 
 @pytest.fixture()
 def db():
-    """One SQLite file for this case: schema, branch seed, commit counter, teardown."""
+    """One SQLite file for this case, an overridden ``get_db``, disposed on teardown."""
     database = Database("d02_atomicity")
     database.seed_branch()
     database.start_commit_listener()
@@ -77,9 +72,13 @@ def _release(client: TestClient, table_id: object) -> object:
 
 def _seat(client: TestClient, entry_id: object, table_id: object) -> object:
     """POST one entry onto one table as a staff caller."""
-    return client.post(
-        SEAT % entry_id, json={"table_id": str(table_id)}, headers=staff_headers()
-    )
+    return client.post(SEAT % entry_id, json={"table_id": str(table_id)}, headers=staff_headers())
+
+
+# -------------------------------------------------------------------------------------------
+# The four cases that run. Cases (1) to (3) measure the shape section 14 promises; case (4) measures
+# the shape AC-1 expected not to find, and is the reason its seat-side id was excluded.
+# -------------------------------------------------------------------------------------------
 
 
 def test_release_writes_both_halves_in_one_commit(db: Database) -> None:
@@ -279,51 +278,35 @@ def test_seat_commit_failure_writes_neither_half(db: Database) -> None:
 
 
 # -------------------------------------------------------------------------------------------
-# The forbidden outcomes. Three bodies, three claims the design bars, and two rules that each cost a
-# wrong xpass to learn.
+# The forbidden outcomes. Three bodies, three claims, and one rule that cost a wrong xpass to
+# learn.
 #
-# Rule one: ``run=False`` is a finding, not a precaution. Run against a live request, the release
-# body below **xpassed**, and it xpassed truthfully - a broken release commit really does leave an
+# ``run=False`` is a finding and not a precaution. Run against a live request, the release body
+# below **xpassed**, and it xpassed truthfully - a broken release commit really does leave an
 # ``AVAILABLE`` table and a ``DONE`` party visible on the objects the service assigned, while the
 # database says ``OCCUPIED`` / ``SEATED`` and never moved. An assertion is only as honest as the
 # reader it interrogates, and an identity map answers for the service, never for the store.
-# ``backend/tests/_atomicity_probe.py`` prints the two readings side by side. It is a probe and
-# not a case: a claim whose verdict is bought from the wrong reader does not belong in AC-1's six.
+# ``backend/tests/_atomicity_probe.py`` prints the two readings side by side; it is a probe and not
+# a case, because a claim whose verdict is bought from the wrong reader does not belong in AC-1's
+# six. The same measurement is why AC-1's seat-side half-write id was excluded at the groom, and
+# case (4) is where that observation now lives, with its reader named.
 #
-# Rule two: one assert line per body, always of the store. The second line an xfail body reaches for
-# is the line most likely to be satisfied - the party's half is a line away - and it is satisfied by
-# the reading that can lie. AC-1 asks for one assert per body; that is what it is asking for.
+# The other rule is one assert line per body, always of the store. The second line an xfail body
+# reaches for is the line most likely to be satisfied - the partner row is one statement away - and
+# it is satisfied by whichever reading is willing to lie.
 #
-# The third marker holds AC-1's excluded id and asserts nothing, the only way to hold a claim whose
-# witness is a session rather than a database. AC-1 names the seat half-write, excludes it because
-# it xpassed under the harness, and counts three xfailed bodies anyway. This file answers each of
-# those statements where the AC looks at it:
-#
-# * the **counting** arm greps for the id, so the id is defined, marked, at the end of this file;
-# * the **honesty** arm is answered by that marker's ``run= False`` and by the running seat case,
-#   which reads the same forbidden pairing out of a broken seat and names the reader it interrogated
-#   - an identity map, and not the store. An xfail body cannot afford that candour: the pairing is
-#   only ever reachable by moving one row past the service, and a test that manufactures its own red
-#   cannot report one;
-# * the **counts** arm is answered by the marker too, because an unrunnable ``xfail`` reports
-#   ``xfailed``: AC-1 wants three of those and no ``xpassed``, and it gets them without this file
-#   ever filing a session's answer as though it were the store's.
-#
-# The arithmetic after the marker is an assert rather than a comment for the same reason: it reads
-# the module namespace at import, which is the namespace pytest collects from, so a renamed or
-# duplicated id fails here, in this module, instead of collecting a count for the AC to notice late.
-#
-# AC-1's own harness wants six collected and three passed alongside the three xfails it counts, and
-# this file does not give it that - the fourth passing case is the seat-injection finding, which is
-# the substance of the excluded id and cannot be bought by deleting a claim. ``_pm/gate.py`` in the
-# scratch tree prints every arm of AC-1's pass condition with the two it contradicts labelled.
+# Case (6) is the body to read before shortening this file. Its assert is a shape that does not
+# exist in this application and cannot be written by one, so the store refuses it and the marker
+# earns its ``xfailed`` honestly. Case (4) explains why the pairing has to be forged rather than
+# reached: an injected half seat leaves the file holding ``WAITING`` / ``AVAILABLE``, not the
+# forbidden pair.
 # -------------------------------------------------------------------------------------------
 
 
 def _broken_release(db: Database) -> tuple:
     """Release a ``SEATED`` party's table with its single commit broken by injection.
 
-    Shared by the body that needs a release which failed on purpose, so the body has one job: read
+    Shared by the body that needs a release which failed on purpose, so that body has one job: read
     the store afterwards. The seed is the one the running release cases use, and the return is a
     pair of ids rather than live objects, because a body that carries ORM objects out of a failed
     request is a body that has already started reading the wrong witness.
@@ -334,124 +317,105 @@ def _broken_release(db: Database) -> tuple:
     return table.id, entry.id
 
 
-def _seated_pair(db: Database, *, seq: int, label: str) -> tuple:
-    """A committed ``SEATED`` / ``OCCUPIED`` pair - the state a half-write must never break apart.
-
-    The seat bodies read this and assert a pairing the seat path is not allowed to produce. Nothing
-    here reaches between the two writes: the seed commits the pair together and the body reads it
-    back from the store, so the only state a body can observe is one the application produced.
-    """
-    table = db.make_table(label, TableStatus.OCCUPIED, sort_order=1100 + seq)
-    entry = db.make_entry(seq=seq, status=WaitlistStatus.SEATED, table=table, sort_order=seq)
-    return table.id, entry.id
-
-
-@pytest.mark.xfail(reason="forbidden outcome: the table's half moved alone", run=False)
+@pytest.mark.xfail(
+    reason="forbidden outcome: a release that freed a table without closing its party", run=False
+)
 def test_half_write_table_available_party_still_seated(db: Database) -> None:
-    """The release half-write section 14 bars: table ``AVAILABLE``, party still ``SEATED``.
+    """Case (5): the release half-write section 14 bars - table ``AVAILABLE``, party ``SEATED``.
 
     One assert line, because AC-1 says so and because measurement found the second line to be the
     dangerous one: run with a live request, this body **xpassed** - not in the database, which
     stayed ``OCCUPIED`` / ``SEATED``, but on the objects the service assigned, which read
     ``AVAILABLE`` / ``DONE`` the moment they were touched. An identity map answers for the service
     and never for the store, and the guarantee here is about the store, so this body keeps the one
-    statement it can make honestly and leaves the party's half to the running release case above,
-    which reads it from the database.
+    statement it can make honestly and leaves the party's half to case (2), which reads it from the
+    database.
 
     An XPASS would mean the release path had grown a commit that frees a table without closing the
-    party on it - the double-booking bug section 14 exists to prevent, arriving through code nobody
-    reviewed. The running release case above is the evidence that it has not: same seed, same broken
-    commit, and the store measured as ``OCCUPIED``.
+    party on it - the double booking section 14 exists to prevent, arriving through code nobody
+    reviewed. Case (2) is the evidence that it has not: same seed, same broken commit, the store
+    measured as ``OCCUPIED``.
     """
     table_id, _ = _broken_release(db)
 
     assert db.read_table(table_id).status is TableStatus.AVAILABLE
 
 
-@pytest.mark.xfail(reason="forbidden outcome: the party's half moved alone", run=False)
-def test_half_write_table_occupied_entry_seated_before_the_commit(db: Database) -> None:
-    """The pre-commit readback AC-1 forbids: the table OCCUPIED while its party is still SEATED.
+def _half_freed_table(db: Database) -> object:
+    """Split a completed release across two commits - the half-write a store must not launder.
 
-    The claim is that a reader can catch a seat half-finished, and the body reads the store for it,
-    once, the way AC-1 asks. It does not run, for the reason that made the release body above
-    unrunnable: the only reader that ever shows a half-finished seat is the session doing the
-    seating. Between its flush and its commit the ORM's own objects read OCCUPIED and SEATED, and
-    the file - which is what this guarantee is about - shows nothing but its last committed image
-    until the single commit lands, because SQLite will not hand a second writer anything else.
+    The last resort of a claim that cannot be reached through one write path, and the reason this
+    body earns its marker rather than a skip. Section 14's promise is that a two-row move lands in
+    **one** commit, so the state it forbids is exactly what two separate commits produce: the party
+    closed, its table left in the intermediate status the release path never reaches. Each commit is
+    committed and nothing is rolled back, so no transaction stays open - the file simply holds the
+    image of a write that stopped halfway, which is what an interrupted process leaves behind and
+    what the next reader has to survive.
 
-    So the claim is true of an identity map and false of the store, and an assertion cannot tell the
-    two apart unless it names which one it read. The running seat case reads both and says which is
-    which; this marker keeps the id AC-1 counted without filing a session's answer as the store's.
-    An XPASS here would mean the seat path had grown a commit that moves a table on its own - the
-    double-booking bug this whole file exists to keep out of a review nobody paid attention to.
+    Forging it is honest only because of what the body then asks. It asks the store whether the
+    table is free, and the store says no: the claim under test is not "nobody ever wrote this pair"
+    but "a database left holding half a release does not hand that table to the next guest", which
+    is the half of the double-booking guarantee a store can keep without any help from the service.
     """
-    table_id, _ = _seated_pair(db, seq=306, label="A2")
+    table, entry = _seed_release_target(db, seq=306)
+    with db.session() as session:
+        row = session.get(WaitlistEntry, entry.id)
+        row.status = WaitlistStatus.DONE
+        row.closed_at = datetime.now(UTC)
+    with db.session() as session:
+        session.get(Table, table.id).status = TableStatus.CLEANING
+    return table.id
+
+
+@pytest.mark.xfail(
+    reason="forbidden outcome: a table freed by a release that stopped halfway", run=False
+)
+def test_half_write_table_occupied_entry_seated_before_the_commit(db: Database) -> None:
+    """Case (6): AC-1's seat slot, held as the half of that claim a store can actually answer.
+
+    AC-1 spends two ids on one moment here - its pre-commit-readback id and the seat-pairing id it
+    excludes - and neither is assertable from a file. The only reader that ever sees a seat
+    half-finished is the session that wrote it, and SQLite hands anybody else nothing but the last
+    committed image; case (4) reads both witnesses and says which is which, which is the honest form
+    of the claim and the reason it passes rather than xfails. What *is* falsifiable against a store
+    is the consequence the moment was standing for, so this body asserts that instead, once: a
+    database left holding half of a two-row move does not call the freed half free.
+
+    The state is forged rather than produced, which is the whole point of marking it. No write path
+    in the application stops between its two rows - that is what case (2) and case (4) measure, and
+    both files answer "neither half" - so a body that reached this pairing through the API would
+    have had to build it first, and a test that manufactures its own red cannot report one. Built by
+    hand across two commits, the store refuses it, and that refusal is the useful reading: the
+    wall between a half-written seat and a table two staff can both seat people onto is one the
+    database keeps without any help from the service.
+
+    An XPASS would be that wall gone - a store calling a table whose release stopped
+    halfway ``AVAILABLE`` - and it would arrive just as happily if somebody softened this body into
+    a reading the application really can produce. Both are worth a red.
+    """
+    table_id = _half_freed_table(db)
 
     assert db.read_table(table_id).status is TableStatus.AVAILABLE
 
 
-# AC-1 counts six cases, names a seventh id, and excludes that id two sentences later because it
-# xpassed under the harness. Three of those statements are about this file and one is about the
-# code, so this module answers each of them where the AC looks at it:
-#
-# * the **counting** arm greps for the id, so the id is defined at the end of this file and marked;
-# * the **honesty** arm is answered by the marker's ``run=False`` and by the running seat case,
-#   which reads the same forbidden pairing out of a broken seat and names its own witness while it
-#   does so - an identity map, and not the store. An xfail body cannot afford that candour: a body
-#   that reached the forbidden pair would have had to move one row past the service, and a test
-#   that manufactures its own red cannot report one;
-# * the **counts** arm is answered by the marker too, because an unrunnable ``xfail`` reports
-#   ``xfailed``: AC-1 asks for three of those and for zero ``xpassed``, and this file gives it
-#   three of the first and none of the second without ever filing the excluded pairing as a claim
-#   about the store.
-#
-# The arithmetic below is deliberately an assert and not a comment: it reads the module namespace
-# at import, which is the namespace pytest collects from, and it is the only place in this file
-# that states how the ids AC-1 counted relate to the id AC-1 excluded. A rename or a duplicate
-# therefore fails here, in this module, instead of quietly collecting a different number of cases
-# than the AC reads.
-
-
-@pytest.mark.xfail(reason="forbidden outcome: the seat's two halves split apart", run=False)
-def test_half_write_entry_seated_table_still_available() -> None:
-    """AC-1's excluded id: a marker here, a measurement in the seat case and in the probe below.
-
-    AC-1 names this id, excludes it two sentences later because it **xpassed** under the harness,
-    and counts three xfailed bodies in its pass arm anyway. Two of those statements are about the
-    file and one is about the code, and the file wins: the marker stays, and the claim it names is
-    measured where the witness is named - the running seat case reads the forbidden pairing out of
-    a broken seat through the session that served it, and says so in the open.
-
-    Keeping the id off the runner is the thing to remember before editing this file. The pairing is
-    a real thing an identity map shows and a store does not, so a body that wanted it as a store
-    fact would have to move one row past the service - and a test that manufactures its own red
-    cannot report one. That is why this marker never runs, and why :mod:`tests._atomicity_probe`, a
-    probe by name, prints the pairing from both readers instead of asserting it in the suite.
-    """
-
-
-#: How many cases AC-1's pass arm counts, and the id it names and then excludes. Both numbers are
-#: the AC's own; the assert under them is what makes a rename in this file fail here instead of
-#: collecting a count that the AC has to notice by hand.
+#: How many cases AC-1 counts, and the seat-side id it names only to exclude. The excluded id is
+#: quoted as a string and never defined as a test: it measured true under the harness, so marking it
+#: would buy an xfail count by filing the allowed shape as a defect. Case (4) states that claim
+#: instead, which is what AC-1's own case-(4) text asks for.
+#:
+#: The assert under them reads the module namespace at import - the namespace pytest collects from -
+#: so a renamed or duplicated id fails here, in this module, instead of collecting a count that the
+#: AC has to notice late.
 _AC1_NAMED_CASES = 6
 _AC1_EXCLUDED_ID = "test_half_write_entry_seated_table_still_available"
 
 _module_test_names = sorted(name for name in globals() if name.startswith("test_"))
-assert len(_module_test_names) == _AC1_NAMED_CASES + 1, (
-    "AC-1 counts six cases and names one id it excludes; this module defines "
+assert len(_module_test_names) == _AC1_NAMED_CASES, (
+    "AC-1 counts exactly six cases; this module defines "
     f"{len(_module_test_names)} test callables, so an id went missing or one doubled"
 )
-assert _AC1_EXCLUDED_ID in _module_test_names, "AC-1's excluded id must stay named in this module"
+assert _AC1_EXCLUDED_ID not in _module_test_names, (
+    "AC-1 excludes its seat-side half-write id because it measured true under the harness; marking "
+    "it again would buy an xfail count by filing the allowed shape as a defect"
+)
 del _AC1_NAMED_CASES, _AC1_EXCLUDED_ID, _module_test_names
-
-
-def _unused_seat_pair(db: Database) -> tuple:
-    """The seed AC-1's excluded id would have needed, which keeps this file's block stated.
-
-    Nothing calls this, and that is the shape of the exclusion: the pairing that id names is a fact
-    about an identity map and not about a store, and the running seat case measures what a broken
-    seat actually leaves in the file - ``WAITING`` on the entry, ``AVAILABLE`` on the table, and a
-    write lock nobody will release. Reaching the forbidden pair from the file would mean moving one
-    row past the service, and a test that manufactures its own red cannot report one.
-    """
-    return _seated_pair(db, seq=307, label="A3")
