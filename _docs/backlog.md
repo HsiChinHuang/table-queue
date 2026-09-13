@@ -63,7 +63,7 @@ Work order is topological: every issue appears after all of its `depends`.
 | T7 | Docs hygiene sweep: B-11 paperwork, testing.md counts, Constraints convention, main.py ASCII (owner-approved T6/T7/T10 from the debt register) | [] | #59 | closed |
 | T8 | Repair B-11 AC-1 admin-slot set-difference | [] | #61 | closed |
 | T9 | Staff PIN integrity: hash on bootstrap, no plaintext env fallback, constant-time | [] | #64 | backlog |
-| T10 | JWT secret strength gate: reject published/example secrets and short values at s | [] | #65 | backlog |
+| T10 | JWT secret strength gate: reject published/example secrets and short values at s | [] | #65 | closed |
 | T11 | Guest capability redesign: server-minted unguessable status token, no PII in URL | [] | #66 | backlog |
 | T12 | Frontend dependency advisories: dev-server RCE-class and react-router open redir | [] | #67 | backlog |
 | T13 | FINAL regression gate: every closed-feature QA surface re-passes green after the | [] | #68 | backlog |
