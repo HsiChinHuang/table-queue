@@ -48,6 +48,9 @@ _docs/config.yaml
 __pycache__/
 *.pyc
 .venv/
+# worktree root venv SYMLINK (make targets use ../.venv; lanes symlink it to the suite venv)
+# - exact-path line: trailing-slash .venv/ does NOT match a symlink (node_modules class, boot-5 lesson)
+.venv
 .pytest_cache/
 .ruff_cache/
 
