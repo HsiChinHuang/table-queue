@@ -47,7 +47,7 @@ Work order is topological: every issue appears after all of its `depends`.
 | B-14 | Backend tests | [B-05, B-06, B-07, B-08, B-09, B-10, B-11, B-12, B-13] | #40 | closed |
 | I-01 | Switch frontend to real API | [B-14, F-15] | #41 | closed |
 | I-02 | Verify end-to-end flow | [I-01] | #42 | closed |
-| D-01 | Swap mock store for real SQLAlchemy DB | [I-02] | #43 | backlog |
+| D-01 | Swap mock store for real SQLAlchemy DB | [I-02] | #43 | closed |
 | D-02 | Add more tests | [D-01] | #44 | backlog |
 | D-03 | Verify all tests pass | [D-02] | #45 | backlog |
 | B-15 | Fix the settings bootstrap INSERT | [B-02, B-04] | #47 | closed |

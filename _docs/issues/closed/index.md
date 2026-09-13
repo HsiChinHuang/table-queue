@@ -16,3 +16,4 @@ Runtime-maintained by Orchestrator.
 | MF-2 | MERGE-FIX: B-14 (testing.md test-file listing) | 2026-09-13T03:25:00Z | pm=1 sw=1 qa=1 | d584cb7841bd313dd6f667d6414247940cfca139 |
 | I-01 | Switch frontend to real API | 2026-09-13T05:05:00Z | pm=1 sw=1 qa=1 | c3fc7030bc383d1c9b401b5b492014a224fc8e2a |
 | I-02 | Verify end-to-end flow | 2026-09-13T06:20:00Z | pm=1 sw=1 qa=1 | a7244c2b30a2735a897a5b84939f9a3b70ca50bb |
+| D-01 | Swap mock store for real SQLAlchemy DB | 2026-09-13T07:25:00Z | pm=1 sw=1 qa=1 | 1dd00d85f37a0d545490a5f3f03cb61650ab2bcb |
