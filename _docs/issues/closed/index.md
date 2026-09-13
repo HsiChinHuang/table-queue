@@ -12,3 +12,5 @@ Runtime-maintained by Orchestrator.
 | B-07 | Staff waitlist endpoints | 2026-09-12T19:41:54Z | pm=7 sw=4 qa=2 (r1 stale-abort; r4 timeout uncharged) | 341361f48769d7ca72b04b48cc28fcb85e5613ca |
 | B-09 | Staff dashboard endpoint | 2026-09-12T21:22:04Z | pm=2 sw=2 qa=1 (two lane timeouts on the timer-thread spin, root-caused) | e4a127756fa5c5632ea027fe043ec034c88b4470 |
 | T7 | Docs hygiene sweep: B-11 paperwork, testing.md counts, Constraints convention, main.py ASCII | 2026-09-13T02:25:00Z | pm=4 (r1 rejected, r2 groom, r4+4b micro-repairs) sw=2 (r2 REJECTED-then-reverted, accepted at b99e707) qa=1 | 50012be01b258fa63d57724d384095a2bfe75dda |
+| B-14 | Backend tests | 2026-09-13T03:25:00Z | pm=4 sw=2 qa=1 (+MF-2 merge-fix cycle) | d584cb78422e1f0d631772c323b0d3e158057a97 (MF-2 merge carries the B-14 payload; qa-failed at 04291af was the conflict tree-condition, resolved by MF-2) |
+| MF-2 | MERGE-FIX: B-14 (testing.md test-file listing) | 2026-09-13T03:25:00Z | pm=1 sw=1 qa=1 | d584cb78422e1f0d631772c323b0d3e158057a97 |
