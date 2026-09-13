@@ -104,7 +104,7 @@ The names and defaults below are the list `_docs/specs.md` section 18 owns; this
 ### Backend (backend/.env)
 Variable	Default	Required	Description
 DATABASE_URL	sqlite:///./dev.db	yes	DB connection string
-JWT_SECRET	change-me-in-production	yes	JWT signing secret
+JWT_SECRET	(none - generate one, see note below)	yes	JWT signing secret
 JWT_EXPIRE_HOURS	12	no	JWT expiry in hours
 STAFF_PIN	1234	yes	Initial staff PIN
 DEFAULT_BRANCH_ID	1	no	Default branch
@@ -121,6 +121,12 @@ VITE_PUBLIC_BASE_URL	``	Public base URL (QR code, share links)
 - `.env` is gitignored.
 - `.env.example` is committed.
 - Frontend `VITE_` vars are bundled into the client. Never put secrets there.
+- `JWT_SECRET` ships no default and no example value. HS256 makes that string the only credential
+  between an anonymous caller and every staff and admin route, so a value published anywhere in this
+  repo is a value an attacker can sign staff tokens with; the app therefore refuses to start on a
+  `JWT_SECRET` shorter than 32 characters, in every environment, with no bypass flag. Generate one
+  per deployment and keep it out of the tree:
+  `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`
 - There is no per-admin PIN variable: `STAFF_PIN` is the single shared staff PIN in v1, stored as a bcrypt hash.
 
 ## 3. Database

@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 
 os.environ.setdefault("DATABASE_URL", "sqlite:////tmp/tq_b06_pytest.db")
-os.environ.setdefault("JWT_SECRET", "test-secret-key")
+os.environ.setdefault("JWT_SECRET", "tq-test-jwt-secret-value-0123456789abcdef")
 os.environ.setdefault("STAFF_PIN", "1234")
 os.environ.setdefault("ENV", "development")
 

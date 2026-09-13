@@ -223,7 +223,7 @@ def test_orm_row_validation(db_session):
 
 # ---------- Fixtures for ORM tests ----------
 os.environ.setdefault('DATABASE_URL', 'sqlite:///./test.db')
-os.environ.setdefault('JWT_SECRET', 'test')
+os.environ.setdefault('JWT_SECRET', "tq-test-jwt-secret-value-0123456789abcdef")
 os.environ.setdefault('STAFF_PIN', '0000')
 
 @pytest.fixture(scope='module')

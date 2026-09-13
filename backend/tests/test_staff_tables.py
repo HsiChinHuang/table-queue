@@ -24,7 +24,7 @@ from pathlib import Path
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///./_b08_test.db")
 os.environ.setdefault("STAFF_PIN", "0000")
-os.environ.setdefault("JWT_SECRET", "test-secret-key")
+os.environ.setdefault("JWT_SECRET", "tq-test-jwt-secret-value-0123456789abcdef")
 os.environ.setdefault("JWT_EXPIRE_HOURS", "12")
 os.environ.setdefault("ENV", "test")
 

@@ -29,7 +29,7 @@ import tempfile
 def main() -> int:
     """Break one release commit and print what the service believes and what the store holds."""
     scratch = os.path.join(tempfile.mkdtemp(prefix="tq-d02-probe-"), "probe.db")
-    os.environ.setdefault("JWT_SECRET", "x")
+    os.environ.setdefault("JWT_SECRET", "tq-test-jwt-secret-value-0123456789abcdef")
     os.environ.setdefault("STAFF_PIN", "0000")
     os.environ.setdefault("ENV", "test")
     os.environ["DATABASE_URL"] = f"sqlite:///{scratch}"

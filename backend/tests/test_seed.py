@@ -10,13 +10,15 @@ from zoneinfo import ZoneInfo
 import sqlite3
 import bcrypt
 
+from tests.test_config import TEST_JWT_SECRET
+
 # Helper to run the seed module with given env and args.
 def run_seed(db_path: str, reset: bool = False) -> subprocess.CompletedProcess:
     env = os.environ.copy()
     env.update(
         {
             "DATABASE_URL": f"sqlite:///{db_path}",
-            "JWT_SECRET": "ac",
+            "JWT_SECRET": TEST_JWT_SECRET,
             "JWT_EXPIRE_HOURS": "1",
             "STAFF_PIN": "0000",
             "ENV": "test",

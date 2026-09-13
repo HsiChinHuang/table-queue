@@ -267,7 +267,7 @@ make format	Format frontend
 Backend (backend/.env)
 Variable	Default	Required	Description
 DATABASE_URL	sqlite:///./dev.db	yes	DB connection
-JWT_SECRET	change-me-in-production	yes	JWT signing secret
+JWT_SECRET	(none - generate one)	yes	JWT signing secret
 JWT_EXPIRE_HOURS	12	no	JWT expiry
 STAFF_PIN	1234	yes	Initial staff PIN
 DEFAULT_BRANCH_ID	1	no	Default branch
@@ -283,6 +283,14 @@ VITE_ENABLE_SOUND	true	Enable sound
 VITE_PUBLIC_BASE_URL	``	Public base URL
 
 `STAFF_PIN` is the single shared staff PIN in v1 and is stored as a bcrypt hash; the `1234` default is the initial plaintext input, not the stored value.
+
+`JWT_SECRET` has no default and no example value, on purpose: HS256 makes that string the only
+credential between an anonymous caller and every staff and admin route, so the app refuses to start
+without one that is at least 32 characters long. Generate it and paste the output into backend/.env:
+
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+```
 
 Copy .env.example to .env in both backend/ and frontend/.
 
