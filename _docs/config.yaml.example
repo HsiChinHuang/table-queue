@@ -12,6 +12,7 @@ timezone: UTC
 
 timeouts:
   qa_minutes: 30
+  restart_enabled: false
   orch_restart_hours: 1
   orch_restart_transitions: 20
   recovery_minutes: 10
