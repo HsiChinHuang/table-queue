@@ -109,7 +109,7 @@ JWT_EXPIRE_HOURS	12	no	JWT expiry in hours
 STAFF_PIN	1234	yes	Initial staff PIN
 DEFAULT_BRANCH_ID	1	no	Default branch
 CORS_ORIGINS	http://localhost:5173	no	Comma-separated origins
-ENV	development	no	development / test / production
+ENV	(none - required)	yes	Required, no default: development / test / production. The process refuses to boot unless ENV names exactly one of the three; development also arms the development-only reset endpoint.
 ### Frontend (frontend/.env)
 Variable	Default	Description
 VITE_API_BASE_URL	/api/v1	API base path
@@ -166,7 +166,7 @@ A database that has not been seeded holds those three rows and no table rows, so
 - Railway / Render / Fly.io / VPS.
 - Start command: `uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2`.
 - Set all env vars.
-- Set `ENV=production`.
+- Set `ENV` to exactly one of `development`, `test` or `production`: it is required and has no default, so a process that names nothing refuses to boot. `production` is what a public deployment names; `development` additionally arms the development-only reset endpoint (see `_docs/issues/T20.md`).
 - Set `CORS_ORIGINS` to the frontend URL, keeping the comma-separated list form.
 
 ### Database

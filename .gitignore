@@ -95,3 +95,10 @@ backend/.venv
 
 # harness worktree frontend deps symlink (Orchestrator-owned shared install; trailing-slash node_modules/ does not match symlinks)
 frontend/node_modules
+
+# T20 round-2 tooling scratch: block-run scratch dirs, the gate's temp script, and the
+# probe's own throwaway sqlite/tmp tree. None of it is a deliverable.
+_docs/issues/_t20/probes/run/
+_t20_scratch/
+_t20_mut/
+_t20_gate.sh

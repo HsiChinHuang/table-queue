@@ -2,10 +2,16 @@
 
 Why this exists: the blocks stage two python files with printf '%s\\n' <quoted lines>.
 Writing that by hand is where a shell-quoting bug hides; writing the python normally and
-quoting each line with shlex.quote is mechanical, and the generator also runs the block
-it produces so the quoted form and the plain form are the same measurement.
+quoting each line with shlex.quote is mechanical, and the generator also runs the block it
+produces so the quoted form and the plain form are the same measurement.
+
+Round 2 note: AC-10..AC-13 are emitted by the same function as AC-1..AC-5, so AC-9's digest
+table covers every block in the issue and AC-13 can check the issue as a whole rather than a
+five-block subset. The gate secret is shared by every block for the same reason: it makes a
+per-block digest comparable with a per-block measurement.
 """
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -13,34 +19,144 @@ from pathlib import Path
 
 BLK = Path(os.environ.get("T20_PROBE_DIR") or Path(__file__).resolve().parent / "probes")
 
+# How far the staged-payload lines are indented inside the block. Two shapes have existed in
+# this issue's history and they hash differently, so the number is a named constant rather than
+# a literal that can drift: round 1 emitted its printf lines indented by two, and this round
+# keeps that indent so AC-9's five existing payload digests still mean what they claim. The
+# recorder writes the number into probe9.py next to each digest, and AC-9 strips exactly that
+# many characters before hashing, so a generator that silently changed the indent reddens the
+# check instead of quietly re-basing it. (Round 1 left this unparameterised - its stage() had
+# the two-space indent inline, and the recorder that shipped with it could not run at all, see
+# the note on its AC-13 section - so the constant is new here and the digests are not.)
+PAYLOAD_INDENT = 3
 
-def stage(varname, src):
-    raw = Path(src).read_text().rstrip("\n").split("\n")
-    # A staged probe must never contain a literal code fence or a literal pipe: a probe that
-    # splits probe output on "|" would otherwise split its own ARM echo line, and a file
-    # holding a fence would break every tool that pairs fences to extract blocks from the
-    # issue. The markers are rebuilt at runtime from these two substitutions.
-    lines = [ln.replace("FENCE_MARK", "chr(96) * 3").replace("PIPE_MARK", "chr(124)")
-             for ln in raw]
-    out = ['first=:']
-    # one printf per source line, each argument quoted on its own: no line ever passes
-    # through a shell expansion, and the file is written line-by-line so a bad line is
-    # visible in the trace rather than silent.
+# The two lines that bracket a block's executable body. Assembled so that no block, and no probe
+# source, ever carries a code fence of its own: a block that reviewed text containing its own
+# opener would be reviewing something the issue does not hold, and a block that printed the
+# marker literally would break the file it lives in.
+# The sentence is assembled from a STEM plus a word, because the stem is the one string every other
+# tool needs in order to recognise a marker without carrying the sentence. A probe that searched for
+# the whole sentence would have to contain it, and a staged source containing it would hand anything
+# that slices blocks by marker an extra block - which is precisely AC-13's problem, since AC-13 looks
+# for its own marker inside the very file it is staged into. One stem, spelled once, and no stage step
+# can ever contain it.
+MARK_STEM = "AC-%d stage step" + "s "
+MARK_TAIL = "here: replay_block.py reads this line"
+BEGIN_MARK = MARK_STEM + "begin " + MARK_TAIL
+END_MARK = MARK_STEM + "end " + MARK_TAIL
+
+
+def stage_body(src, indent=PAYLOAD_INDENT):
+    """The python lines a block stages, with the generator's two substitutions already applied.
+
+    ONE function owns the transformation from a probe source file to the text its block stages, and
+    it is deliberately free of shell plumbing: replay_block.py imports and calls it rather than
+    restating it. A replay tool that reimplemented these rules could only ever confirm the
+    reimplementation; `shlex.quote` is likewise imported by the replay tool so the quoting is shared
+    rather than imitated. The only thing the two sides compute independently is the reduction of a
+    block's text back to its payload - see that tool's docstring for why one of the two has to be
+    independent, and why it is the smaller half.
+    """
+    raw = Path(src).read_text(encoding="utf-8").rstrip("\n").split("\n")
+    # TOKEN_MAP is the whole vocabulary of stand-ins, defined ONCE. The staged copy of a source is
+    # the executable artefact and the source file is its prose, so the substitution has to be
+    # idempotent: a source that contains the RESULT of a substitution (AC-13's probe builds a shell
+    # address for a marker sentence, which is the one string in the repository that legitimately
+    # needs to say "begin here" while carrying the marker word) must not be rewritten a second time,
+    # or the staged file stops being the source and provenance can never be confirmed.
+    lines = [_apply_tokens(ln) for ln in raw]
+    # A backtick is as poisonous to the document as a fence. A block body sits inside a bash fence,
+    # so a backtick anywhere in it - including inside a printf's single-quoted argument, because
+    # bash does not exempt quoted words from command substitution - opens a substitution that never
+    # closes, and the block dies with `unexpected EOF while looking for matching backtick` before it
+    # measures anything. Sources write emphasis as 'quotes', never as backticks; this assertion turns
+    # the next such backtick into this message instead of into a block that cannot run.
     for ln in lines:
-        out.append("printf '%%s\\n' %s >> %s" % (shlex.quote(ln), varname))
-    out.append('test -s %s || echo "FAIL: %s never reached disk"' % (varname, varname))
+        assert chr(96) not in ln, ("stage: %s carries a backtick, which would break the issue's "
+                                   "bash fence: %r" % (src.name, ln[:90]))
+    return lines
+
+
+TOKEN_MAP = (("FENCE_MARK", "chr(96) * 3"), ("PIPE_MARK", "chr(124)"))
+# Deliberately EMPTY of marker words. The first attempt registered the marker sentence as a token so a
+# source could name it; that put the sentence into every staged copy of that source, and AC-13's
+# self-extraction then matched a marker INSIDE the text it was searching and cut the wrong region. A
+# source may name the stem only as fragments, so the table keeps the two substitutions that genuinely
+# help and refuses to grow this one.
+MARKER_TOKENS = ()
+
+
+def _apply_tokens(ln):
+    """TOKEN_MAP and MARKER_TOKENS applied exactly once each, so the pass is idempotent.
+
+    A single left-to-right pass over an alternation of the tokens, rather than successive str.replace
+    calls: successive replaces can feed a token's own name to a later rule, which is how a staged
+    probe ends up holding a sed address that names a sentence no file contains.
+    """
+    all_tokens = TOKEN_MAP + MARKER_TOKENS
+    if not all_tokens:
+        return ln
+    pat = re.compile("|".join(re.escape(k) for k, _ in all_tokens))
+    table = dict(all_tokens)
+    return pat.sub(lambda m: table[m.group(0)], ln)
+
+
+def stage(varname, src, indent=PAYLOAD_INDENT):
+    """Wrap stage_body()'s lines in the block's shell: one printf per line, then a guard."""
+    out = ['first=:']
+    # One printf per source line, each argument quoted on its own, so no line ever passes through a
+    # shell expansion and a bad line is visible in the trace rather than silent. `indent` is a layout
+    # constant of the DOCUMENT (how far stage lines sit inside the issue's list item), not of the
+    # staged python: the staged text is emitted unindented, because one space of leading whitespace
+    # in python source is an IndentationError and a block whose probe cannot compile prints no
+    # verdict at all. AC-9's table records a strip width per entry so both stage shapes this issue
+    # has used stay checkable.
+    # `-` rather than `>>`: a probe line may itself contain a redirection (AC-10's probe quotes the
+    # `>>` it is looking for in the README), and a parser that located the destination by scanning
+    # for the arrow would take the probe's own text as the destination. Putting the destination
+    # first makes every staged line self-locating, which is also what lets replay_block.py compare a
+    # block against its sources without trusting either side's quoting of the payload.
+    for ln in stage_body(src, indent):
+        out.append(" " * indent
+                   + "printf '%%s\\n' %s >> %s" % (shlex.quote(ln), varname))
+    # The guard message names the staged file without its shell sigils: a stray quote inside the
+    # double-quoted echo is how a guard silently stops being a guard.
+    out.append('test -s %s || echo "FAIL: %s never reached disk"'
+               % (varname, str(varname).replace('"', "").replace("$", "")))
     return out
 
 
 def block(n, probe, clauses, extra_head=(), tail_extra=(), envs=()):
     v = '$TMPDIR'
     body = []
-    body += [
-        "# AC-%d executes: bash, from the repo root of the tree under test. The two python" % n,
-        "# files below are staged by printf of a quoted line list (T10's staged-probe",
-        "# convention, kept in pure bash so this file's fences stay simple): PROBE measures",
-        "# and prints labelled lines, CLAUSES turns those lines into one verdict per clause",
-        "# plus the final token. Scratch is _t20_scratch, removed on the way out.",
+    # The two sources this block stages are named at its head, and that line is load-bearing
+    # twice over. (1) It delimits the block's own body without a triple-backtick line anywhere in
+    # it, which is what lets a block re-extract ITS OWN text from the issue and review it: a
+    # self-checking block cannot afford to contain a fence of its own, because every tool that
+    # pairs markers to slice blocks out of the issue would then see an unbalanced document (see
+    # probe9.py's docstring for the same hazard from the other side). (2) It names the probe
+    # files, so a re-runner can stage a block from an issue file and check those names resolve to
+    # sources that produce the bytes it is about to run - see _docs/issues/_t20/replay_block.py.
+    # The line contributes no payload, which is why AC-9's normalised() ignores it.
+    body = [
+        # The two lines that bracket a block's stage steps, emitted INSIDE the fence at the margin.
+        # They exist because the fence is a markdown detail and a block's staged printf lines carry
+        # backticked text of their own, so prose-level tools cannot find a block by looking for a
+        # fence; a marker sentence is never a printf line, never a comment and never a payload, so
+        # it brackets a region exactly. They sit inside the fence rather than outside it because AC-13
+        # re-extracts its own region from the running script by these two lines, and a region that
+        # began before the opening fence would arrive without it. The cost is one markdown list-item
+        # continuation per block, which the builder re-indents; the benefit is that a block can name
+        # itself, which is the precondition for a block being reviewable at all.
+        BEGIN_MARK % n,
+        "- Probes: probes/%s" % probe.name,
+        "- Probes: probes/%s" % clauses.name,
+        "# AC-%d executes: bash, from the repo root of the tree under test. The two probe files" % n,
+        "# above are staged by printf of a quoted line list (T10's staged-probe convention, kept"
+        " in pure bash so this file's fences stay simple). The probe measures and prints labelled"
+        " lines; the clause table turns them into one verdict per clause plus a final whole-AC"
+        " token line. Scratch is _t20_scratch, removed on the way out. rc is diagnostic only - the"
+        " printed token is the contract.",
         "rm -rf _t20_scratch",
         'test -f backend/app/config.py || { echo "FAIL AC-%d: run this block from the repo root of the tree under test"; exit 0; }' % n,
         'test -x backend/.venv/bin/python || { echo "FAIL AC-%d: backend/.venv is not linked in this worktree"; exit 0; }' % n,
@@ -68,6 +184,7 @@ def block(n, probe, clauses, extra_head=(), tail_extra=(), envs=()):
         '[ "$RC2" = 0 ] || echo "FAIL AC-%d: the clause table could not read the probe output"' % n,
     ]
     body += list(tail_extra)
+    body.append(END_MARK % n)
     return "\n".join(body) + "\n"
 
 
@@ -76,12 +193,88 @@ def block(n, probe, clauses, extra_head=(), tail_extra=(), envs=()):
 # non-published, >=32-character value is what lets a block measure the ENV contract
 # instead of tripping T10's gate (#77 owns the published test literals).
 ENVS = {n: [("JWT_SECRET", "t20groom-ac%d%s" % (n, "a" * (34 - len(str(n)))))]
-        for n in range(1, 8)}
+        for n in range(1, 14)}
 
-def emit(n):
-    tail = ["export APP_DIR=$PWD"] if n == 4 else []
-    return block(n, BLK / ("probe%d.py" % n), BLK / ("clauses%d.py" % n),
-                 envs=ENVS.get(n, []), tail_extra=tail)
+# AC-12 measures one arm against a MUTATION tree, and the tree is BUILT by the block rather
+# than remembered by the reader: a scratch copy of the tree under test whose reset guard is
+# rewritten by the committed helper. Building it here (and removing it on the way out) keeps
+# the mutation out of the repo while making the arm reproducible from the block alone.
+PRELUDES = {12: [
+    'backend/.venv/bin/python _docs/issues/_t20/ac12_mutation.py "$PWD/_t20_mut" '
+    '> "$TMPDIR/mutation.txt" 2>&1; MRC=$?',
+    'sed -e "s|^|MUTATION |" "$TMPDIR/mutation.txt"',
+    '[ "$MRC" = 0 ] || echo "MUTATION NOT BUILT rc=$MRC (the mutation arm reports ARM NOT RUN '
+    'and its clause says so; that is the honest answer, not a green)"',
+    'export T20_AC12_MUTATION_TREE="$PWD/_t20_mut"',
+]}
+
+# AC-13 is the meta block: what it reviews is this block's own text as the issue ships it, so the
+# block copies its stage steps out of the running script file ($0) using the two marker lines as
+# delimiters, and the probe reads that file back. The markers are built at runtime from BEGIN_MARK
+# / END_MARK rather than spelled into a quoted string, because the marker sentence contains the
+# word "here" that the sed address searches for and a hand-copied literal is one rename away from
+# a block that silently extracts nothing. The extracted file is then written where the staged probe
+# normally sits, so `probe.py` IS the block under review - the probe reads its own bytes, and the
+# one copy of the text being certified is the copy bash is executing.SELF_EXTRACT = {13: [
+SELF_EXTRACT = {13: [
+    # AC-13's claim is that a block reviews the file it is run from, so the block first copies its
+    # own stage steps out of itself and hands them to python as the probe. Two facts make that
+    # awkward, and both are handled here rather than wished away.
+    #
+    # (1) The extractor is python, not sed. The region is bracketed by two prose sentences and the
+    #     closer's line is a shell COMMENT: a sed range wide enough to close the region copies a
+    #     comment into the file python is about to run, and a range narrow enough to dodge it never
+    #     closes and runs to the end of the document. The sed shape was tried and measured - it
+    #     produced a "python" file whose first line was the sed command, and the probe died with a
+    #     SyntaxError having measured nothing.
+    # (2) Nothing in the block's stage steps may CONTAIN the marker sentence, because a step that
+    #     carried it would hand every tool slicing blocks by marker an extra block - the same hazard
+    #     the backtick rule exists to stop. Hence the extractor is echoed rather than inlined (a step
+    #     beginning an import is a line bash must parse, the parenthesised call in it is not shell,
+    #     and the block dies unparsed and unable to certify itself); and hence the extractor locates
+    #     the markers by SHAPE and by their last word rather than by the phrase, because the file it
+    #     reads IS the block, so anything searched for verbatim would have to be present in it.
+    #
+    # The staged PROBE is still byte-identical to AC-13's probe source, which is the provenance
+    # replay_block.py refuses without; the extractor reads only the running script, never a probe
+    # file, so it cannot quietly substitute the tree's copy of itself.
+    'echo '"'"'import re, sys'"'"' >> "$TMPDIR/extract13.py"',
+    'echo '"'"'src = open(sys.argv[1]).read() if len(sys.argv) > 1 else ""'"'"' >> "$TMPDIR/extract13.py"',
+    'echo '"'"'head = "AC-13 st" + "age ste" + "ps "'"'"' >> "$TMPDIR/extract13.py"',
+    'echo '"'"'off = len(head)'"'"' >> "$TMPDIR/extract13.py"',
+    'echo '"'"'mark = re.compile("^" + re.escape(head), re.M)'"'"' >> "$TMPDIR/extract13.py"',
+    'echo '"'"'marks = [m.start() for m in mark.finditer(src)]'"'"' >> "$TMPDIR/extract13.py"',
+    'echo '"'"'word = "beg" + "in "'"'"' >> "$TMPDIR/extract13.py"',
+    'echo '"'"'begs = [k for k in marks if src[k + off:k + off + 7] == word]'"'"' >> "$TMPDIR/extract13.py"',
+    'echo '"'"'ends = [k for k in marks if src[k + off:k + off + 5] == "end " and k]'"'"' >> "$TMPDIR/extract13.py"',
+    'echo '"'"'region = ""'"'"' >> "$TMPDIR/extract13.py"',
+    'echo '"'"'if begs and ends and ends[-1] > begs[0]:'"'"' >> "$TMPDIR/extract13.py"',
+    'echo '"'"'    w = src.index(word, begs[0])'"'"' >> "$TMPDIR/extract13.py"',
+    'echo '"'"'    nl = src.find(chr(10), src.index(":", w))'"'"' >> "$TMPDIR/extract13.py"',
+    'echo '"'"'    region = src[nl + 1:src.rfind(chr(10), 0, ends[-1])] if nl != -1 else ""'"'"' >> "$TMPDIR/extract13.py"',
+    'echo '"'"'open(sys.argv[2], "w").write(region)'"'"' >> "$TMPDIR/extract13.py"',
+    'echo '"'"'print("SELF_EXTRACTED_BYTES: %d" % len(region))'"'"' >> "$TMPDIR/extract13.py"',
+    'echo '"'"'print("SELF_EXTRACT_MATCHED: %s" % ("yes" if region else "no"))'"'"' >> "$TMPDIR/extract13.py"',
+    'echo '"'"'print("SELF_EXTRACT_MARKS: %d" % len(marks))'"'"' >> "$TMPDIR/extract13.py"',
+    'backend/.venv/bin/python "$TMPDIR/extract13.py" "$0" "$TMPDIR/block13.txt"',
+    'cp "$TMPDIR/block13.txt" "$TMPDIR/probe.py"',
+]}
+
+TAILS = {12: ['rm -rf _t20_mut']}
+
+
+def head_for(n):
+    return list(PRELUDES.get(n, [])) + list(SELF_EXTRACT.get(n, []))
+
+
+def emit(n, probe_file=None, clauses_file=None):
+    tail = ["export APP_DIR=$PWD"] if n == 4 else list(TAILS.get(n, []))
+    # AC-9 is backed by the committed checker rather than a numbered probe/clauses pair,
+    # because its "sources" are the digests themselves: it passes AC-9's `probe_clause_pairing`
+    # clause by being the one AC whose half-pair is deliberate and named here.
+    return block(n, BLK / (probe_file or "probe%d.py" % n),
+                 BLK / (clauses_file or "clauses%d.py" % n),
+                 envs=ENVS.get(n, []), extra_head=head_for(n), tail_extra=tail)
 
 
 if __name__ == "__main__":
@@ -91,6 +284,8 @@ if __name__ == "__main__":
     for n in [int(a) for a in sys.argv[1:]]:
         print("<!-- BEGIN AC-%d -->" % n)
         print("```bash")
-        print(emit(n).rstrip("\n"))
+        print(emit(n,
+                 probe_file="probe9.py" if n == 9 else None,
+                 clauses_file="clauses9.py" if n == 9 else None).rstrip("\n"))
         print("```")
         print("<!-- END AC-%d -->" % n)
