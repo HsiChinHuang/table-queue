@@ -414,18 +414,16 @@ Gate env for every run:
 Interpreter `backend/.venv/bin/python`; runacs at
 `/mnt/c/Users/tw097/Desktop/ai-dev-tools-zoomcamp/.tq-orchestrator/runacs.py`; cwd = this worktree root.
 
-All five AC blocks, run as `runacs _docs/issues/MF-2.md --cwd .` at the merge commit `6c53426`:
+All five AC blocks, run as `runacs _docs/issues/MF-2.md --cwd .` at the merge commit `6c53426` - the tool's own lines, transcribed (not fenced: a fence in this section would be extracted as a 6th pseudo-AC block by the AC extractor, which pairs fences by length and accepts an unlabelled fence):
 
-```
-== _docs/issues/MF-2.md: 5 blocks, cwd=/home/te/tq/sw-B-14-r1
-AC-1     rc=0   PASS | PASS AC-1: full suite green, 258 passed (expected 258)
-AC-2     rc=0   PASS | PASS AC-2: both directions empty - collected=19 modules, doc_named=19 names
-AC-3     rc=0   PASS | PASS AC-3: testing.md names exactly the 19 test_*.py files present in backend/tests, no
-AC-4     rc=0   PASS | PASS AC-4: inventory section present with exactly the 19 files on disk; the structure tr
-AC-5     rc=0   PASS | PASS AC-5: ruff check backend exit=0, last line 'All checks passed!'
-== green=5 ['AC-1', 'AC-2', 'AC-3', 'AC-4', 'AC-5']
-== red=0 []
-```
+    == _docs/issues/MF-2.md: 5 blocks, cwd=/home/te/tq/sw-B-14-r1
+    AC-1     rc=0   PASS | PASS AC-1: full suite green, 258 passed (expected 258)
+    AC-2     rc=0   PASS | PASS AC-2: both directions empty - collected=19 modules, doc_named=19 names
+    AC-3     rc=0   PASS | PASS AC-3: testing.md names exactly the 19 test_*.py files present in backend/tests
+    AC-4     rc=0   PASS | PASS AC-4: inventory section present with exactly the 19 files on disk
+    AC-5     rc=0   PASS | PASS AC-5: ruff check backend exit=0, last line 'All checks passed!'
+    == green=5 ['AC-1', 'AC-2', 'AC-3', 'AC-4', 'AC-5']
+    == red=0 []
 
 Red baseline for the two construction-red ACs, measured at plain `main` by PM (`4f5070b`):
 AC-2 `FAIL AC-2: collected-not-named=0: ; named-not-collected=1: state_machine ; doc_named=20`,
