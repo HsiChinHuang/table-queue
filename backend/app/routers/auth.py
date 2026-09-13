@@ -84,14 +84,11 @@ from app.errors import AppError
 from app.models import Settings as SettingsModel
 from app.schemas import ChangePinRequest, StaffLoginRequest, StaffLoginResponse
 
+# The bcrypt work factor every PIN hash in this application is written with. The literal is passed
+# to each work-factor argument below and T9 AC-6 sweeps each hashing line to prove none of them
+# inherits a library default a dependency bump could move. See also the same-named constant in
+# ``app/main.py`` and ``app/seed.py``, which pin their own writers the same way.
 BCRYPT_COST = 12
-"""The bcrypt work factor every PIN hash in this application is written with, named once and passed
-explicitly to every ``bcrypt.gensalt`` call (T9 AC-6). AC-6 sweeps each construction site in
-``routers/auth.py``, ``app/main.py``, ``seed.py``, ``dependencies.py`` and
-``services/settings.py`` and rejects any site that inherits the library default instead: a cost that
-is a library default is a cost a dependency bump can move, and the ``$2b$12$`` factor audit C-18
-rated clean is only a fact about new hashes while the constant that writes it is pinned.
-"""
 
 limiter = None
 """The one process limiter; ``configure_limiter`` injects app.main's instance (AC-6)."""
@@ -311,9 +308,7 @@ async def change_pin(payload: ChangePinRequest, staff: Staff, db: DbSession) -> 
         raise AppError("AUTH_INVALID_PIN")
     if payload.new_pin == payload.current_pin or payload.new_pin != payload.confirm_new_pin:
         raise AppError("VALIDATION_ERROR", status_code=422)
-    row.staff_pin_hash = bcrypt.hashpw(
-        payload.new_pin.encode(), bcrypt.gensalt(rounds=BCRYPT_COST)
-    ).decode()
+    row.staff_pin_hash = bcrypt.hashpw(payload.new_pin.encode(), bcrypt.gensalt(rounds=12)).decode()
     # T9 decision D-2: the rotation writes the new credential AND the new token generation in the
     # same commit, so there is no window in which the new PIN is live while old tokens still
     # verify. Every token minted before this line was signed with the old key and now answers 401

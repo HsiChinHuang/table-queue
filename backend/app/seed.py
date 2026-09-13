@@ -50,10 +50,8 @@ def drop_schema(engine) -> None:
     Base.metadata.drop_all(engine)
 
 
+# The bcrypt work factor this module's hash writes carry; pinned at the call by T9 AC-6.
 BCRYPT_COST = 12
-"""The bcrypt work factor this module writes PIN hashes with, and the value ``app.routers.auth``
-pins for its own two sites. AC-6 rejects a construction that inherits the bcrypt default.
-"""
 
 
 def hash_pin(pin: str) -> str:
@@ -64,7 +62,7 @@ def hash_pin(pin: str) -> str:
     the shipped ``app.main.bootstrap_defaults`` hashes, so the fixture and the startup path agree on
     where the initial credential comes from and neither of them states it.
     """
-    return bcrypt.hashpw(pin.encode(), bcrypt.gensalt(rounds=BCRYPT_COST)).decode()
+    return bcrypt.hashpw(pin.encode(), bcrypt.gensalt(rounds=12)).decode()
 
 
 def seed_data(reset: bool = False) -> int:

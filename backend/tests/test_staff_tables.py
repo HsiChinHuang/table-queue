@@ -196,15 +196,15 @@ def _make_entry(session, queue_number, status, table=None, seated_at=None, party
 def _bearer_once() -> str:
     """The module's one staff bearer, minted lazily and never inside a frozen block.
 
-    It is minted the first time a request asks for it and cached, which is both correct and enough:
-    the credential and the token-generation value the key is built from are seeded once for the whole
-    module and nothing here rotates them, so one signature serves every request in the file.
+    It is minted the first time a request asks for it and cached, which is both correct and
+    enough: the credential and the token-generation value the key is built from are seeded once for
+    the whole module and nothing here rotates them, so one signature serves every request.
 
     Caching is what keeps the mint out of the four ``freeze_time`` blocks below. Those blocks freeze
     the clock the mint and the verifier both read, and the request is served after the block has
-    closed - so a bearer minted inside one would carry a horizon measured from the frozen instant and
-    would already be expired when presented. Minting outside the block and reusing the result is the
-    simple version of the same fix, and it leaves the frozen-clock assertions untouched.
+    closed - so a bearer minted inside one would carry a horizon measured from the frozen instant
+    and would already be expired when presented. Minting outside the block and reusing the result is
+    the simple version of the same fix, and it leaves the frozen-clock assertions untouched.
     """
     return _staff_token()
 

@@ -234,7 +234,7 @@ Lookup: http://localhost:5173/lookup
 
 Board: http://localhost:5173/board/1
 
-Staff login: http://localhost:5173/staff/login (initial PIN: 1234)
+Staff login: http://localhost:5173/staff/login (PIN: the `STAFF_PIN` value from backend/.env)
 
 Staff waitlist: http://localhost:5173/staff/waitlist
 
@@ -269,7 +269,7 @@ Variable	Default	Required	Description
 DATABASE_URL	sqlite:///./dev.db	yes	DB connection
 JWT_SECRET	(none - generate one)	yes	JWT signing secret
 JWT_EXPIRE_HOURS	12	no	JWT expiry
-STAFF_PIN	1234	yes	Initial staff PIN
+STAFF_PIN	(none - set one)	yes	One-time seed for the staff credential (T9/D-1)
 DEFAULT_BRANCH_ID	1	no	Default branch
 CORS_ORIGINS	http://localhost:5173	no	Allowed origins
 ENV	development	no	Environment
@@ -282,7 +282,11 @@ VITE_BRANCH_ID	1	Default branch
 VITE_ENABLE_SOUND	true	Enable sound
 VITE_PUBLIC_BASE_URL	``	Public base URL
 
-`STAFF_PIN` is the single shared staff PIN in v1 and is stored as a bcrypt hash; the `1234` default is the initial plaintext input, not the stored value.
+`STAFF_PIN` is the single shared staff credential in v1. It has no default and no example value on
+purpose: the app refuses to start without it, and on the first boot it is hashed once with bcrypt and
+written to the settings row, after which the stored hash is the ONLY credential - the environment
+value is a one-time seed, never an accepted login, so rotating the PIN with `POST
+/api/v1/auth/change-pin` is the only way to change it and no document here needs to print it.
 
 `JWT_SECRET` has no default and no example value, on purpose: HS256 makes that string the only
 credential between an anonymous caller and every staff and admin route, so the app refuses to start
@@ -304,7 +308,7 @@ make seed
 
 Open http://localhost:5173/join?branch=1 and join
 
-Open http://localhost:5173/staff/login with PIN 1234
+Open http://localhost:5173/staff/login with the `STAFF_PIN` value you set above
 
 Call, seat, release, close day
 

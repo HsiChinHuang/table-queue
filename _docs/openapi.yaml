@@ -265,7 +265,7 @@ paths:
             schema:
               $ref: '#/components/schemas/StaffLoginRequest'
             example:
-              pin: '1234'
+              pin: '<configured staff PIN>'
       responses:
         '200':
           description: JWT token
@@ -303,9 +303,9 @@ paths:
             schema:
               $ref: '#/components/schemas/ChangePinRequest'
             example:
-              current_pin: '1234'
-              new_pin: '5678'
-              confirm_new_pin: '5678'
+              current_pin: '<configured staff PIN>'
+              new_pin: '<new PIN>'
+              confirm_new_pin: '<new PIN>'
       responses:
         '204':
           description: PIN changed

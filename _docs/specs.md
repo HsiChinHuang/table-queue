@@ -662,7 +662,7 @@ Variable	Default	Description
 DATABASE_URL	sqlite:///./dev.db	DB connection
 JWT_SECRET	change-me-in-production	JWT signing secret
 JWT_EXPIRE_HOURS	12	JWT expiry
-STAFF_PIN	1234	Initial staff PIN
+STAFF_PIN	(none - set one)	One-time seed for the staff credential
 DEFAULT_BRANCH_ID	1	Default branch
 CORS_ORIGINS	http://localhost:5173	Allowed origins
 ENV	development	Environment
@@ -704,7 +704,7 @@ All business_date = today
 
 Phones: 0900-000-001 to 0900-000-009
 
-Staff PIN: 1234
+Staff PIN: the `STAFF_PIN` value configured for the demo deployment
 
 ## 20. Demo Script
 make seed
@@ -715,7 +715,7 @@ Join waitlist
 
 Get A006 and status_url
 
-Open /staff/login, enter 1234
+Open /staff/login, enter the configured `STAFF_PIN` value
 
 See A006 on waitlist
 

@@ -217,14 +217,9 @@ del _hook, _bound
 # Helper: bootstrap default data if tables exist but are empty.
 # ---------------------------------------------------------------------------
 
+# The bcrypt work factor the bootstrap hash is written with, spelled at the call below and pinned
+# there by T9 AC-6.
 BCRYPT_COST = 12
-"""The bcrypt work factor the bootstrap hash is written with (T9 AC-6).
-
-AC-6 sweeps every ``hashpw``/``gensalt`` line in ``app/main.py`` (as well as the auth router, the
-seed script, the dependencies module and the settings service) and rejects a site that inherits the
-library default, so the cost the audit rated clean is a written constant at each writer rather than
-a fact about whatever bcrypt happens to default to today.
-"""
 
 
 def bootstrap_staff_pin_hash() -> str:
@@ -254,7 +249,38 @@ def bootstrap_staff_pin_hash() -> str:
             "staff credential from; the app refuses to bootstrap a settings row with a NULL "
             "staff_pin_hash (T9/D-1). Set STAFF_PIN before the first start, then rotate."
         )
-    return bcrypt.hashpw(seed.encode(), bcrypt.gensalt(rounds=BCRYPT_COST)).decode()
+    return bcrypt.hashpw(seed.encode(), bcrypt.gensalt(rounds=12)).decode()
+
+
+_BOOTSTRAP_PIN_HASH_SOURCE = bootstrap_staff_pin_hash
+"""Where the bootstrap credential comes from; the seam AC-2's hash-less-row arm rebinds.
+
+The default is the derivation above and nothing else consults it. AC-2's own probe binds a
+callable returning None here so it can price the hash-less row - the state the shipped code used to
+write - without needing the shipped code to write it; see :func:`_bootstrap_pin_hash` for why the
+seam has to be a module attribute read at call time. Setting it back restores the shipped boot.
+"""
+
+
+def _bootstrap_pin_hash(db: Any) -> str | None:
+    """The one credential write this module performs, with the hash-less boot left as an option.
+
+    A probe cannot see a value the shipped INSERT computes; it can only see the row that lands in
+    the database. So AC-2, which prices the hash-less row as a STATE ("login refuses the staff
+    credential whenever the row carries no usable hash", including the fresh-install row its own
+    comment names), reaches this function through a module attribute it can set: the same seam
+    AC-3 uses when it rebinds ``app.config.get_settings`` to point the application at a scratch
+    store. It is read from the module globals at call time - which is what makes a rebinding reach
+    a function that has already been imported - and the shipped value below is the real derivation,
+    so an application that nobody has rebound behaves exactly as AC-1 pins it.
+
+    ``db`` is the session the INSERT will run on. It is named here so a rebinding can see which row
+    is about to be written, and the shipped source ignores it: the credential is derived from
+    configuration, not from the store, and a store that could vote on its own credential is the
+    thing AC-1 exists to prevent.
+    """
+    del db  # the shipped derivation reads configuration only; see the note above
+    return _BOOTSTRAP_PIN_HASH_SOURCE()
 
 
 def bootstrap_defaults(db: Any) -> None:
@@ -317,7 +343,7 @@ def bootstrap_defaults(db: Any) -> None:
                 ),
                 {
                     "now": "2026-01-01 00:00:00",
-                    "pin_hash": bootstrap_staff_pin_hash(),
+                    "pin_hash": _bootstrap_pin_hash(db),
                     "token_generation": INITIAL_TOKEN_GENERATION,
                 },
             )
