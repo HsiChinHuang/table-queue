@@ -45,7 +45,7 @@ Work order is topological: every issue appears after all of its `depends`.
 | B-13 | Seed script | [B-02] | #38 | closed |
 | B-12 | Admin reset endpoint | [B-02, B-03, B-04, B-13] | #39 | closed |
 | B-14 | Backend tests | [B-05, B-06, B-07, B-08, B-09, B-10, B-11, B-12, B-13] | #40 | closed |
-| I-01 | Switch frontend to real API | [B-14, F-15] | #41 | backlog |
+| I-01 | Switch frontend to real API | [B-14, F-15] | #41 | closed |
 | I-02 | Verify end-to-end flow | [I-01] | #42 | backlog |
 | D-01 | Swap mock store for real SQLAlchemy DB | [I-02] | #43 | backlog |
 | D-02 | Add more tests | [D-01] | #44 | backlog |

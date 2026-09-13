@@ -14,3 +14,4 @@ Runtime-maintained by Orchestrator.
 | T7 | Docs hygiene sweep: B-11 paperwork, testing.md counts, Constraints convention, main.py ASCII | 2026-09-13T02:25:00Z | pm=4 (r1 rejected, r2 groom, r4+4b micro-repairs) sw=2 (r2 REJECTED-then-reverted, accepted at b99e707) qa=1 | 50012be01b258fa63d57724d384095a2bfe75dda |
 | B-14 | Backend tests | 2026-09-13T03:25:00Z | pm=4 sw=2 qa=1 (+MF-2 merge-fix cycle) | d584cb7841bd313dd6f667d6414247940cfca139 (MF-2 merge carries the B-14 payload; qa-failed at 04291af was the conflict tree-condition, resolved by MF-2) |
 | MF-2 | MERGE-FIX: B-14 (testing.md test-file listing) | 2026-09-13T03:25:00Z | pm=1 sw=1 qa=1 | d584cb7841bd313dd6f667d6414247940cfca139 |
+| I-01 | Switch frontend to real API | 2026-09-13T05:05:00Z | pm=1 sw=1 qa=1 | c3fc7030bc383d1c9b401b5b492014a224fc8e2a |
