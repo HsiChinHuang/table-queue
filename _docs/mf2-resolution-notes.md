@@ -54,9 +54,8 @@ backend/tests/
 └── test_startup_bootstrap_settings.py
 ```
 
-(Exact patch against main: `/home/te/tq/mf2-rehearsal` scratch commit `rehearsal: resolve
-testing.md hunk (real-file union)` — scratch is disposable; facts above are the durable record.
-`git -C /home/te/tq/mf2-rehearsal show HEAD -- _docs/testing.md` regenerates the diff.)
+(The rehearsal scratch worktree was REMOVED after measurement — the listing above IS the
+durable record; regenerate any diff from main 292adcc/4f5070b + this listing by hand.)
 
 Measured on the rehearsal tree (B-14's AC file copied from 04291af as `_b14check.md`):
 
