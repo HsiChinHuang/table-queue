@@ -480,6 +480,21 @@ therefore committed onto this branch as `95848ca` with PM's content unchanged so
 gate on the same tree; the merge commit `6c53426` (parents `0483e29` and `04291af`) is unchanged and
 every gate above was measured on that tree.
 
+Two further report-only commits follow it on this branch, `4944017` (fill the empty report sections)
+and `c50f9c3` (move the transcribed runacs output out of a fence): the AC file after `95848ca` differs
+from PM's `f5b6645` copy only in those report sections (`git diff f5b6645 HEAD -- _docs/issues/MF-2.md`
+-> 0 removed lines, 90 added, all below the `## Test requirements` heading), and re-running the gate at
+HEAD still extracts exactly `['AC-1', 'AC-2', 'AC-3', 'AC-4', 'AC-5']`.
+
+**Observation outside this lane (no action taken).** `origin/main` moved to `a9ff878` during this run
+(a `_docs/config.yaml.example` operator commit). The T10 evidence quoted in the channel -
+`93f0b6cf38e411c0041205b2372223c24899d8d7`, `38 files changed`, `backend/tests/test_queue_lifecycle.py`,
+`_router.py`, an `n'-p no:randomly' in _docs/testing.md` claim - is NOT in this clone after a fresh
+`git fetch origin`: `git branch -r --contains 93f0b6cf...` -> `error: no such commit`, and
+`git log --all -- backend/tests/test_queue_lifecycle.py` -> 0 lines. Any T10 assertion that
+`-p no:randomly` is absent from `_docs/testing.md` is false on this tree regardless: grep finds the pin
+at lines 30, 98, 99 and 105 of `_docs/testing.md`. Reported, not fought.
+
 ## Dependencies
 
 Unchanged from the scaffold: B-14 (content, tip `04291af`) and T7 (merged at `50012be`).
