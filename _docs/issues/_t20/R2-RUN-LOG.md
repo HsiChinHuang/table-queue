@@ -135,3 +135,39 @@ which turned previously-skipped `test_seed.py` items into run items rather than 
   commit, and the commit message must name the clause.
 - `payload_ac-13` (AC-9's self-referential row) moves with every edit to the AC-13 block's staged
   lines. It cannot be pinned; AC-13's block-to-block comparison is the check that reaches it.
+
+## Second measured split, at 295c9a7 (this round's own commits): the same defect, one block wider
+
+The single-quoted quoting fix makes AC-13 reproducible from its sources again (`PROVENANCE OK AC-13`
+against 422 staged lines, where aa73e6f refused at 420-vs-422). Re-running the others after it, in the
+same environment and one block at a time, produced:
+
+| AC | at aa73e6f | at 295c9a7 | reason, measured |
+|----|-----------|-----------|------------------|
+| AC-10 | PASS | **PASS** (re-confirmed) | `PASS AC-10` + all four clause lines green |
+| AC-11 | PASS | PASS | unchanged |
+| AC-12 | PASS (crash inside one arm) | **REFUSE** | provenance: `-$TMPDIR/probe.py 'print(("ARM %s\|%s") % (label, summary))' / +'...print(("ARM %s " + V + " %s") % ...)'`. The emitted bytes CHANGED between the two runs because my generator edit made `stage_body` substitute the delimiter, and AC-12 had been "passing" against bytes its own block does not ship |
+| AC-13 | FAIL 3 clauses | **REFUSE** | provenance: `378 staged line(s) vs 379 from the sources`; AC-13 stages `probe13.py`, whose `print("STAGED_PAYLOAD_DIGEST: %s" ...)` region is where the AC-13 block's payload digest lives, so its digest legitimately moved. AC-9's `payload_ac-13` row is the self-referential one and cannot be pinned; AC-13's own comparison is what closes it |
+| AC-9 | FAIL 1 clause | FAIL, 3 clauses | `payload_ac-1`, `payload_ac-5` reddened alongside `payload_ac-13`: the delimiter substitution lands inside the five round-1 payloads, which are anchored to round 1's digests |
+| AC-1..AC-5 | crash | crash / refuse | unchanged in kind: the sources still emit the concatenation for the shipped text, and the shipped text is anchored elsewhere |
+
+`check_blocks.py` still reports `PASS AC-blocks: all 10 blocks` across all of this, which is the point a
+later round should keep: that gate parses the shell and reads the manifest, and every defect above is
+inside a quoted printf argument or inside a digest.
+
+## Why the generator change is in, and why the block text was not touched
+
+The delimiter substitution is the only edit that makes any block's *emitted* bytes differ, and it differs
+them in the direction the anchored digests already record: for AC-1..AC-5 the emitted line becomes
+`print("ARM %s|%s" ...)`, which is the round-1 form, so the substitution moves the sources *toward* the
+anchor rather than away from it. Re-running the builder and re-recording the table would make AC-1..AC-5
+green at base as well as at the fix, so their not-breaking clauses would be measured and their refusal
+clauses would still have to move; that is round 3's call with the digest owner in the loop, not this
+round's. What this round will not do is edit a block, re-record its digest, and report the resulting
+green as a fix - the Definition of Done forbids it and AC-13 exists to catch it.
+
+The two things this round did land are therefore the ones that are unambiguous: a stage-shape fix that
+changes no staged byte for the nine blocks it does not touch and restores provenance for the tenth, and a
+run log. The AC-12/AC-13 refusals this round *introduced* are honest refusals replacing green runs that
+were not measuring the shipped bytes, and they are the reason round 3 has a precise list rather than a
+set of green blocks with an unexplained crash in the middle of the file.

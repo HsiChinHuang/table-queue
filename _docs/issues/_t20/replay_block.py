@@ -150,18 +150,29 @@ def staged_payload(body):
 def expected_payload(root, probe, clauses, r1_shape=False):
     """The (dest, text) pairs the generator stages for these two sources.
 
-    `r1_shape` re-derives the bytes a ROUND-1 block stages from the round-1 probe sources, which is
-    the one provenance question this tool cannot answer with the generator. Round 1's stage() emitted
-    no payload indent, named the guard's file without its shell sigils, and wrote its printf
-    destination bare; round 2's indents the printf line by three, and both are legitimate for their
-    own payload. Reconstructing the older shape from the newer function would mean holding a second
-    implementation of staging inside the checker - the thing the whole file exists to avoid - so the
-    reconstruction goes the other way: the payload is read out of the block as shipped (via
-    `staged_payload`, which the block side already uses), and only the destination/guard bookkeeping
-    differs. What stays independently computed is the payload text, so a hand-edited round-1 block
-    still reads as a difference; what stops being independently computed is a stage SHAPE that no
-    longer exists in this tree. Round-1 provenance is therefore weaker than round-2 provenance by
-    exactly one step, and `check_blocks.py` re-states it as its `r1_provenance_degraded` finding.
+    `r1_shape` is the degraded path, and the sentence below states what it does NOT do, because the
+    name invites the wrong reading and the wrong reading is a green that means nothing.
+
+    Round 1's five blocks (AC-1..AC-5) stage bytes this tree's probe sources no longer reproduce: the
+    sources carry `print("ARM %s " + V + " %s" % (...))` where the anchored payload carries
+    `print("ARM %s | %s" % (...))`, and the concatenation form is a live crash as well as an anchor
+    break (`+` binds tighter than `%`, so the format string is assembled first and the argument tuple
+    is surplus - AC-1 died with `TypeError: not all arguments converted during string formatting`
+    before printing one ARM line, and AC-2/AC-3 die the same way). It is also an anchor break: the
+    payload digest covers the staged line, so those four or five lines per block sit INSIDE the bytes
+    `EXPECTED_BLOCK_PAYLOADS` records, which is why `check_blocks.py`/`bash -n` pass all ten blocks
+    while five of them cannot run. A parse of the shell cannot see a corrupt line inside a quoted
+    printf argument, and provenance computed against moved sources cannot see that the sources moved.
+
+    `r1_shape` therefore does NOT re-derive a round-1 payload from the moved sources - that comparison
+    would agree exactly when the sources had drifted, which is the one case worth catching. It reads
+    the payload out of the block as shipped and verifies the two named sources EXIST, are named in
+    staged order, and that the staged bytes parse. Round-1 provenance is consequently weaker than
+    round-2 provenance by one step, `check_blocks.py` re-states that as `r1_provenance_degraded`, and
+    the repair (recovering the anchored bytes from the commit that recorded the digests, and refusing
+    when the recovery does not close) is round 3's work: it changes five digest-covered payloads, and
+    an engineer must not move a trust anchor as a side effect of making a block run. See
+    `_docs/issues/_t20/R2-RUN-LOG.md` for the measured line counts per block.
 
     The generator supplies the lines - `stage_body()` is the same function that writes them into the
     block - and `shlex.quote`, imported rather than reimplemented, supplies the quoting. What this
