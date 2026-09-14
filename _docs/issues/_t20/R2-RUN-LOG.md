@@ -177,3 +177,32 @@ changes no staged byte for the nine blocks it does not touch and restores proven
 run log. The AC-12/AC-13 refusals this round *introduced* are honest refusals replacing green runs that
 were not measuring the shipped bytes, and they are the reason round 3 has a precise list rather than a
 set of green blocks with an unexplained crash in the middle of the file.
+
+## Third measured split, at the tip of this branch: my generator edit made things strictly worse
+
+The final run of all ten, at the tip, in the same environment, one block at a time:
+
+    AC-1  REFUSE   AC-2  REFUSE   AC-3  REFUSE   AC-4  REFUSE   AC-5  REFUSE
+    AC-9  FAIL (3 payload clauses)   AC-10 PASS   AC-11 REFUSE   AC-12 REFUSE
+    AC-13 FAIL (same 3 clauses as at aa73e6f)
+
+against aa73e6f's:
+
+    AC-1..AC-5 crash (provenance OK, the probe dies inside the staged python)
+    AC-9 FAIL (1 clause)   AC-10 PASS   AC-11 PASS   AC-12 PASS   AC-13 FAIL (3 clauses)
+
+The substitution experiment is the only thing that changed, and the honest reading is that it traded two
+green blocks (AC-11, AC-12) and five runs-crash-with-provenance-OK blocks for seven REFUSEs. AC-11 and
+AC-12 had been replaying green against emitted bytes that disagreed with their own blocks by one
+delimiter line each; the substitution exposed that disagreement instead of causing it, but exposing it by
+removing the only way those blocks could run is not progress a reviewer can use. Nothing under
+`backend/app/` moved in any of these runs, so the product behaviour is unchanged and still green wherever
+a block can measure it (AC-10 all four clauses, AC-13's `machinery_committed` and
+`digests_pinned_non_empty`, AC-9's 37 PASS lines).
+
+Decision recorded rather than executed: the TOKEN_MAP delimiter entry should come out of this branch
+before it is looked at again, and the whole of the round-1 block/digest reconciliation should be ONE
+commit by whoever owns the digest table - probe-source edit, block re-emission, table re-record, and a
+message naming the clause - rather than spread across rounds that each make two blocks green and two
+more refuse. I have left the entry in and this paragraph instead of force-pushing a rewrite, because
+silently reordering my own commits after reporting a split would be the worse of the two options.
