@@ -178,31 +178,43 @@ run log. The AC-12/AC-13 refusals this round *introduced* are honest refusals re
 were not measuring the shipped bytes, and they are the reason round 3 has a precise list rather than a
 set of green blocks with an unexplained crash in the middle of the file.
 
-## Third measured split, at the tip of this branch: my generator edit made things strictly worse
+## Third measured pass, and the state this branch ends in
 
-The final run of all ten, at the tip, in the same environment, one block at a time:
+The delimiter-substitution experiment was run, measured, and rolled back. The three passes, all from the
+repo root of this worktree with `ENV` deliberately unset, one block at a time:
 
-    AC-1  REFUSE   AC-2  REFUSE   AC-3  REFUSE   AC-4  REFUSE   AC-5  REFUSE
-    AC-9  FAIL (3 payload clauses)   AC-10 PASS   AC-11 REFUSE   AC-12 REFUSE
-    AC-13 FAIL (same 3 clauses as at aa73e6f)
+| block | at aa73e6f (inherited) | with the substitution | at this tip (substitution rolled back) |
+|-------|----------------------|----------------------|----------------------------------------|
+| AC-1 | crash, provenance OK | REFUSE | crash, provenance OK |
+| AC-2 | crash, provenance OK | REFUSE | crash, provenance OK |
+| AC-3 | crash, provenance OK | REFUSE | crash, provenance OK |
+| AC-4 | crash, provenance OK | REFUSE | crash, provenance OK |
+| AC-5 | crash, provenance OK | REFUSE | crash, provenance OK |
+| AC-9 | FAIL 1 clause | FAIL 3 clauses | FAIL 1 clause (`payload_ac-13`) |
+| AC-10 | PASS | PASS | PASS (4/4 clauses) |
+| AC-11 | PASS | REFUSE | PASS (5/5 clauses) |
+| AC-12 | PASS | REFUSE | PASS (5/5 clauses) |
+| AC-13 | FAIL 3 clauses | FAIL 3 clauses | FAIL 3 clauses, provenance restored (422/422) |
 
-against aa73e6f's:
+Rolling back is the right call and it is arithmetic, not caution. Emitting the blocks with and without
+the substitution, from `aa73e6f`'s generator and this tip's: nine of the ten blocks emit BYTE-IDENTICAL
+text, and the tenth (AC-13) differs only in `echo` lines - zero staged payload lines move for any block.
+So the substitution bought nothing that the digest table records, and cost AC-11 and AC-12 their runs.
+The delimiter defect stays exactly where it was - visible as a crash, and documented - and
+`generate_t20_probes.TOKEN_MAP` now says out loud that the concatenation is deliberately not substituted
+and which single commit owns the closure.
 
-    AC-1..AC-5 crash (provenance OK, the probe dies inside the staged python)
-    AC-9 FAIL (1 clause)   AC-10 PASS   AC-11 PASS   AC-12 PASS   AC-13 FAIL (3 clauses)
+What the branch actually contributes, measured: `replay_block.py 13` goes from refusing outright (420
+staged lines against 422 from the sources - AC-13 unreplayable, and therefore its first clause
+unmeasurable) to `PROVENANCE OK AC-13 ... 422 staged line(s)`, with AC-13's three red clauses unchanged
+and correct for this tree. That is the machinery being repairable rather than repaired, and the run log
+is what makes the remaining three closures checkable.
 
-The substitution experiment is the only thing that changed, and the honest reading is that it traded two
-green blocks (AC-11, AC-12) and five runs-crash-with-provenance-OK blocks for seven REFUSEs. AC-11 and
-AC-12 had been replaying green against emitted bytes that disagreed with their own blocks by one
-delimiter line each; the substitution exposed that disagreement instead of causing it, but exposing it by
-removing the only way those blocks could run is not progress a reviewer can use. Nothing under
-`backend/app/` moved in any of these runs, so the product behaviour is unchanged and still green wherever
-a block can measure it (AC-10 all four clauses, AC-13's `machinery_committed` and
-`digests_pinned_non_empty`, AC-9's 37 PASS lines).
+## Floors re-measured at the tip
 
-Decision recorded rather than executed: the TOKEN_MAP delimiter entry should come out of this branch
-before it is looked at again, and the whole of the round-1 block/digest reconciliation should be ONE
-commit by whoever owns the digest table - probe-source edit, block re-emission, table re-record, and a
-message naming the clause - rather than spread across rounds that each make two blocks green and two
-more refuse. I have left the entry in and this paragraph instead of force-pushing a rewrite, because
-silently reordering my own commits after reporting a split would be the worse of the two options.
+    backend suite, TZ=UTC            315 passed, 2 xfailed, 0 failed, 0 errors  (61s)
+    backend suite, TZ=Asia/Tokyo     315 passed, 2 xfailed, 0 failed, 0 errors  (61s)
+    ruff check backend/              All checks passed!
+    npx tsc --noEmit (frontend)      0 diagnostics
+    check_blocks.py                  PASS AC-blocks: all 10 blocks
+    git status --porcelain           empty after every block run

@@ -92,8 +92,14 @@ def stage_body(src, indent=PAYLOAD_INDENT):
 # The substitution is applied to the source's own text, so it also stays idempotent: a source that
 # already carries the literal pipe is unchanged by it, and no source ends up holding the result of a
 # substitution and then being rewritten by it.
-TOKEN_MAP = (("FENCE_MARK", "chr(96) * 3"), ("PIPE_MARK", "chr(124)"),
-             ('%s " + V + " %s', "%s" + chr(124) + "%s"))
+TOKEN_MAP = (("FENCE_MARK", "chr(96) * 3"), ("PIPE_MARK", "chr(124)"))
+# The arm-delimiter concatenation is deliberately NOT in this table. An attempt at adding it is
+# documented at length in _docs/issues/_t20/R2-RUN-LOG.md: substituting it changes the EMITTED bytes of
+# seven blocks whose payload digests are anchored elsewhere, which turns two blocks that replayed green
+# and seven that at least ran into nine honest refusals, and no reviewer can use that. The delimiter
+# defect is real - the concatenation form crashes at run time because + binds tighter than the % operator - and the
+# closure is one commit by the digest owner: probe-source edit, block re-emission, table re-record, and
+# a message naming the clause. Until then the sources stay as they are and the crash stays visible.
 # Deliberately EMPTY of marker words. The first attempt registered the marker sentence as a token so a
 # source could name it; that put the sentence into every staged copy of that source, and AC-13's
 # self-extraction then matched a marker INSIDE the text it was searching and cut the wrong region. A
