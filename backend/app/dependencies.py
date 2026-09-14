@@ -80,34 +80,44 @@ def get_current_staff(
     """
     if not credentials:
         raise AppError('AUTH_TOKEN_EXPIRED') from None
-    # The store the verifier reads is a session of its own on the ambient factory rather than the
-    # route handler's ``db``. FastAPI resolves two ``Depends(get_db)`` annotations twice on this
-    # version, so the session a handler is handed is not one a sub-dependency could reach anyway,
-    # and a harness that gives the APPLICATION a scratch store through a ``get_db`` override would
-    # otherwise leave the verifier decoding against a generation value from a database nobody is
-    # The factory is read through the module attribute so a harness that rebinds it onto its own
-    # engine carries the verifier with it.
-    # Both candidate stores are opened on this line and handed down together, so the ONE the
-    # verifier uses is chosen inside the call - while this module's ``get_settings`` is still the
-    # one a harness rebound, which is what makes the secret and the generation value agree. Read
-    # into a local first, that read would happen before the override could matter; read after the
-    # caller's frame is gone, it would happen after the harness had undone it. Either way the two
-    # halves of the key come from different stores, and a key assembled from two stores is the bug
-    # rather than a finding.
+    # The verifier reads the store the request is being ANSWERED from. It cannot share the handler's
+    # session - two ``Depends(get_db)`` annotations resolve to two sessions on this version, so a
+    # sub-dependency has no route to the one the handler holds - which leaves one question and one
+    # answer: WHICH factory does the request's store live on?
+    #
+    #   * A suite that rebinds ``app.database.engine`` / ``SessionLocal`` (``test_staff_tables``,
+    #     ``test_admin_reset``, the reset harness) puts its store on the ambient factory, and a
+    #     session opened here is that store. Such a suite registers no override at all.
+    #   * A suite that overrides the ``get_db`` DEPENDENCY with a session of its own
+    #     (``test_admin_settings``, ``test_admin_tables``) never touches the factory, so a session
+    #     opened here is a database nobody is serving - and after T9 decision D-2 that is a 401 on a
+    #     correctly signed bearer, since the generation value the key needs lives in the row the
+    #     handler will load. The override is a plain callable, and the session it hands back is the
+    #     store under test, so the verifier asks it first.
+    #
+    # The order is not cosmetic, and the earlier draft inverted it. Opening the ambient factory
+    # unconditionally is a WRITE to whatever file that name still carries: SQLite creates the
+    # file on connect, so a suite whose store is an in-memory override would find an empty on-disk
+    # settings table sitting beside it, the credential check would answer "none configured", and
+    # every bearer in the module would be refused. Asking the override first and opening the factory
+    # only when nothing answered keeps the verifier out of stores that are not serving the request.
+    #
+    # Both reads happen inside this frame while a harness's rebind is still in force: the settings
+    # getter is this module's own attribute, which is exactly the name the shipped reset suite
+    # rebinds to redirect ``jwt_secret``.
     import app.main as main_module
     from app import database as database_module
 
     override = main_module.app.dependency_overrides.get(get_db)
-    ambient = database_module.SessionLocal()
+    served = override() if callable(override) else database_module.SessionLocal()
     try:
-        served = override() if callable(override) else ambient
-        return _verify(credentials.credentials, get_settings(), ambient, served)
+        return _verify(credentials.credentials, get_settings(), served)
     finally:
-        ambient.close()
+        served.close()
 
 
 def _verify(
-    token: str, settings: Any, ambient: Session, served: Session
+    token: str, settings: Any, served: Session
 ) -> dict[str, Any]:
     """The verification body: signature against the store's key, then the claim checks.
 
@@ -115,20 +125,14 @@ def _verify(
     the signing key, the credential-presence read and the settings object the horizon comes from
     all describe ONE store, read inside one session. T9 decision D-2 moved the store's
     token-generation value into the key, so a verifier that read the generation from one database
-    and the secret from another would either reject a token the request earned or accept one for
-    the wrong store - AC-1's tampered store and AC-5's rotation are both only meaningful when the
-    two reads are the same read.
+    and the secret from another would either reject a token the request earned or accept one for the
+    wrong store - AC-1's tampered store and AC-5's rotation are both only meaningful when the two
+    reads are the same read.
 
-    The verifier prefers ``served`` - the store the APPLICATION would answer this request from -
-    and falls back to ``ambient`` when no harness redirected one. It cannot ask FastAPI for the
-    handler's own session: two ``Depends(get_db)`` annotations resolve to two sessions on this
-    version, so a sub-dependency can never share the handler's, and a scratch store handed to the
-    application through an override would otherwise leave the signature checked against a
-    generation value from a database nobody is serving. A caller that hands both arguments the
-    same session gets the same answer it always did.
-    ``settings`` is a parameter for the mirror-image reason: the caller read it through this
-    module's own getter, which is what a harness rebinds to redirect ``jwt_secret``, and the
-    secret has to be the one that getter answers for.
+    ``served`` is the session the request's own ``get_db`` yielded, which is the whole reason one
+    session argument is enough: the store it names is the store the handler answers from.
+    ``settings`` is a parameter for the mirror-image reason - the caller read it through this
+    module's own getter, which is what a harness rebinds to redirect ``jwt_secret``.
     """
     from app.routers.auth import credential_is_configured, token_generation_value
 
