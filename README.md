@@ -150,46 +150,68 @@ This tree is the full v1 target layout: it is a superset of _docs/requirements.m
 
 ## Getting Started
 
-The `Makefile`, the `make` targets, `backend/`, `frontend/` and the root `package.json` are created by F-01 (Platform Issue 12). None of them exists in this checkout today, so the commands on this page document the toolchain F-01 delivers; none of them runs here yet.
+The `Makefile`, its targets, `backend/`, `frontend/` and the root `package.json` were delivered by F-01 (Platform Issue 12) and all of them are in this checkout, so the commands on this page are the commands that run.
 
 ### Prerequisites
 
-- Python 3.11+
-- [uv](https://docs.astral.sh/uv/)
-- Node.js 20+
-- `make` (optional; the targets below arrive with F-01, Platform Issue 12)
+- [uv](https://docs.astral.sh/uv/) - the Python installer this repo ships an `uv.lock` for. A fresh machine usually lacks it, and it is not on `PATH` by default:
+
+  ```bash
+  curl -LsSf https://astral.sh/uv/install.sh | sh    # installs into ~/.local/bin
+  export PATH="$HOME/.local/bin:$PATH"              # only if ~/.local/bin is not already on PATH
+  uv --version                                        # must print a version, not "command not found"
+  ```
+
+  The setup target refuses with exactly that instruction when `uv` is missing (its recipe carries `exit 1`, so the failure is assertable as rc=1); it never hardcodes a machine-specific path.
+- Python 3.12+ available as `python3` (this platform has no `python` alias; the run surface uses `python3` and `backend/.venv/bin/python`, never bare `python`)
+- Node.js 20+ and `npm`. `.nvmrc` pins 20 - a system node 18 cannot run vite, so `nvm use` first.
+- `make` - the targets below are the documented onboarding path, and the manual equivalents are listed next to each of them.
+
+### One-time local configuration (git never fetches it)
+
+`backend/.env` is gitignored, and since security audit A-1 / D-1 the app refuses to boot without two values that are deliberately not published anywhere:
+
+```bash
+cp backend/.env.example backend/.env
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"   # paste the output as JWT_SECRET=
+```
+
+Then edit `backend/.env` so it carries `JWT_SECRET` (at least 32 characters; the published example values are refused) and `STAFF_PIN` (your own - no default, and it is a one-time seed for the staff credential, never an accepted login after the first boot). The seed, dev and backend targets check both before launching and name the missing one instead of letting the app fail mid-boot.
 
 ### Setup
 
 ```bash
-make setup
+set +e; make setup; rc=$?; echo "rc=$rc"   # assert the rc, never a pipe
 ```
+
+That bootstrap creates `backend/.venv` with `uv sync --project backend` - `uv sync` builds the environment at `<project>/.venv`, which for this project is `backend/.venv`. uv is the installer that reads `[dependency-groups] dev` and puts pytest, ruff, httpx and freezegun into the same interpreter the run surface uses. `pip install -e backend` cannot read that group, so it is not the installer. The target then runs `cd frontend && npm ci`; pass `SKIP_FRONTEND=1` to bootstrap the backend alone on a host without npm.
 
 Or manually:
 
 ```bash
-cd backend && uv sync
-cd frontend && npm install
-npm install
+cd backend && uv sync --project backend
+cd frontend && npm ci
 ```
 
-Run
+Run (foreground: it stays attached, Ctrl-C stops both servers)
 
 ```bash
-make dev
+set +e; make dev; rc=$?; echo "rc=$rc"   # Ctrl-C stops both children; rc is the target's own
 ```
+
+The dev target starts uvicorn and vite as the two children of one foreground recipe and traps their exit, so Ctrl-C stops both and the target cannot silently mean "frontend only". Pass `BACKEND_PORT`/`FRONTEND_PORT` to run a second checkout beside a first one (`make dev BACKEND_PORT=8011 FRONTEND_PORT=5199`); the vite `/api` proxy follows `BACKEND_PORT` through `VITE_API_TARGET`.
 
 Or in two terminals:
 
 ```bash
-cd backend && uv run uvicorn app.main:app --reload --host 0.0.0.0
+cd backend && .venv/bin/python -m uvicorn app.main:app --reload --host 0.0.0.0
 cd frontend && npm run dev -- --host
 ```
 
 Seed
 
 ```bash
-make seed
+set +e; make seed; rc=$?; echo "rc=$rc"
 ```
 
 Test
@@ -201,9 +223,11 @@ make test
 Or separately:
 
 ```bash
-cd backend && uv run pytest
-cd frontend && npm run test
+cd backend && .venv/bin/python -m pytest -q
+cd frontend && npm run test -- --run
 ```
+
+`--run` is not optional on the frontend: `npm run test` there is bare vitest, i.e. watch mode, and never exits. `make test-frontend` and the root `npm run test:frontend` both pass `--run` for you.
 
 Lint and format
 
@@ -211,6 +235,23 @@ Lint and format
 make lint
 make format
 ```
+
+### Exit codes and pipes
+
+Documented make invocations are run bare and their exit code is asserted directly (`cmd > /tmp/tq-run.log 2>&1; echo "rc=$?"`). Wrapping one in a pipe to `head` or `tail` is a documentation bug: the pipe reports the consumer's status, so a red target looks green. The same rule covers the manual equivalents below and in `_docs/commands.md`.
+
+```bash
+# a documented check: the target runs bare, its rc is captured, the log is read afterwards
+set +e
+make seed > /tmp/tq-seed.log 2>&1
+seed_rc=$?
+echo "rc=$seed_rc"   # rc=0 is the pass marker
+grep 'seed:' /tmp/tq-seed.log
+```
+
+### Interpreter resolution
+
+A backend target picks its interpreter in this order and then fails loudly rather than with a shell "not found": `$BACKEND_PY` (explicit override, e.g. `make seed BACKEND_PY=$PWD/backend/.venv/bin/python`), `backend/.venv/bin/python`, repo-root `.venv/bin/python`, then uv itself - the target syncs `backend/.venv` once and execs from it, so uv is never re-resolved per command. The repo root comes from the Makefile's own location, so the targets work in a tarball copy as well as in a git checkout.
 
 ## Development
 
@@ -250,17 +291,19 @@ Add your local IP to CORS_ORIGINS in backend/.env.
 
 ### Makefile Targets
 
-Target	Description
-make setup	Install backend and frontend deps
-make dev	Run backend and frontend together
-make backend	Run backend only
-make frontend	Run frontend only
-make seed	Reset and seed database
-make test	Run all tests
-make test-backend	Run backend tests
-make test-frontend	Run frontend tests
-make lint	Lint frontend
-make format	Format frontend
+Targets run from the repo root and report their own exit code (rc=0 on success, as asserted above). Prefix the
+first column with `make` to invoke it; nothing here is piped, so the rc you read is the target's:
+
+setup	Install backend and frontend deps
+dev	Run backend and frontend together
+backend	Run backend only
+frontend	Run frontend only
+seed	Reset and seed database
+test	Run all tests
+test-backend	Run backend tests
+test-frontend	Run frontend tests (vitest --run)
+lint	Lint backend and frontend
+format	Format backend and frontend
 
 ## Environment Variables
 
@@ -296,21 +339,21 @@ without one that is at least 32 characters long. Generate it and paste the outpu
 python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
-Copy .env.example to .env in both backend/ and frontend/.
+Copy .env.example to .env in both backend/ and frontend/, and see "One-time local configuration" above for the two backend values that have no printable example.
 
 ## Demo
 
 See _docs/demo.md for the full walkthrough.
 
-Quick demo:
+Quick demo, from a tree you already bootstrapped and seeded above (Getting Started documents both steps with an rc assertion, and re-seeding drops the stored staff credential hash so the `STAFF_PIN` in backend/.env seeds once more):
 
-make seed
+seed, then open the pages below
 
 Open http://localhost:5173/join?branch=1 and join
 
 Open http://localhost:5173/staff/login with the `STAFF_PIN` value you set above
 
-Call, seat, release, close day
+Both servers come from the dev target above (backend http://localhost:8000, frontend http://localhost:5173); its rc is asserted where it is documented.
 
 ## Documentation
 
