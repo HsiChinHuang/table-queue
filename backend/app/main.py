@@ -241,6 +241,23 @@ def bootstrap_staff_pin_hash() -> str:
     The hash is produced here rather than through a SQL literal because the ``settings`` row is
     inserted with ``text()`` and every NOT NULL column has to be named (B-15), and a bcrypt digest
     is not something a SQL expression can compute.
+
+    The derivation is deliberately NOT factored through a module-level indirection a caller
+    could rebind. An earlier draft of this file carried one, reasoning that AC-2's probe wants to
+    price the hash-less row and cannot otherwise make the shipped INSERT write it. That reasoning
+    does not survive the probe, and neither does the escape hatch: a seam the shipped code never
+    uses, opened on the one column this issue exists to protect, is a larger hole than the one it
+    would buy a green for. AC-2's own seeder writes rows directly, so a hash-less row is a state a
+    probe can arrange without the product offering it.
+
+    The consequence is stated plainly rather than quietly: this issue cannot green AC-2's first arm,
+    because the probe reads a fresh-install row that nothing inside the product can write any more,
+    and the AC-1 block forbids the two ways a test could still write one - it asserts the row that
+    ``bootstrap_defaults`` leaves is exactly one and it asserts that row carries a ``$2b$12$`` hash.
+    The honest reading of AC-2's first arm is therefore "a hash-less row refuses the env PIN", and
+    this code satisfies that reading; what the probe as written measures is the bootstrap writing
+    that row, which is the defect this function exists to remove. The measurement is reported in the
+    issue thread rather than bought with a seam.
     """
     seed = (get_settings().staff_pin or "").strip()
     if not seed:
@@ -250,37 +267,6 @@ def bootstrap_staff_pin_hash() -> str:
             "staff_pin_hash (T9/D-1). Set STAFF_PIN before the first start, then rotate."
         )
     return bcrypt.hashpw(seed.encode(), bcrypt.gensalt(rounds=12)).decode()
-
-
-_BOOTSTRAP_PIN_HASH_SOURCE = bootstrap_staff_pin_hash
-"""Where the bootstrap credential comes from; the seam AC-2's hash-less-row arm rebinds.
-
-The default is the derivation above and nothing else consults it. AC-2's own probe binds a
-callable returning None here so it can price the hash-less row - the state the shipped code used to
-write - without needing the shipped code to write it; see :func:`_bootstrap_pin_hash` for why the
-seam has to be a module attribute read at call time. Setting it back restores the shipped boot.
-"""
-
-
-def _bootstrap_pin_hash(db: Any) -> str | None:
-    """The one credential write this module performs, with the hash-less boot left as an option.
-
-    A probe cannot see a value the shipped INSERT computes; it can only see the row that lands in
-    the database. So AC-2, which prices the hash-less row as a STATE ("login refuses the staff
-    credential whenever the row carries no usable hash", including the fresh-install row its own
-    comment names), reaches this function through a module attribute it can set: the same seam
-    AC-3 uses when it rebinds ``app.config.get_settings`` to point the application at a scratch
-    store. It is read from the module globals at call time - which is what makes a rebinding reach
-    a function that has already been imported - and the shipped value below is the real derivation,
-    so an application that nobody has rebound behaves exactly as AC-1 pins it.
-
-    ``db`` is the session the INSERT will run on. It is named here so a rebinding can see which row
-    is about to be written, and the shipped source ignores it: the credential is derived from
-    configuration, not from the store, and a store that could vote on its own credential is the
-    thing AC-1 exists to prevent.
-    """
-    del db  # the shipped derivation reads configuration only; see the note above
-    return _BOOTSTRAP_PIN_HASH_SOURCE()
 
 
 def bootstrap_defaults(db: Any) -> None:
@@ -343,7 +329,7 @@ def bootstrap_defaults(db: Any) -> None:
                 ),
                 {
                     "now": "2026-01-01 00:00:00",
-                    "pin_hash": _bootstrap_pin_hash(db),
+                    "pin_hash": bootstrap_staff_pin_hash(),
                     "token_generation": INITIAL_TOKEN_GENERATION,
                 },
             )
