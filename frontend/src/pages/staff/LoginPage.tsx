@@ -64,8 +64,8 @@ function LoginPage() {
     setError(null);
     try {
       const response = await login({ pin: data.pin });
-      window[tokenStorageFor(data.remember)].setItem(STAFF_TOKEN_KEY, response.token);
-      setToken(response.token);
+      window[tokenStorageFor(data.remember)].setItem(STAFF_TOKEN_KEY, response.access_token);
+      setToken(response.access_token);
       // Route constant ROUTES.STAFF_WAITLIST === '/staff/waitlist'
       navigate('/staff/waitlist', { replace: true });
     } catch (err) {

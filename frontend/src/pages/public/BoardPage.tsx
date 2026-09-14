@@ -15,7 +15,7 @@ export function limitRecentCalls<T>(list: readonly T[]): T[] {
 }
 
 /** Board poller: 5000ms interval plus a refresh on window focus. */
-function useBoard(branchId: string) {
+function useBoard(branchId: number) {
   const [board, setBoard] = useState<Awaited<ReturnType<typeof getBoard>> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,9 +72,11 @@ function useBranchInfo(branchId: string) {
 const RECENT_LIMIT = 3;
 
 export default function BoardPage() {
-  const { branchId = '' } = useParams<{ branchId: string }>();
-  const { board, error: boardError } = useBoard(branchId);
-  const { info, error: infoError } = useBranchInfo(branchId);
+  const { branchId = '1' } = useParams<{ branchId: string }>();
+  const branchIdNum = Number(branchId);
+  const branchIdStr = String(branchIdNum);
+  const { board, error: boardError } = useBoard(branchIdNum);
+  const { info, error: infoError } = useBranchInfo(branchIdStr);
 
   if (boardError || infoError) {
     return <div className="p-4 text-destructive">Failed to load data.</div>;
@@ -93,7 +95,7 @@ export default function BoardPage() {
         <p className="text-lg">{info.branch_name}</p>
         <p className="text-sm text-muted-foreground">{info.hours}</p>
         <div className="mt-4 flex flex-col items-center gap-2">
-          <QRCodeSVG value={buildJoinUrl(window.location.origin, branchId)} size={128} />
+          <QRCodeSVG value={buildJoinUrl(window.location.origin, branchIdStr)} size={128} />
           <p className="text-sm">Scan to join the waitlist</p>
         </div>
         {!info.is_waitlist_open && (

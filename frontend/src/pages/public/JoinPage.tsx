@@ -110,9 +110,10 @@ const JoinPage: React.FC = () => {
   // Get branch ID from query param or fallback to VITE_BRANCH_ID env var
   const searchParams = new URLSearchParams(window.location.search);
   const branchFromParam = searchParams.get('branch');
-  const branchId = branchFromParam || import.meta.env.VITE_BRANCH_ID || '1';
+  const branchIdNum = branchFromParam ? Number(branchFromParam) : Number(import.meta.env.VITE_BRANCH_ID || 1);
+  const branchIdStr = String(branchIdNum);
 
-  const { data: branch, isLoading, error } = usePublicBranch(branchId);
+  const { data: branch, isLoading, error } = usePublicBranch(branchIdStr);
 
   const {
     register,
@@ -136,7 +137,7 @@ const JoinPage: React.FC = () => {
         name: data.name,
       };
 
-      const result = await joinWaitlist(request);
+      const result = await joinWaitlist(branchIdNum, request);
       
       // Clear form
       queryClient.invalidateQueries({ queryKey: ['publicBranch'] });

@@ -6,9 +6,9 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
-  token: string;
+  access_token: string;
   staff_id: string;
-  expires_at: string;
+  expires_in: number;
 }
 
 export interface ChangePinRequest {
@@ -18,15 +18,15 @@ export interface ChangePinRequest {
 
 // AC-6: login endpoint
 export async function login(request: LoginRequest): Promise<LoginResponse> {
-  const response = await post<LoginResponse>('/staff/login', request);
-  if (response?.token) {
-    staffStore.setToken(response.token);
+  const response = await post<LoginResponse>('/auth/login', request);
+  if (response?.access_token) {
+    staffStore.setToken(response.access_token);
   }
   return response!;
 }
 
 // AC-6: changePin endpoint
 export async function changePin(request: ChangePinRequest): Promise<{ success: boolean }> {
-  const result = await post<{ success: boolean }>('/staff/pin/change', request);
+  const result = await post<{ success: boolean }>('/auth/change-pin', request);
   return result!;
 }

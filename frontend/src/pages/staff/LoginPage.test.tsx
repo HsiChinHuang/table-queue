@@ -50,9 +50,9 @@ function renderPage(): RenderResult {
 
 function successfulLogin() {
   loginMock.mockResolvedValue({
-    token: 'test-token',
+    access_token: 'test-token',
     staff_id: 'staff-1',
-    expires_at: '2026-01-01T00:00:00Z',
+    expires_in: 3600,
   });
 }
 

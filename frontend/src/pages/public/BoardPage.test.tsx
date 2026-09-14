@@ -7,13 +7,15 @@ import type { BoardResponse, PublicBranch, WaitlistEntry } from '@/api/public';
 
 const entry = (queue_number: string) => ({ queue_number }) as unknown as WaitlistEntry;
 
-const getBoard = vi.fn();
-const getPublicBranch = vi.fn();
+import * as publicApi from '@/api/public';
 
 vi.mock('@/api/public', () => ({
-  getBoard: (id: string) => getBoard(id),
-  getPublicBranch: (id: string) => getPublicBranch(id),
+  getBoard: vi.fn(),
+  getPublicBranch: vi.fn(),
 }));
+
+const mockGetBoard = vi.mocked(publicApi.getBoard);
+const mockGetPublicBranch = vi.mocked(publicApi.getPublicBranch);
 
 afterEach(() => {
   cleanup();
@@ -54,14 +56,14 @@ describe('limitRecentCalls', () => {
 
 describe('BoardPage', () => {
   const board: BoardResponse = {
-    branch_id: 'branch-001',
+    branch_id: '1',
     waiting_count: 5,
     current_call: entry('A001'),
     next_up: entry('A002'),
     recent_calls: [entry('A003'), entry('A004'), entry('A005'), entry('A006')],
   };
   const info: PublicBranch = {
-    id: 'branch-001',
+    id: '1',
     name: 'Main',
     restaurant_id: 'r1',
     timezone: 'UTC',
@@ -74,13 +76,13 @@ describe('BoardPage', () => {
   };
 
   beforeEach(() => {
-    getBoard.mockResolvedValue(board);
-    getPublicBranch.mockResolvedValue(info);
+    mockGetBoard.mockResolvedValue(board);
+    mockGetPublicBranch.mockResolvedValue(info);
   });
 
   const renderPage = () =>
     render(
-      <MemoryRouter initialEntries={['/board/branch-001']}>
+      <MemoryRouter initialEntries={['/board/1']}>
         <Routes>
           <Route path="/board/:branchId" element={<BoardPage />} />
         </Routes>
@@ -91,9 +93,9 @@ describe('BoardPage', () => {
     vi.useFakeTimers();
     try {
       renderPage();
-      await vi.waitFor(() => expect(getBoard).toHaveBeenCalledTimes(1));
+      await vi.waitFor(() => expect(mockGetBoard).toHaveBeenCalledTimes(1));
       await vi.advanceTimersByTimeAsync(5000);
-      expect(getBoard).toHaveBeenCalledTimes(2);
+      expect(mockGetBoard).toHaveBeenCalledTimes(2);
     } finally {
       vi.useRealTimers();
     }
@@ -110,7 +112,7 @@ describe('BoardPage', () => {
   });
 
   it('shows the closed message when the waitlist is closed', async () => {
-    getPublicBranch.mockResolvedValue({ ...info, is_waitlist_open: false });
+    mockGetPublicBranch.mockResolvedValue({ ...info, is_waitlist_open: false });
     renderPage();
     await waitFor(() =>
       expect(screen.getByText('Waitlist is currently closed.')).toBeTruthy(),
@@ -118,7 +120,7 @@ describe('BoardPage', () => {
   });
 
   it('links to the join page when opened', async () => {
-    getPublicBranch.mockResolvedValue({ ...info, is_waitlist_open: true });
+    mockGetPublicBranch.mockResolvedValue({ ...info, is_waitlist_open: true });
     renderPage();
     await waitFor(() => expect(screen.queryByText('Waitlist is currently closed.')).toBeNull());
     expect(screen.getByText('Scan to join the waitlist')).toBeTruthy();

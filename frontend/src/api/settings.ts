@@ -31,12 +31,12 @@ export interface UpdateSettingsRequest {
 
 // AC-6: getSettings endpoint
 export async function getSettings(_branchId: string): Promise<Settings> {
-  const result = await get<Settings>('/staff/settings');
+  const result = await get<Settings>('/admin/settings');
   return result!;
 }
 
 // AC-6: updateSettings endpoint
 export async function updateSettings(request: UpdateSettingsRequest): Promise<{ success: boolean }> {
-  const result = await patch<{ success: boolean }>('/staff/settings', request);
+  const result = await patch<{ success: boolean }>('/admin/settings', request);
   return result!;
 }
