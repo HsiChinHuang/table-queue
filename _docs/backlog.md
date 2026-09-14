@@ -66,7 +66,7 @@ Work order is topological: every issue appears after all of its `depends`.
 | T10 | JWT secret strength gate: reject published/example secrets and short values at s | [] | #65 | closed |
 | T11 | Guest capability redesign: server-minted unguessable status token, no PII in URL | [] | #66 | backlog |
 | T12 | Frontend dependency advisories: dev-server RCE-class and react-router open redir | [] | #67 | backlog |
-| T33 | Run surface actually runs: make seed/dev/test-backend resolve an interpreter on this machine | [] | #89 | backlog |
+| T33 | Run surface actually runs: make seed/dev/test-backend resolve an interpreter on this machine | [] | #89 | closed |
 | T32 | Frontend speaks the published contract: real API integration works with VITE_USE_MOCK=false | [] | #88 | backlog |
 | T34 | Integration acceptance gate: a seeded store plus both servers complete the documented demo unattended | [T32, T33] | #90 | backlog |
 | T13 | FINAL regression gate: every closed-feature QA surface re-passes green after the | [] | #68 | backlog |
