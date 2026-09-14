@@ -218,3 +218,27 @@ is what makes the remaining three closures checkable.
     npx tsc --noEmit (frontend)      0 diagnostics
     check_blocks.py                  PASS AC-blocks: all 10 blocks
     git status --porcelain           empty after every block run
+
+## Round 3's three closures, each with its exact measured check
+
+1. **AC-1..AC-5 crash, and the same defect inside AC-11/AC-12's own probe text.** `probe11.py:163` and
+   `probe12.py:160` carry the concatenation too, and both blocks still print PASS because the affected
+   print sits on a path those arms do not take (AC-12's mutation arm returns early: `ARM NOT RUN:
+   T20_AC12_MUTATION_TREE is unset` inside the very statement that would crash). So AC-12's third clause
+   is currently satisfied by a code path that cannot execute - the block builds the mutation tree but
+   never sets the variable its own probe reads, which is a live defect in `MUTATION_TREE_BUILT`'s step,
+   independent of the delimiter. The closure must fix the delimiter and that wiring in one commit, or AC-12
+   stays green while measuring nothing.
+2. **`payload_ac-13` (AC-9's self-referential row).** Recorded `066ae4f9dfbf1131`, measured
+   `07ffdd11cab73e37`, and the drift is legitimate: this branch changed AC-13's `echo` steps, and the
+   AC-13 payload digest covers them. AC-13's own block-to-block comparison is the only check that can
+   reach a digest that contains its own hasher, so the row moves with any AC-13 edit and must be
+   re-recorded in the same commit as that edit - which is what its recorded exception already says.
+3. **AC-13's `staged_fence_balanced` asks an impossibility.** It requires the staged body to hold exactly
+   one fence opener and one closer, and AC-9's first contract clause forbids a block from containing any
+   fence line at all. No correct block can satisfy it; the clause is a spec error and its replacement
+   should measure the document's fence pairing with the two document fence lines spliced back, while still
+   printing the bare body's count so the substitution is visible. The other two red clauses
+   (`staged_block_is_the_issue_block`, `checker_reports_no_fail`) are consequences of closure 2, not
+   separate work: `ISSUE_REGION_BYTES: 0` is the de-indent problem the shipped wrap addresses, and the
+   checker reports 2 FAIL lines because of `payload_ac-13` plus the fence clause.
