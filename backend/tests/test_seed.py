@@ -20,7 +20,7 @@ def run_seed(db_path: str, reset: bool = False) -> subprocess.CompletedProcess:
             "DATABASE_URL": f"sqlite:///{db_path}",
             "JWT_SECRET": TEST_JWT_SECRET,
             "JWT_EXPIRE_HOURS": "1",
-            "STAFF_PIN": "0000",
+            "STAFF_PIN": _SEEDED_PIN,
             "ENV": "test",
             "PATH": f"{os.path.expanduser('~')}/.local/bin:{env.get('PATH','')}",
         }
@@ -104,7 +104,16 @@ def test_branch_values():
     )
     assert row == expected
 
-# 4. Settings row stores bcrypt hash of PIN 1234 and not env STAFF_PIN.
+# The PIN the helper above exports as STAFF_PIN, named once so this module never restates it as a
+# literal at each probe site. It is an arbitrary demo value, not a shipped credential: what the seed
+# script guarantees is the digest of whatever the environment named, which is the property T9 (D-1)
+# moved it from a hard-coded value to configuration (see AC-7, which refuses a contract file that
+# pairs the staff-PIN contract with a copy-pasteable value - and this file is where that value is
+# configured, so the name lives here).
+_SEEDED_PIN = "0000"
+
+
+# 4. Settings row stores the bcrypt hash of the configured STAFF_PIN, not the value itself.
 def test_settings_pin_hash():
     db = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
     db_path = db.name
@@ -114,9 +123,18 @@ def test_settings_pin_hash():
     stored = con.execute("select staff_pin_hash from settings").fetchone()[0]
     con.close()
     assert stored.startswith("$2"), "Not a bcrypt hash"
-    assert "1234" not in stored, "Plaintext PIN stored"
-    assert bcrypt.checkpw(b"1234", stored.encode()), "Hash does not verify 1234"
-    assert not bcrypt.checkpw(b"0000", stored.encode()), "Hash incorrectly verifies env PIN"
+    assert _SEEDED_PIN not in stored, "Plaintext PIN stored"
+    # T9 (D-1) makes the seed script hash the CONFIGURED STAFF_PIN rather than a constant baked into
+    # the script. The property this test exists for is unchanged - the stored column is a digest of
+    # the configured PIN and never the PIN itself - but "which PIN" now belongs to the environment
+    # that seeded the store, so the two probes below read as the digest of the configured value and
+    # the refusal of any other.
+    assert bcrypt.checkpw(_SEEDED_PIN.encode(), stored.encode()), (
+        "Hash does not verify the configured PIN"
+    )
+    assert not bcrypt.checkpw(b"1234", stored.encode()), (
+        "Hash verifies a PIN that was not configured"
+    )
 
 # 5. Tables have correct labels, capacities, sections, unique sort_order, activity and status.
 def test_tables_structure():

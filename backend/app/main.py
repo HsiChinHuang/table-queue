@@ -234,9 +234,9 @@ def bootstrap_staff_pin_hash() -> str:
       the hash-less state the default rather than an edge case, and the fallback that covered it
       authenticated with the plaintext env value. Writing the hash here removes both halves.
     * A blank or unset seed is a config error, not a licence to write NULL: this raises, so the boot
-      is refused instead of leaving a store with no credential. AC-5's own blocks set
-      ``STAFF_PIN=0000``, and the shipped ``Settings.staff_pin`` field already requires the variable
-      to be present.
+      is refused instead of leaving a store with no credential. The T9 acceptance blocks each export
+      their own seed value before they boot the app, and the shipped ``Settings.staff_pin`` field
+      already requires the variable to be present.
 
     The hash is produced here rather than through a SQL literal because the ``settings`` row is
     inserted with ``text()`` and every NOT NULL column has to be named (B-15), and a bcrypt digest
