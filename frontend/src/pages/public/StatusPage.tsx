@@ -37,8 +37,9 @@ function useStatus(token: string): StatusView {
     let alive = true;
     const CALL_TIMEOUT_SECONDS = 15 * 60; // mock stand-in for settings.call_timeout_minutes
     const MINUTES_PER_GROUP = 5; // mock estimate until settings land in Phase 2
+    const branchId = Number(import.meta.env.VITE_BRANCH_ID || 1);
     const load = () => {
-      void Promise.all([getStatus(token), getBoard('branch-001')]).then(
+      void Promise.all([getStatus(token), getBoard(branchId)]).then(
         ([entry, board]) => {
           if (!alive || !entry) return;
           const waiting = board.waiting_count;

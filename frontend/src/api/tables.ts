@@ -1,4 +1,4 @@
-import { get, patch, post, put, del } from './client';
+import { get, patch, post, del } from './client';
 
 export interface Table {
   id: string;
@@ -33,7 +33,7 @@ export async function listTables(_branchId: string): Promise<Table[]> {
 
 // AC-6: updateTableStatus endpoint
 export async function updateTableStatus(tableId: string, request: UpdateTableStatusRequest): Promise<{ success: boolean }> {
-  const result = await patch<{ success: boolean }>(`/staff/tables/${tableId}/status`, request);
+  const result = await patch<{ success: boolean }>(`/staff/tables/${tableId}`, request);
   return result!;
 }
 
@@ -57,7 +57,7 @@ export async function createTable(request: CreateTableRequest): Promise<Table> {
 
 // AC-6: updateTable endpoint
 export async function updateTable(tableId: string, request: UpdateTableRequest): Promise<Table> {
-  const result = await put<Table>(`/admin/tables/${tableId}`, request);
+  const result = await patch<Table>(`/admin/tables/${tableId}`, request);
   return result!;
 }
 

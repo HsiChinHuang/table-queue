@@ -45,24 +45,24 @@ export async function getPublicBranch(branchId: string): Promise<PublicBranch> {
 }
 
 // AC-6: getBoard endpoint
-export async function getBoard(branchId: string): Promise<BoardResponse> {
-  const result = await get<BoardResponse>(`/public/board/${branchId}`);
+export async function getBoard(branchId: number): Promise<BoardResponse> {
+  const result = await get<BoardResponse>(`/public/branches/${branchId}/board`);
   return result!;
 }
 
 // AC-6: joinWaitlist endpoint
-export async function joinWaitlist(request: JoinWaitlistRequest): Promise<WaitlistEntry> {
-  const result = await post<WaitlistEntry>('/public/waitlist', request);
+export async function joinWaitlist(branchId: number, request: JoinWaitlistRequest): Promise<WaitlistEntry> {
+  const result = await post<WaitlistEntry>(`/branches/${branchId}/waitlist`, request);
   return result!;
 }
 
 // AC-6: getStatus endpoint
 export async function getStatus(queueNumber: string): Promise<WaitlistEntry | null> {
-  return get<WaitlistEntry>(`/public/waitlist/${queueNumber}`);
+  return get<WaitlistEntry>(`/waitlist/${queueNumber}`);
 }
 
 // AC-6: cancelWaitlist endpoint
 export async function cancelWaitlist(queueNumber: string): Promise<{ success: boolean }> {
-  const result = await post<{ success: boolean }>(`/public/waitlist/${queueNumber}/cancel`);
+  const result = await post<{ success: boolean }>(`/waitlist/${queueNumber}/cancel`);
   return result!;
 }
