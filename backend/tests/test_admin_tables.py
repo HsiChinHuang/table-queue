@@ -33,13 +33,11 @@ from __future__ import annotations
 
 import os
 import re
-import time
 import uuid
 
 import pytest
 import yaml
 from fastapi.testclient import TestClient
-from jose import jwt
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -48,6 +46,12 @@ from app.database import Base, get_db
 from app.main import app, limiter
 from app.models import Branch, Restaurant, Table, TableStatus
 from app.models import Settings as SettingsRow
+from tests._db_test_support import (
+    TEST_CREDENTIAL_HASH,
+)
+from tests._db_test_support import (
+    staff_headers as _staff_headers,
+)
 
 TABLES = "/api/v1/admin/tables"
 
@@ -125,22 +129,59 @@ def client(db):
     previous_enabled = limiter.enabled
     limiter.enabled = False
     app.dependency_overrides[get_db] = lambda: db
+    global _SCRATCH_SESSION  # noqa: PLW0603 - the mint below reads the session this fixture owns
+    _SCRATCH_SESSION = db
     try:
         yield TestClient(app, raise_server_exceptions=False)
     finally:
+        _SCRATCH_SESSION = None
         app.dependency_overrides.pop(get_db, None)
         limiter.enabled = previous_enabled
 
 
+_SCRATCH_SESSION = None
+"""The session the running test owns, recorded by the ``client`` fixture and read by the mint below.
+
+The mint cannot use the ``get_db`` override to find it: the routes under test ask for a session
+themselves, so the override is not in ``app.dependency_overrides`` until a handler asks, and a test
+whose whole subject is a request that never reaches a handler is exactly the case that would then be
+left without an answer. Recording the session the fixture already built is the honest version of the
+same lookup, and it is the shape the sibling settings module uses for the same reason.
+"""
+
+
 def staff_headers() -> dict[str, str]:
-    """A valid staff bearer: the env's own secret, the auth router's own claim shape."""
-    now = int(time.time())
-    token = jwt.encode(
-        {"sub": "staff", "role": "staff", "iat": now, "exp": now + 3600},
-        os.environ["JWT_SECRET"],
-        algorithm="HS256",
-    )
-    return {"Authorization": f"Bearer {token}"}
+    """A valid staff bearer, minted against the store the running request will read.
+
+    T9 decision D-2 is what makes a hand-signed bearer impossible rather than merely untidy: the
+    HS256 key carries the token-generation value stored in the settings row, so a signature rebuilt
+    from ``JWT_SECRET`` alone is refused outright (AC-5). Minting therefore has to name a store, and
+    the store it names has to be the row the request will load - which is the test's own scratch
+    session whenever the fixtures built one, and the ambient store otherwise.
+
+    The bearer is minted at send time rather than by a fixture because that store is not stable for
+    the whole body: AC-12's shape probe rebuilds the schema part-way through, and a token minted
+    against the old row is a token the rebuilt row cannot vouch for.
+    """
+    if _SCRATCH_SESSION is not None:
+        return _staff_headers(role="staff", session=_SCRATCH_SESSION)
+    return _staff_headers(role="staff")
+
+
+def seed_credential(db) -> None:
+    """Give this test\'s store the credential row a bootstrapped application always has.
+
+    Kept apart from :func:`seed_branch` because the shape probe below asks for a store with no
+    restaurant, branch or table in it; the credential is the one row even that arrangement cannot do
+    without, since T9 refuses a request whose store cannot authenticate it.
+
+    The settings row names a branch that has no row of its own on purpose: the column is NOT NULL,
+    while the foreign key behind it is SQLite\'s, which enforces nothing until a connection asks it
+    to. Seeding a real branch would seed the restaurant this probe exists to leave out, and no
+    assertion below reads the row this helper writes.
+    """
+    db.add(SettingsRow(branch_id=1, staff_pin_hash=TEST_CREDENTIAL_HASH))
+    db.commit()
 
 
 def seed_branch(db) -> None:
@@ -168,7 +209,9 @@ def seed_branch(db) -> None:
             is_waitlist_open=True,
             sound_enabled_default=True,
             notification_templates="{}",
-            staff_pin_hash=None,
+            # T9 (D-1 fail-closed, AC-1): the verifier refuses a store with no credential at all, so
+            # the seed row carries one. Minting a bearer reads that same row.
+            staff_pin_hash=TEST_CREDENTIAL_HASH,
         )
     )
     db.commit()
@@ -373,7 +416,7 @@ def test_list_admin_tables_include_inactive(db, client):
         assert set(item) == TABLE_KEYS
 
 
-def test_admin_errors_never_leak_the_fastapi_detail_shape(client):
+def test_admin_errors_never_leak_the_fastapi_detail_shape(client, db):
     """AC-12's shape rule: every 4xx a client can produce on this surface is the envelope.
 
     An unauthenticated request, an id with no row, a malformed UUID path parameter and a
@@ -383,6 +426,15 @@ def test_admin_errors_never_leak_the_fastapi_detail_shape(client):
     (which never reaches the database) is guaranteed rather than assumed.
     """
     missing = str(uuid.uuid4())
+    # T9 (D-1, AC-1) makes the store a precondition of an authenticated request: a settings row with
+    # no credential is the tampered shape and answers 401 before the handler runs. This file's
+    # AC-12 arm deliberately seeds NO branch row, so its scratch store has no credential to find
+    # either, and the request that is meant to reach 404 or 422 would answer 401 first - the shape
+    # rule would then measure one status code instead of the three it prices. A credential is
+    # therefore seeded here, as the state the shipped application is always in after T9's own
+    # bootstrap (D-1 hashes the PIN seed on first boot); it is the surface's precondition, not a
+    # row any assertion below reads.
+    seed_credential(db)
     headers = staff_headers()
 
     def post(body: dict):

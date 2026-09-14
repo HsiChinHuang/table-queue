@@ -79,7 +79,7 @@ The 10 targets below are the list `_docs/plan.md` requires of F-01. They belong 
 ### Demo URLs
 - Join: http://localhost:5173/join?branch=1
 - Board: http://localhost:5173/board/1
-- Staff login: http://localhost:5173/staff/login (PIN: 1234)
+- Staff login: http://localhost:5173/staff/login (PIN: the `STAFF_PIN` value from backend/.env)
 - Staff waitlist, the page a successful login lands on: http://localhost:5173/staff/waitlist
 - Settings: http://localhost:5173/admin/settings
 
@@ -106,7 +106,7 @@ Variable	Default	Required	Description
 DATABASE_URL	sqlite:///./dev.db	yes	DB connection string
 JWT_SECRET	(none - generate one, see note below)	yes	JWT signing secret
 JWT_EXPIRE_HOURS	12	no	JWT expiry in hours
-STAFF_PIN	1234	yes	Initial staff PIN
+STAFF_PIN	(none - set one)	yes	One-time seed for the staff credential (T9/D-1)
 DEFAULT_BRANCH_ID	1	no	Default branch
 CORS_ORIGINS	http://localhost:5173	no	Comma-separated origins
 ENV	(none - required)	yes	Required, no default: development / test / production. The process refuses to boot unless ENV names exactly one of the three; development also arms the development-only reset endpoint.

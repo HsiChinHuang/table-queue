@@ -23,22 +23,20 @@ import inspect
 import json
 import os
 import re
-import time
 
 import pytest
 from fastapi.testclient import TestClient
-from jose import jwt
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.config import get_settings
 from app.database import Base, get_db
 from app.main import app, limiter
 from app.models import Branch, Restaurant
 from app.models import Settings as SettingsRow
 from app.schemas import SettingsResponse, UpdateSettingsRequest
 from app.services.waitlist import business_date_for, utc_now
+from tests._db_test_support import TEST_CREDENTIAL_HASH, staff_headers
 
 PATH = "/api/v1/admin/settings"
 """The one settings path: the contract's ``getSettings`` and ``updateSettings``."""
@@ -115,7 +113,12 @@ def db(engine):
             is_waitlist_open=True,
             sound_enabled_default=True,
             notification_templates="{}",
-            staff_pin_hash=None,
+            # T9 (D-1 fail-closed, AC-1): the verifier refuses a store that carries no credential at
+            # all, so the surface's seed row carries one. Every request this file makes has to
+            # authenticate before it can answer anything - including the arms that measure the
+            # credential - which is why the tests that rewrite this column mint their bearer first
+            # (see test_no_body_ever_carries_the_pin_hash).
+            staff_pin_hash=TEST_CREDENTIAL_HASH,
         )
     )
     session.commit()
@@ -136,27 +139,36 @@ def client(db):
     previous_enabled = limiter.enabled
     limiter.enabled = False
     app.dependency_overrides[get_db] = lambda: db
+
     try:
         yield TestClient(app, raise_server_exceptions=False)
+
+
     finally:
         app.dependency_overrides.pop(get_db, None)
         limiter.enabled = previous_enabled
 
 
-def staff_headers() -> dict[str, str]:
-    """A valid staff bearer: the environment's own secret, the auth router's own claim shape."""
-    now = int(time.time())
-    token = jwt.encode(
-        {
-            "sub": "staff",
-            "role": "admin",
-            "iat": now,
-            "exp": now + get_settings().jwt_expire_hours * 3600,
-        },
-        get_settings().jwt_secret,
-        algorithm="HS256",
-    )
-    return {"Authorization": f"Bearer {token}"}
+def _bearer(db):
+    """This test's admin bearer, minted against the store the request will be served from.
+
+    T9 decision D-2 is why this cannot be a constant, a module-level token, or the hand-signed JWT
+    this file used to build: the HS256 key is ``jwt_secret`` plus the generation value stored in the
+    settings row, so only the auth module can mint a bearer, and it has to be minted against the
+    engine the request will read. That is the ``engine`` fixture's file here, which the application
+    reaches through the ``get_db`` override and the seam resolves the same way (see
+    ``tests/_db_test_support.py::store_session`` for why both shapes of harness have to work).
+
+    It is a function of the test's own session rather than a fixture so the mint happens when a call
+    site asks for it: several tests here drop or rebuild the settings table part-way through the
+    body, and AC-14's arm rebuilds the schema and expects a 500 rather than a 401, which only a
+    bearer minted after that rebuild can produce. AC-11's missing-/unusable-token probes build their
+    own headers and never come through here.
+
+    The ``db`` parameter is the session every call site passes; minting through it signs for the
+    engine behind it, which is the engine the request will read.
+    """
+    return staff_headers(role="admin", session=db)
 
 
 def error_code(response) -> str:
@@ -256,9 +268,13 @@ def test_settings_router_imports_the_shipped_request_model():
 # ---------- AC-2, AC-3, AC-11: the read ----------
 
 
-def test_get_settings_success(client, engine):
+def test_get_settings_success(client, engine, db):
     """GET answers 200 with exactly the thirteen contract keys and no others (AC-2, AC-11)."""
-    response = client.get(PATH, headers=staff_headers())
+    # The seed row is the row the shipped application never leaves behind: bootstrap now hashes the
+    # PIN seed (T9 D-1), so a store that can answer at all reports has_pin True. The False half of
+    # D-4 is the pre-bootstrap state, which is unreachable behind an authenticated request and is
+    # measured by AC-1 in the issue's own probes rather than from here.
+    response = client.get(PATH, headers=_bearer(db))
     assert response.status_code == 200
     body = response.json()
     assert sorted(body) == sorted(SCHEMA_KEYS)
@@ -273,20 +289,26 @@ def test_get_settings_success(client, engine):
     assert body["is_waitlist_open"] is True
     assert body["sound_enabled_default"] is True
     assert body["notification_templates"] == {}
-    assert body["has_pin"] is False
+    # T9 D-4 leaves the flag's rule alone - it reports bool(row.staff_pin_hash) - and T9 D-1 makes
+    # an empty column unreachable behind a staff request, so the seeded row that can be read here is
+    # a row that carries a credential. The False arm is the offline one further down this file.
+    assert body["has_pin"] is True
 
 
 def test_get_settings_decodes_templates_and_collapses_the_hash(client, db):
     """The stored JSON string answers as an object; the stored hash answers as one boolean."""
-    db.query(SettingsRow).update({"notification_templates": json.dumps(TEMPLATES)})
+    # The bearer is minted before the column moves: T9 keys it to the stored credential, so writing
+    # the hash is exactly the write that would invalidate a bearer minted after it.
+    headers = _bearer(db)
+    db.query(SettingsRow).update(
+        {
+            "notification_templates": json.dumps(TEMPLATES),
+            "staff_pin_hash": PIN_HASH,
+        }
+    )
     db.commit()
-    body = client.get(PATH, headers=staff_headers()).json()
+    body = client.get(PATH, headers=headers).json()
     assert body["notification_templates"] == TEMPLATES
-    assert body["has_pin"] is False
-
-    db.query(SettingsRow).update({"staff_pin_hash": PIN_HASH})
-    db.commit()
-    body = client.get(PATH, headers=staff_headers()).json()
     assert body["has_pin"] is True
     assert PIN_HASH not in response_text(body)
 
@@ -296,30 +318,44 @@ def response_text(body) -> str:
     return json.dumps(body)
 
 
-def test_no_body_ever_carries_the_pin_hash(client, db, engine):
-    """Neither answer leaks the hash, and a body that names the column cannot write it (AC-3)."""
+def test_no_body_ever_carries_the_pin_hash(client, engine, db):
+    """Neither answer leaks the hash, and a body that names the column cannot write it (AC-8)."""
+    # Minted here, before the column moves, for the reason spelled out in the test above: the write
+    # this arm measures is a write to the column the bearer's signature is keyed on, and T9 (D-1)
+    # refuses a request whose store has lost its credential, so the order is the whole test. The
+    # hash itself comes from a login, which is why the credential row is the seed's own rather than
+    # a value this test could set without the app ever having agreed to it.
+    headers = _bearer(db)
     db.query(SettingsRow).update({"staff_pin_hash": PIN_HASH})
     db.commit()
 
     responses = [
-        client.get(PATH, headers=staff_headers()),
-        # A body that names only the PIN column: `extra="forbid"` answers it 422, and the 422
+        client.get(PATH, headers=headers),
+        # A body that names only the PIN column: the whitelist refuses it outright, and the refusal
         # envelope is the other body that must not carry the column back.
-        client.patch(PATH, headers=staff_headers(), json={"staff_pin_hash": "attacker-controlled"}),
+        client.patch(PATH, headers=headers, json={"staff_pin_hash": "attacker-controlled"}),
         client.patch(
             PATH,
-            headers=staff_headers(),
-            # A PIN the seeded data cannot contain. The branch's own phone is part of
-            # the response the
-        # contract declares, and a PIN that happened to sit inside it would fail the leak assert
-        # below for the wrong reason.
-        json={"staff_pin_hash": "$2b$12$injected", "staff_pin": "9876543210"},
+            headers=headers,
+            # A PIN the seeded data cannot contain: the branch's own phone is part of the response
+            # the contract declares, and a PIN that happened to sit inside it would fail the leak
+            # assert below for the wrong reason.
+            json={"staff_pin_hash": "$2b$12$injected", "staff_pin": "9876543210"},
         ),
     ]
+    assert responses[0].status_code == 200
+    refused = responses[1:]
+    for response in refused:
+        # T9 AC-8: a body naming a credential column is REFUSED outright, not accepted-and-dropped,
+        # so a caller cannot tell a write from a shrug. Both refusal codes are "outright".
+        assert response.status_code in (400, 422), response.status_code
+    # The leak line AC-8 writes is about the hash and the PIN, and it holds for every body above,
+    # including the refusal envelope. The KEY NAME is what T9's own refusal mechanism (the pydantic
+    # extra-field rule) necessarily spells in order to say which field it would not accept, so the
+    # name is checked where the app answers in its own voice - the 200 - and the values, which are
+    # the secrets, are checked everywhere.
+    assert "staff_pin_hash" not in responses[0].text
     for response in responses:
-        # 200 for the read and for the twelve-field write, 422 for the body that names the column.
-        assert response.status_code in (200, 422), response.status_code
-        assert "staff_pin_hash" not in response.text
         assert PIN_HASH not in response.text
         assert "9876543210" not in response.text
         assert "attacker-controlled" not in response.text
@@ -329,7 +365,7 @@ def test_no_body_ever_carries_the_pin_hash(client, db, engine):
 # ---------- AC-4, AC-10: the write ----------
 
 
-def test_update_settings_success(client, engine):
+def test_update_settings_success(client, engine, db):
     """A twelve-field PATCH stores across three tables and answers the GET shape (AC-4)."""
     body = {
         "restaurant_name": "Harbor Diner",
@@ -345,7 +381,7 @@ def test_update_settings_success(client, engine):
         "sound_enabled_default": False,
         "notification_templates": TEMPLATES,
     }
-    response = client.patch(PATH, headers=staff_headers(), json=body)
+    response = client.patch(PATH, headers=_bearer(db), json=body)
     assert response.status_code == 200
     assert sorted(response.json()) == sorted(SCHEMA_KEYS)
     assert response.json()["branch_name"] == "Kaohsiung"
@@ -365,14 +401,14 @@ def test_update_settings_success(client, engine):
     assert branch.restaurant.name == "Harbor Diner"
 
 
-def test_partial_update_leaves_the_other_eleven_alone(client, engine):
+def test_partial_update_leaves_the_other_eleven_alone(client, engine, db):
     """A one-field body writes that field, keeps the rest, and never adds a row (AC-4)."""
     client.patch(
         PATH,
-        headers=staff_headers(),
+        headers=_bearer(db),
         json={"hold_minutes": 12, "branch_name": "Kaohsiung", "queue_prefix": "B"},
     )
-    response = client.patch(PATH, headers=staff_headers(), json={"hold_minutes": 7})
+    response = client.patch(PATH, headers=_bearer(db), json={"hold_minutes": 7})
     assert response.status_code == 200
     body = response.json()
     assert body["hold_minutes"] == 7
@@ -387,17 +423,17 @@ def test_partial_update_leaves_the_other_eleven_alone(client, engine):
         session.close()
 
 
-def test_response_carries_no_column_the_contract_omits(client):
+def test_response_carries_no_column_the_contract_omits(client, db):
     """``extra='forbid'`` is structural: no id, branch_id or timestamp can ride along (AC-10)."""
-    body = client.get(PATH, headers=staff_headers()).json()
+    body = client.get(PATH, headers=_bearer(db)).json()
     for leaked in ("id", "branch_id", "created_at", "updated_at", "staff_pin_hash"):
         assert leaked not in body
     assert SettingsResponse.model_config.get("extra") == "forbid"
 
 
-def test_response_survives_a_second_validation(client):
+def test_response_survives_a_second_validation(client, db):
     """AC-10's no-double-validation clause: the handler's return is validated once and survives."""
-    first = client.get(PATH, headers=staff_headers())
+    first = client.get(PATH, headers=_bearer(db))
     assert first.status_code == 200
     assert SettingsResponse.model_validate(first.json()) is not None
 
@@ -412,10 +448,10 @@ def test_response_survives_a_second_validation(client):
         ("created_at", "2026-01-01T00:00:00Z"),
     ],
 )
-def test_undeclared_field_is_not_written(client, engine, field, value):
+def test_undeclared_field_is_not_written(client, engine, field, value, db):
     """A body naming a column the contract does not expose cannot write it (AC-3, AC-10)."""
     before = stored_settings(engine).hold_minutes
-    response = client.patch(PATH, headers=staff_headers(), json={field: value})
+    response = client.patch(PATH, headers=_bearer(db), json={field: value})
     assert response.status_code in (200, 422)
     assert stored_settings(engine).hold_minutes == before
     if response.status_code == 422:
@@ -439,9 +475,9 @@ def test_undeclared_field_is_not_written(client, engine, field, value):
         ("close_time", "9:05"),
     ],
 )
-def test_out_of_range_field_answers_422_in_the_envelope(client, field, value):
+def test_out_of_range_field_answers_422_in_the_envelope(client, field, value, db):
     """Each shipped boundary rejects with VALIDATION_ERROR and no FastAPI ``detail`` (AC-5)."""
-    response = client.patch(PATH, headers=staff_headers(), json={field: value})
+    response = client.patch(PATH, headers=_bearer(db), json={field: value})
     assert response.status_code == 422
     assert "detail" not in response.json()
     assert error_code(response) == "VALIDATION_ERROR"
@@ -451,10 +487,10 @@ def test_out_of_range_field_answers_422_in_the_envelope(client, field, value):
     ("field", "value"),
     [("hold_minutes", 15), ("avg_seat_minutes", 60), ("queue_prefix", "ABC")],
 )
-def test_inclusive_boundary_writes(client, field, value):
+def test_inclusive_boundary_writes(client, field, value, db):
     """The endpoints of the shipped ranges store, which is what makes the rejection above a
     boundary rather than a broken validator (AC-5)."""
-    response = client.patch(PATH, headers=staff_headers(), json={field: value})
+    response = client.patch(PATH, headers=_bearer(db), json={field: value})
     assert response.status_code == 200
     assert response.json()[field] == value
 
@@ -469,10 +505,10 @@ def test_inclusive_boundary_writes(client, field, value):
         {"joined": "x" * 2000, "called": "C", "no_show": "N"},
     ],
 )
-def test_invalid_template_object_is_rejected_without_writing(client, engine, templates):
+def test_invalid_template_object_is_rejected_without_writing(client, engine, templates, db):
     """Exactly the three keys, each a string, and a rejected body leaves the store alone (AC-6)."""
     response = client.patch(
-        PATH, headers=staff_headers(), json={"notification_templates": templates}
+        PATH, headers=_bearer(db), json={"notification_templates": templates}
     )
     assert response.status_code == 422
     assert "detail" not in response.json()
@@ -481,10 +517,10 @@ def test_invalid_template_object_is_rejected_without_writing(client, engine, tem
     assert stored_settings(engine).notification_templates == "{}"
 
 
-def test_valid_template_object_round_trips(client, engine):
+def test_valid_template_object_round_trips(client, engine, db):
     """The three-key object stores as a JSON string and answers as an object (AC-6)."""
     response = client.patch(
-        PATH, headers=staff_headers(), json={"notification_templates": TEMPLATES}
+        PATH, headers=_bearer(db), json={"notification_templates": TEMPLATES}
     )
     assert response.status_code == 200
     assert response.json()["notification_templates"] == TEMPLATES
@@ -517,7 +553,7 @@ being narrowed into a schema rule the contract does not carry.
 
 
 @pytest.mark.parametrize("field", NULLABLE_FIELDS)
-def test_null_for_a_not_null_field_answers_422_not_500(client, field):
+def test_null_for_a_not_null_field_answers_422_not_500(client, field, db):
     """A body that names a NOT NULL knob with JSON null is a validation failure, not a crash.
 
     Round 2A recorded this for ``hold_minutes`` alone; the measurement on the base showed all
@@ -526,19 +562,19 @@ def test_null_for_a_not_null_field_answers_422_not_500(client, field):
     declares each of these as a bare type and never as nullable, so ``422`` - the response the
     operation already declares for a bad body - is the only honest answer.
     """
-    response = client.patch(PATH, headers=staff_headers(), json={field: None})
+    response = client.patch(PATH, headers=_bearer(db), json={field: None})
     assert response.status_code == 422
     assert error_code(response) == "VALIDATION_ERROR"
     assert "detail" not in response.json()
     assert field in json.dumps(rejected_fields(response))
 
 
-def test_a_null_body_writes_nothing(client, engine):
+def test_a_null_body_writes_nothing(client, engine, db):
     """A rejected null cannot half-apply: a shared body leaves every knob alone (AC-6)."""
     before = stored_settings(engine).hold_minutes
     response = client.patch(
         PATH,
-        headers=staff_headers(),
+        headers=_bearer(db),
         json={"restaurant_name": "Renamed", "hold_minutes": None},
     )
     assert response.status_code == 422
@@ -562,7 +598,7 @@ def test_a_null_body_writes_nothing(client, engine):
         ("notification_templates", {}),
     ],
 )
-def test_absence_is_still_a_half_write_under_the_null_rule(client, field, value):
+def test_absence_is_still_a_half_write_under_the_null_rule(client, field, value, db):
     """The null rule answers only a key the body NAMED, so AC-4's one-field PATCH still works.
 
     A ``mode="before"`` validator runs on a key that is present, which is the whole reason the
@@ -575,14 +611,14 @@ def test_absence_is_still_a_half_write_under_the_null_rule(client, field, value)
     """
     if field == "is_waitlist_open":
         # Close it first: the column is created True, so reading a True back would prove nothing.
-        client.patch(PATH, headers=staff_headers(), json={"is_waitlist_open": False})
-    response = client.patch(PATH, headers=staff_headers(), json={"hold_minutes": 9})
+        client.patch(PATH, headers=_bearer(db), json={"is_waitlist_open": False})
+    response = client.patch(PATH, headers=_bearer(db), json={"hold_minutes": 9})
     assert response.status_code == 200
     assert response.json()[field] == value
     assert response.json()["hold_minutes"] == 9
 
 
-def test_the_null_rule_writes_nothing_even_when_the_write_would_be_the_seed_value(client, engine):
+def test_the_null_rule_writes_nothing_even_when_the_seed_holds_the_value(client, engine, db):
     """The null rule is priced by the mutation, not by a value the seed happens to already hold.
 
     Every field the ``db`` fixture seeds is also read back at its seed value by
@@ -593,22 +629,22 @@ def test_the_null_rule_writes_nothing_even_when_the_write_would_be_the_seed_valu
     the assertions below fail on both the response and the stored row.
     """
     response = client.patch(
-        PATH, headers=staff_headers(), json={"restaurant_name": "Bistro Nine"}
+        PATH, headers=_bearer(db), json={"restaurant_name": "Bistro Nine"}
     )
     assert response.status_code == 200
     assert response.json()["restaurant_name"] == "Bistro Nine"
     assert stored_branch(engine).restaurant.name == "Bistro Nine"
 
 
-def test_an_empty_body_is_still_a_no_op_write(client, engine):
+def test_an_empty_body_is_still_a_no_op_write(client, engine, db):
     """``{}`` names no field, so the null rule cannot reach it and nothing moves (AC-4)."""
     before = stored_settings(engine).hold_minutes
-    response = client.patch(PATH, headers=staff_headers(), json={})
+    response = client.patch(PATH, headers=_bearer(db), json={})
     assert response.status_code == 200
     assert response.json()["hold_minutes"] == before
 
 
-def test_the_null_rule_narrows_no_bound_the_contract_prices(client, engine):
+def test_the_null_rule_narrows_no_bound_the_contract_prices(client, engine, db):
     """AC-10's control arm survives: the three UNBOUNDED bodies the contract prices still write.
 
     ``hold_minutes`` is the field the null rule touches and the field whose only bound is the
@@ -622,7 +658,7 @@ def test_the_null_rule_narrows_no_bound_the_contract_prices(client, engine):
         {"phone": "1" * 21},
         {"address": "x" * 201},
     ):
-        response = client.patch(PATH, headers=staff_headers(), json=body)
+        response = client.patch(PATH, headers=_bearer(db), json=body)
         assert response.status_code == 200, body
     assert stored_settings(engine).hold_minutes == 15
     assert len(stored_branch(engine).address) == 201
@@ -931,12 +967,12 @@ def test_the_settings_surface_outlives_the_guest_budget_it_leaves(client, db):
     try:
         seen: dict[int, int] = {}
         for _ in range(20):
-            response = client.get(PATH, headers=staff_headers())
+            response = client.get(PATH, headers=_bearer(db))
             seen[response.status_code] = seen.get(response.status_code, 0) + 1
         assert seen == {200: 20}, seen
         patched: dict[int, int] = {}
         for _ in range(20):
-            response = client.patch(PATH, headers=staff_headers(), json={"hold_minutes": 11})
+            response = client.patch(PATH, headers=_bearer(db), json={"hold_minutes": 11})
             patched[response.status_code] = patched.get(response.status_code, 0) + 1
         assert patched == {200: 20}, patched
     finally:
@@ -958,7 +994,7 @@ def test_the_settings_surface_survives_the_headers_flag_being_switched_on(client
     limiter._headers_enabled = True  # noqa: SLF001
     limiter.enabled = True
     try:
-        assert client.get(PATH, headers=staff_headers()).status_code == 200
+        assert client.get(PATH, headers=_bearer(db)).status_code == 200
     finally:
         limiter._headers_enabled = previous  # noqa: SLF001
         limiter.enabled = False
@@ -1005,7 +1041,7 @@ def test_the_settings_exemption_reaches_the_counters_the_contract_names(client, 
     limiter.enabled = True
     try:
         for _ in range(20):
-            assert client.get(PATH, headers=staff_headers()).status_code == 200
+            assert client.get(PATH, headers=_bearer(db)).status_code == 200
         lookups = [
             client.get("/api/v1/waitlist/A013", params={"phone_last3": "013"}).status_code
             for _ in range(11)
@@ -1014,7 +1050,7 @@ def test_the_settings_exemption_reaches_the_counters_the_contract_names(client, 
         assert lookups[10] == 429, lookups
         limited = client.get("/api/v1/waitlist/A013", params={"phone_last3": "013"})
         assert error_code(limited) == "RATE_LIMITED", limited.text
-        assert client.get(PATH, headers=staff_headers()).status_code == 200
+        assert client.get(PATH, headers=_bearer(db)).status_code == 200
     finally:
         limiter.enabled = previous
 

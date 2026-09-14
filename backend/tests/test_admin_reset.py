@@ -206,7 +206,16 @@ def staff_headers(
         "iat": now - 7200 if expired else now,
         "exp": now - 3600 if expired else now + current.jwt_expire_hours * 3600,
     }
-    token = jwt.encode(payload, signing_secret or current.jwt_secret, algorithm="HS256")
+    # Which secret is in force is the caller's question - the wrong-secret probe and AC-6's
+    # production-env probe each pass one deliberately - so the key is assembled here rather than
+    # read back from the store. The generation half still comes from the store, because that is the
+    # half T9 decision D-2 put there and the half AC-5's revocation property depends on.
+    from app import database as database_module
+    from app.routers.auth import token_generation_value
+
+    with database_module.SessionLocal() as session:
+        key = (signing_secret or current.jwt_secret) + token_generation_value(session)
+        token = jwt.encode(payload, key, algorithm="HS256")
     return {"Authorization": "Bearer " + token}
 
 

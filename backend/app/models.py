@@ -275,6 +275,13 @@ class Settings(Base):
         String(2000), nullable=False, default=lambda: "{}"
     )
     staff_pin_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # T9 (audit A-9 / decision D-2): the token-generation secret. It is folded into the JWT
+    # signature key by ``app.routers.auth.token_signing_key`` and replaced by change-pin, so every
+    # token minted before a rotation stops verifying. It is a COLUMN and not a process global
+    # because the verifier runs in every worker (``--workers 2``), and it stays NULL-able so an
+    # existing store - or a probe that INSERTs a settings row naming only the columns above - keeps
+    # working and reads as the initial generation rather than as a broken row.
+    token_generation: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

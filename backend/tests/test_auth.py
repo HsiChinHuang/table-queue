@@ -164,6 +164,50 @@ def insert_setting(staff_pin_hash=None, staff_pin="1234"):
     get_settings.cache_clear()
 
 
+_ROW_HASH = [""]
+"""The ``staff_pin_hash`` the ``staff_token`` helper last wrote, so a test can name the row it owns.
+
+A list rather than a global because the helper assigns it and the test reads it, and the one thing
+this must not become is a second source of truth about the row: it records the digest the helper
+handed to ``insert_setting``, nothing derived from it.
+"""
+
+
+def login_token(pin: str) -> str:
+    """An access token from the login route itself, which is the only real source of one.
+
+    T9 (D-2) is what makes this the honest way for a test to hold a staff bearer: the signature is
+    keyed on a generation value the store rotates, so a token a test rebuilt by hand describes a
+    store state it cannot name. A token that came back from ``POST /api/v1/auth/login`` describes
+    exactly the row the request verified against, and after a rotation it stops verifying for the
+    same reason a real one would - which is AC-5's property rather than a test fixture's problem.
+
+    It raises rather than returns a token when login refuses, so a test that expects a bearer and
+    gets a 401 sees the login failure rather than an assertion two requests downstream.
+    """
+    response = client.post("/api/v1/auth/login", json={"pin": pin})
+    assert response.status_code == 200, f"login({pin}) -> {response.status_code} {response.text}"
+    return response.json()["access_token"]
+
+
+def signing_key() -> str:
+    """The key a login-issued token is actually signed with, read from the store it came from.
+
+    ``expires_in`` and the ``iat``/``exp`` pair are what the two tests below decode a real token
+    for, and AC-8 pins those claims as unchanged. The key they decode with therefore has to be the
+    key the route used, and since T9 (D-2) that is no longer ``settings.jwt_secret``: the generation
+    half lives in the settings row. Asking the auth module is the only way to get it, and it is the
+    same question the verifier asks.
+    """
+    from app.routers.auth import token_signing_key
+
+    session = database.SessionLocal()
+    try:
+        return token_signing_key(session)
+    finally:
+        session.close()
+
+
 def bcrypt_hash(pin: str) -> str:
     return bcrypt.hashpw(pin.encode(), bcrypt.gensalt()).decode()
 
@@ -178,11 +222,31 @@ def bearer(token: str) -> dict:
 
 
 def mint_token(signing_key=None, sub="staff", offset=600) -> str:
-    """Sign a JWT directly, for the forged / wrong-secret / guest / expired cases."""
+    """Sign a JWT directly, for the forged / wrong-secret / guest / expired cases.
+
+    T9 decision D-2 moved part of the signing key out of configuration and into the settings row,
+    so a caller that passes no ``signing_key`` asks this module's own store for the whole key rather
+    than assembling it from ``JWT_SECRET`` - the signature the verifier accepts. A caller that DOES
+    one is naming a secret the store never held, which is the forged case, and the generation half
+    stays folded in so the probe measures a wrong secret rather than a missing one. Direct minting
+    stays legitimate here for the cases AC-7 and AC-13 need and login cannot produce; the token a
+    test should actually hold comes from ``login_token`` above.
+    """
     now = int(time.time())
+    from app.routers.auth import token_generation_value
+
+    session = database.SessionLocal()
+    try:
+        generation = token_generation_value(session)
+    finally:
+        session.close()
+    # The generation half is folded in on both branches, and that is the point of doing it here: a
+    # forged token that omitted it would be refused for two reasons at once and the probe would be
+    # measuring the omission rather than the wrong secret.
+    secret = get_settings().jwt_secret if signing_key is None else signing_key
     return jwt.encode(
         {"sub": sub, "role": "staff", "iat": now, "exp": now + offset},
-        signing_key or get_settings().jwt_secret,
+        secret + generation,
         algorithm="HS256",
     )
 
@@ -197,7 +261,7 @@ def test_login_success_hashed(env_pin_db):
     assert body["token_type"] == TOKEN_TYPE_BEARER
     settings = get_settings()
     assert body["expires_in"] == settings.jwt_expire_hours * 3600
-    claims = jwt.decode(body["access_token"], settings.jwt_secret, algorithms=["HS256"])
+    claims = jwt.decode(body["access_token"], signing_key(), algorithms=["HS256"])
     assert claims["sub"] == "staff"
     assert claims["role"] == "staff"
     assert claims["iat"] and claims["exp"]
@@ -213,28 +277,34 @@ def test_expires_in_derives_from_jwt_expire_hours(env_pin_db):
         r = client.post("/api/v1/auth/login", json={"pin": "1234"})
         assert r.status_code == 200
         assert r.json()["expires_in"] == 3 * 3600
-        claims = jwt.decode(
-            r.json()["access_token"], get_settings().jwt_secret, algorithms=["HS256"]
-        )
+        claims = jwt.decode(r.json()["access_token"], signing_key(), algorithms=["HS256"])
         assert claims["exp"] - claims["iat"] == 10800
     finally:
         del os.environ["JWT_EXPIRE_HOURS"]
         get_settings.cache_clear()
 
 
-# AC-3: a NULL hash (the bootstrap_defaults shape) falls back to the STAFF_PIN env value.
-def test_login_fallback_env_pin(env_pin_db):
+# T9 (audit A-2, decisions D-1/D-3) inverts this pair. What B-05 called AC-3 was the transitional
+# env fallback, and the fallback is the hole the audit reported: while a hash-less row accepted
+# ``STAFF_PIN``, the hash-less state was reachable by an operator who deleted a hash, and the value
+# that then authenticated the store was a string sitting in an environment file. The two tests below
+# are that contract, inverted - a row with no usable hash authenticates NOTHING, whichever value a
+# caller submits - with the half of the original that was never about the fallback kept in place: a
+# stored hash still authenticates its own PIN, and an unrelated PIN still gets the envelope.
+def test_login_refuses_a_row_with_no_hash(env_pin_db):
     insert_setting(staff_pin_hash=None, staff_pin="0000")
-    assert client.post("/api/v1/auth/login", json={"pin": "0000"}).status_code == 200
-    r_bad = client.post("/api/v1/auth/login", json={"pin": "1234"})
-    assert r_bad.status_code == 401
-    assert r_bad.json()["error"]["code"] == "AUTH_INVALID_PIN"
+    for pin in ("0000", "1234"):  # the env value and any other, both refused
+        r = client.post("/api/v1/auth/login", json={"pin": pin})
+        assert r.status_code == 401, pin
+        assert r.json()["error"]["code"] == "AUTH_INVALID_PIN", pin
+        assert "access_token" not in r.json(), pin
 
 
-# AC-3b: a blank hash falls back the same way, and a stored hash wins over the env value.
-def test_login_fallback_blank_hash_and_hash_wins(env_pin_db):
+def test_login_blank_hash_refuses_and_a_stored_hash_wins(env_pin_db):
+    # A blank hash is the other spelling of "no credential", not a second source to fall through to.
     insert_setting(staff_pin_hash="   ", staff_pin="0000")
-    assert client.post("/api/v1/auth/login", json={"pin": "0000"}).status_code == 200
+    assert client.post("/api/v1/auth/login", json={"pin": "0000"}).status_code == 401
+    # And once the row does carry a credential, the environment value is still not it.
     insert_setting(staff_pin_hash=bcrypt_hash("5678"), staff_pin="0000")
     assert client.post("/api/v1/auth/login", json={"pin": "0000"}).status_code == 401
     assert client.post("/api/v1/auth/login", json={"pin": "5678"}).status_code == 200
@@ -316,9 +386,18 @@ def test_change_pin_auth_matrix(env_pin_db, case):
     assert error["message"]
 
 
-def staff_token(env_pin_db) -> str:
-    insert_setting(staff_pin_hash=None)
-    return bearer(mint_token())
+def staff_token(env_pin_db, pin: str = "1234") -> str:
+    """A staff bearer from the login route, against a row carrying the hash for ``pin``.
+
+    It used to mint a hand-signed token over a hash-less row, which is the arrangement T9 removes on
+    both counts: the row has to carry a credential for the verifier to accept anything at all (D-1),
+    and the bearer has to be one the store itself signed (D-2). Every rotation a test performs below
+    therefore invalidates this bearer exactly once, which is what AC-13 measures rather than breaks.
+    """
+    digest = bcrypt_hash(pin)
+    insert_setting(staff_pin_hash=digest)
+    _ROW_HASH[0] = digest
+    return bearer(login_token(pin))
 
 
 # AC-8: a wrong current PIN is 401; the right one is 204 with an empty body.
@@ -368,8 +447,13 @@ def test_change_pin_validation_errors(env_pin_db):
     )
     assert r_mismatch.status_code == 422
     assert r_mismatch.json()["error"]["code"] == "VALIDATION_ERROR"
+    # "hash untouched" is the assertion, and what it is untouched BY is this test's own refused
+    # requests. Under B-05 the row carried no hash at all (the bearer was minted over a hash-less
+    # row, which is the fallback this issue deletes), so comparing against None proved the refusal
+    # and nothing else. Now the bearer's own PIN is what the row holds, so the honest reading is
+    # that a refused rotation leaves the credential the store already had.
     db = database.SessionLocal()
-    assert db.query(SettingsModel).first().staff_pin_hash is None
+    assert db.query(SettingsModel).first().staff_pin_hash == _ROW_HASH[0]
     db.close()
 
 

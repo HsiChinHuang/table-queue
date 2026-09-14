@@ -17,16 +17,12 @@ one the suite actually drives, so the PUT is exercised here too, over a database
 
 from __future__ import annotations
 
-import os
 import tempfile
-import time
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import ClassVar
 
 import pytest
 from fastapi.testclient import TestClient
-from jose import jwt
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -37,6 +33,11 @@ from app.models import Branch, Restaurant, WaitlistEntry, WaitlistSource, Waitli
 from app.models import Settings as SettingsRow
 from app.schemas import mask_phone
 from app.services import staff_waitlist as service
+from tests._db_test_support import (
+    credential_ready_store,
+    ensure_credential,
+    staff_token,
+)
 
 DAY = "20260910"
 
@@ -54,24 +55,59 @@ ROUTE_PATHS = {
 }
 
 
-def _staff_headers() -> dict[str, str]:
+def _staff_headers(session=None) -> dict[str, str]:
     """Return a bearer token the merged dependency accepts, without going through /api/v1/auth.
 
     AC-2 owns the login flow and measures it; what this module needs is only an authenticated
     principal, and minting one keeps every test below about the route under test rather than about
     the sign-in that precedes it.
+
+    T9 decision D-2 is why this cannot stay a hand-signed JWT: the HS256 key carries the token
+    generation stored in the settings row, so a signature rebuilt from the secret alone is refused
+    outright (AC-5) and the mint has to name the store the request will read. The shared helper
+    resolves that store the way the application does, and a caller whose request is served from a
+    store of its own names that store here so the signature is keyed on the row the request reads.
     """
-    from jose import jwt
+    return {"Authorization": "Bearer " + staff_token(role="staff", session=session)}
 
-    from app.config import get_settings
 
-    now = int(datetime.now(UTC).timestamp())
-    token = jwt.encode(
-        {"sub": "staff", "role": "staff", "iat": now, "exp": now + 3600},
-        get_settings().jwt_secret,
-        algorithm="HS256",
-    )
-    return {"Authorization": "Bearer " + token}
+@pytest.fixture()
+def ambient_store():
+    """A bootstrapped store - schema, restaurant, branch, credential - to serve a route from.
+
+    The plain ``client`` fixture below builds ``TestClient(app)`` with no override and no seed,
+    which meant the module-level tests were borrowing whatever store the process happened to leave
+    reachable. T9 (D-1, AC-1) made that a real dependency rather than a harmless one: a store whose
+    settings row carries no credential answers 401 for every authenticated request, and the store
+    those tests reached for had no settings row at all. So they get a store of their own - the state
+    the shipped application is always in after its bootstrap - and the two assertions stop measuring
+    whichever scratch file a previous test happened to name in the environment. The store is handed
+    to the application through the ``get_db`` override rather than by rebinding the factory, which
+    is the narrower of the two redirects and the one the shared mint resolves without a second name.
+
+    It is a separate fixture rather than a change to ``client`` because the anonymous-caller test
+    below prices the absence of a bearer, and a store with nothing in it is the honest arrangement
+    for that question.
+    """
+    store = credential_ready_store()
+    try:
+        yield store
+    finally:
+        store.close()
+
+
+@pytest.fixture()
+def ambient_client(ambient_store) -> TestClient:
+    """The ambient store above, served as an application with the limiter muted for the call."""
+    previous_enabled = limiter.enabled
+    limiter.enabled = False
+    app.dependency_overrides[get_db] = lambda: ambient_store
+    try:
+        with TestClient(app, raise_server_exceptions=False) as served:
+            yield served
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        limiter.enabled = previous_enabled
 
 
 @pytest.fixture()
@@ -136,9 +172,13 @@ def test_an_anonymous_caller_is_refused(client: TestClient) -> None:
         assert response.status_code in (401, 403), (method, path, response.status_code)
 
 
-def test_the_list_answers_the_contract_shape(client: TestClient) -> None:
+def test_the_list_answers_the_contract_shape(
+    ambient_client: TestClient, ambient_store
+) -> None:
     """``items`` plus ``total``, and no raw phone anywhere in the envelope."""
-    response = client.get("/api/v1/staff/waitlist", headers=_staff_headers())
+    response = ambient_client.get(
+        "/api/v1/staff/waitlist", headers=_staff_headers(ambient_store)
+    )
     assert response.status_code == 200
     body = response.json()
     assert set(body) == {"items", "total"}
@@ -146,11 +186,13 @@ def test_the_list_answers_the_contract_shape(client: TestClient) -> None:
 
 
 def test_an_unknown_status_group_is_a_validation_error_not_an_empty_queue(
-    client: TestClient,
+    ambient_client: TestClient, ambient_store
 ) -> None:
     """A filter the enum does not define must not be answerable by "nobody is waiting"."""
-    response = client.get(
-        "/api/v1/staff/waitlist", headers=_staff_headers(), params={"status": "NOT_A_STATUS"}
+    response = ambient_client.get(
+        "/api/v1/staff/waitlist",
+        headers=_staff_headers(ambient_store),
+        params={"status": "NOT_A_STATUS"},
     )
     assert response.status_code == 422
 
@@ -327,6 +369,11 @@ class TestEditBody:
                 )
             )
         session.commit()
+        # T9 (D-1 fail-closed, AC-1): a store whose settings row carries no credential answers 401
+        # for every authenticated request, so the store this fixture owns is completed with one -
+        # the state the application is always in after its own bootstrap, and a column none of the
+        # assertions below reads.
+        ensure_credential(session)
         try:
             yield session
         finally:
@@ -345,15 +392,14 @@ class TestEditBody:
             limiter.enabled = previous_enabled
 
     @staticmethod
-    def _headers() -> dict[str, str]:
-        """A staff bearer minted from the environment's own secret (AC-2 owns the login flow)."""
-        now = int(time.time())
-        token = jwt.encode(
-            {"sub": "staff", "role": "staff", "iat": now, "exp": now + 3600},
-            os.environ["JWT_SECRET"],
-            algorithm="HS256",
-        )
-        return {"Authorization": "Bearer " + token}
+    def _headers(db) -> dict[str, str]:
+        """A staff bearer minted against THIS test's session, which is the store the call reads.
+
+        T9 (D-2): the generation value lives in the settings row, and the class below overrides
+        ``get_db`` with a session of its own, so the mint has to be pointed at that session rather
+        than at whatever the process-wide factory reaches.
+        """
+        return {"Authorization": "Bearer " + staff_token(role="staff", session=db)}
 
     @staticmethod
     def _entry(db, *, status: WaitlistStatus, party_size: int = 2) -> WaitlistEntry:
@@ -380,7 +426,7 @@ class TestEditBody:
         """AC-6: a ``status`` in the body is 422 ``VALIDATION_ERROR``, not a coercion, not a 500."""
         entry = self._entry(db, status=WaitlistStatus.WAITING)
         response = client.put(
-            self.EDIT + str(entry.id), headers=self._headers(), json={"status": "ACTIVE"}
+            self.EDIT + str(entry.id), headers=self._headers(db), json={"status": "ACTIVE"}
         )
         assert response.status_code == 422, response.text
         payload = response.json()
@@ -401,7 +447,7 @@ class TestEditBody:
         for rejected in (0, 21):
             response = client.put(
                 self.EDIT + str(entry.id),
-                headers=self._headers(),
+                headers=self._headers(db),
                 json={"party_size": rejected},
             )
             assert response.status_code == 422, (rejected, response.text)
@@ -415,7 +461,7 @@ class TestEditBody:
         """AC-13: a legal edit from ``WAITING`` answers 200, and the row says what the body said."""
         entry = self._entry(db, status=WaitlistStatus.WAITING, party_size=2)
         response = client.put(
-            self.EDIT + str(entry.id), headers=self._headers(), json={"party_size": 4}
+            self.EDIT + str(entry.id), headers=self._headers(db), json={"party_size": 4}
         )
         assert response.status_code == 200, response.text
         assert response.json()["party_size"] == 4
@@ -431,7 +477,7 @@ class TestEditBody:
         still answer 200 when there was nothing to apply, and it must apply nothing.
         """
         entry = self._entry(db, status=WaitlistStatus.CALLED, party_size=3)
-        response = client.put(self.EDIT + str(entry.id), headers=self._headers(), json={})
+        response = client.put(self.EDIT + str(entry.id), headers=self._headers(db), json={})
         assert response.status_code == 200, response.text
         assert response.json()["party_size"] == 3
         db.expire_all()
@@ -442,7 +488,7 @@ class TestEditBody:
         """AC-7: a body that names no editable field is refused, not silently accepted."""
         entry = self._entry(db, status=WaitlistStatus.WAITING)
         response = client.put(
-            self.EDIT + str(entry.id), headers=self._headers(), json={"table_id": "x"}
+            self.EDIT + str(entry.id), headers=self._headers(db), json={"table_id": "x"}
         )
         assert response.status_code == 422, response.text
         assert response.json()["error"]["code"] == "VALIDATION_ERROR"
@@ -451,7 +497,7 @@ class TestEditBody:
         """AC-13 arm 2: the state gate is a 409, and the refused row keeps its party size."""
         entry = self._entry(db, status=WaitlistStatus.SEATED, party_size=5)
         response = client.put(
-            self.EDIT + str(entry.id), headers=self._headers(), json={"party_size": 2}
+            self.EDIT + str(entry.id), headers=self._headers(db), json={"party_size": 2}
         )
         assert response.status_code == 409, response.text
         assert response.json()["error"]["code"] == "WAITLIST_INVALID_STATUS"

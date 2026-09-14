@@ -20,6 +20,7 @@ from __future__ import annotations
 import os
 import warnings
 from datetime import UTC, datetime, timedelta
+from functools import lru_cache
 from pathlib import Path
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///./_b08_test.db")
@@ -31,7 +32,6 @@ os.environ.setdefault("ENV", "test")
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from freezegun import freeze_time  # noqa: E402
-from jose import jwt  # noqa: E402
 from sqlalchemy import create_engine  # noqa: E402
 from sqlalchemy.orm import sessionmaker  # noqa: E402
 
@@ -52,6 +52,10 @@ from app.models import (  # noqa: E402
     TableStatus,
     WaitlistEntry,
     WaitlistStatus,
+)
+from tests._db_test_support import (  # noqa: E402
+    TEST_CREDENTIAL_HASH,
+    staff_token,
 )
 
 # ---------------------------------------------------------------------------
@@ -74,11 +78,16 @@ FROZEN_DT = datetime(2026, 9, 10, 13, 0, tzinfo=UTC)
 
 
 def _staff_token() -> str:
-    return jwt.encode(
-        {"sub": "staff", "role": "staff", "iat": 1, "exp": 9999999999},
-        os.environ["JWT_SECRET"],
-        algorithm="HS256",
-    )
+    """A current staff bearer, minted by the module that owns the credential.
+
+    T9 decision D-2 puts the store's token-generation value into the HS256 key, so a bearer rebuilt
+    from ``JWT_SECRET`` alone is refused outright (AC-5) and the mint has to name the store - here
+    the file's own database, which the module fixture below binds onto
+    ``app.database.SessionLocal`` for every request in this module. It is minted per call rather
+    than at import for the same reason: the first thing that has to be true of a mint is that the
+    row it reads still exists.
+    """
+    return staff_token(role="staff")
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -129,7 +138,9 @@ def _seed_branch(session) -> None:
                 is_waitlist_open=True,
                 sound_enabled_default=True,
                 notification_templates="{}",
-                staff_pin_hash=None,
+                # T9 (D-1 fail-closed, AC-1): the verifier refuses a store with no credential at
+                # all, so the seed row carries one - as the bootstrapped app always does.
+                staff_pin_hash=TEST_CREDENTIAL_HASH,
             )
         )
         session.commit()
@@ -181,8 +192,25 @@ def _make_entry(session, queue_number, status, table=None, seated_at=None, party
     return entry
 
 
+@lru_cache(maxsize=1)
+def _bearer_once() -> str:
+    """The module's one staff bearer, minted lazily and never inside a frozen block.
+
+    It is minted the first time a request asks for it and cached, which is both correct and
+    enough: the credential and the token-generation value the key is built from are seeded once for
+    the whole module and nothing here rotates them, so one signature serves every request.
+
+    Caching is what keeps the mint out of the four ``freeze_time`` blocks below. Those blocks freeze
+    the clock the mint and the verifier both read, and the request is served after the block has
+    closed - so a bearer minted inside one would carry a horizon measured from the frozen instant
+    and would already be expired when presented. Minting outside the block and reusing the result is
+    the simple version of the same fix, and it leaves the frozen-clock assertions untouched.
+    """
+    return _staff_token()
+
+
 def _headers():
-    return {"Authorization": "Bearer " + _staff_token()}
+    return {"Authorization": "Bearer " + _bearer_once()}
 
 
 def test_list_tables_active():

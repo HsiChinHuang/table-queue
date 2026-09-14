@@ -68,6 +68,7 @@ from app.models import (  # noqa: E402
     WaitlistEntry,
     WaitlistStatus,
 )
+from tests._db_test_support import ensure_credential  # noqa: E402
 
 warnings.filterwarnings("ignore")  # app.schemas emits protected-namespace noise on import
 
@@ -116,12 +117,28 @@ TABLE_SEEDS = (
 
 
 def _staff_token(secret: str | None = None, expiry: int = 9999999999) -> str:
-    """Mint the merged B-05 staff JWT shape against the ambient secret."""
-    return jwt.encode(
-        {"sub": "staff", "role": "staff", "iat": 1, "exp": expiry},
-        secret or os.environ["JWT_SECRET"],
-        algorithm="HS256",
-    )
+    """Mint the B-05 staff JWT shape against THIS module's store.
+
+    T9 decision D-2 folded the settings row's token-generation value into the HS256 key, so the key
+    is no longer something a caller rebuilds from ``JWT_SECRET`` and AC-5 refuses a signature built
+    that way outright. The mint therefore has to name a store, and the store is the one the module
+    fixture below binds onto ``app.database.SessionLocal`` - which the shared seam resolves for us.
+
+    The two probes below (a wrong secret, a past ``exp``) still need a hand-signed token, so the
+    claims are assembled here and the key is asked of the store: the wrong-secret arm signs with a
+    secret the store never held, and the expiry arm is the same payload with a stale horizon.
+    """
+    import time
+
+    from app import database as database_module
+    from app.routers.auth import token_generation_value, token_signing_key
+
+    now = int(time.time())
+    claims = {"sub": "staff", "role": "staff", "iat": now, "exp": expiry}
+    with database_module.SessionLocal() as session:
+        key = (secret + token_generation_value(session) if secret
+               else token_signing_key(session))
+        return jwt.encode(claims, key, algorithm="HS256")
 
 
 def _headers(secret: str | None = None, expiry: int = 9999999999) -> dict[str, str]:
@@ -130,7 +147,12 @@ def _headers(secret: str | None = None, expiry: int = 9999999999) -> dict[str, s
 
 @pytest.fixture(scope="module", autouse=True)
 def isolated_database():
-    """Point ``app.database.SessionLocal`` at this file's own database, then restore it."""
+    """Point ``app.database.SessionLocal`` at this file's own database, then restore it.
+
+    The seed row is completed with a credential (``ensure_credential``) because T9 made the
+    credential a precondition of any authenticated request; the dashboard assertions below read
+    counts, never that column.
+    """
     original = app_database.SessionLocal
     app_database.SessionLocal = sessionmaker(
         autocommit=False, autoflush=False, bind=test_engine
@@ -138,6 +160,7 @@ def isolated_database():
     Base.metadata.create_all(bind=test_engine)
     session = app_database.SessionLocal()
     _seed_branch(session)
+    ensure_credential(session)
     session.close()
     try:
         yield
