@@ -7,13 +7,26 @@ Last updated: 2026-09-10
 
 ## Prerequisites
 
-Run the following commands:
+From the repository root, with `uv` on `PATH` and Node 20 active (`nvm use`), and `backend/.env` carrying
+`JWT_SECRET` (>= 32 chars) and `STAFF_PIN` — see `_docs/SETUP.md` for that one-time file:
 
 ```bash
-make setup
-make seed
-make dev
+# set +e keeps this walkthrough scriptable: each step reports its own rc instead of aborting
+set +e
+make setup; echo "rc=$?"
+make seed; echo "rc=$?"
+make dev > /tmp/tq-dev.log 2>&1 &   # long-running: run it in a terminal and leave it attached
+dev_rc=$?
+sleep 15
+curl -s -o /dev/null -w 'backend=%{http_code}\n' http://localhost:8000/health
+curl -s -o /dev/null -w 'frontend=%{http_code}\n' http://localhost:5173/
+curl -s -o /dev/null -w 'proxy=%{http_code}\n' http://localhost:5173/api/v1/public/branches/1
 ```
+
+Each command above is run bare (never piped into `head`/`tail`) so the reported `rc=` is the target's own
+exit code. `make dev` is the foreground supervisor of both servers: backend on http://localhost:8000
+(`/health` 200), frontend on http://localhost:5173, and the vite `/api` proxy forwards to the backend, so
+the third probe above must also be 200. Stop the servers with Ctrl-C in that terminal.
 
 Then open your browser.
 
@@ -170,6 +183,11 @@ After `make seed`:
 ---
 
 ## Step 10: Reset (Development Only)
+
+Heads-up on the two kinds of reset: the button below clears the data through the app and leaves the
+stored staff credential alone, so your current PIN keeps working. `make seed` (which is `--reset`) drops
+and recreates the schema, so the staff PIN hash goes with it and the `STAFF_PIN` value in `backend/.env`
+is accepted once more as the one-time seed (T9/D-1).
 
 1. Open http://localhost:5173/admin/settings
 2. Scroll to Danger Zone.

@@ -4,7 +4,47 @@
 
 - git >= 2.20 (worktree support)
 - Tech-stack toolchain (uv / npm / etc., per `plan.md`)
-- Env vars:
+
+### Getting `uv` (the one prerequisite a fresh machine usually lacks)
+
+`uv` is the installer this repo ships an `uv.lock` for, and `make setup` needs it on `PATH`. It is not
+part of a default Linux or WSL image:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh    # installs into ~/.local/bin
+export PATH="$HOME/.local/bin:$PATH"               # only if ~/.local/bin is not already on PATH
+uv --version                                       # must print a version, not "command not found"
+```
+
+Every `make` target that needs uv calls a guard first: if `uv` is not on `PATH` the target stops with
+"'uv' is not on PATH" and the install line above, rather than writing a half-built environment. Nothing
+in the Makefile hardcodes a user's home directory, so the same commands work for any contributor.
+
+### TableQueue run surface (backend + frontend)
+
+The application checkout has its own one-time bootstrap, documented in `README.md` and summarised here:
+
+```bash
+cp backend/.env.example backend/.env      # gitignored; the app will not boot without it
+# then set in backend/.env:
+#   JWT_SECRET=...   at least 32 chars: python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+#   STAFF_PIN=...    no default and no example value (T9/D-1)
+make setup                                # backend/.venv via `uv sync --project backend` + frontend `npm ci`
+make seed                                 # reset + seed backend/dev.db
+make dev                                  # backend :8000 and frontend :5173 together
+```
+
+- `make setup` runs `uv sync --project backend`, which builds the environment at `backend/.venv`
+  (uv's `<project>/.venv` rule) and reads `[dependency-groups] dev`; `pip install -e backend` cannot read
+  that group and would leave pytest/ruff out of the interpreter the run surface uses.
+- `make setup SKIP_FRONTEND=1` bootstraps the backend only, for hosts where npm is unavailable.
+- Node: `.nvmrc` pins 20 (`nvm use`); system node 18 cannot run vite.
+- Frontend tests: `cd frontend && npm run test -- --run` — bare `npm run test` is watch mode and never
+  exits. `make test-frontend` and the root `npm run test:frontend` already pass `--run`.
+- Exit codes: run a target bare and read `$?` (or redirect to a log). Piping a target into `head`/`tail`
+  reports the consumer's status and hides a failing target.
+
+Env vars:
   | Var | Required | Purpose |
   |---|---|---|
   | `PLATFORM` | yes | `github` or `gitlab` |

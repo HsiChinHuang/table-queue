@@ -102,3 +102,9 @@ _docs/issues/_t20/probes/run/
 _t20_scratch/
 _t20_mut/
 _t20_gate.sh
+
+# T33 (Platform #89): the run surface is a single Makefile at the repository root, so a
+# makefile found inside a subdirectory is a generated local helper, never a deliverable
+# (see _docs/commands.md "Where the run surface lives"). Ignore it before it can ever be
+# committed, so a fresh clone contains exactly one build entry point.
+backend/GNUmakefile
