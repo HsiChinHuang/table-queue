@@ -20,4 +20,4 @@ Runtime-maintained by Orchestrator.
 | D-02 | Add more tests | 2026-09-13T12:05:00Z | pm=3 sw=1 qa=1 | 160ab19c953fd0fa820c14ee32419c89de816107 |
 | D-03 | Verify all tests pass (final verification gate) | 2026-09-13T16:20:00Z | pm=2 sw=1 qa=1 (qa r1 ceiling-death, inventory-resume, zero loss) | d5d97d74587e0a32dca485ac17535ff0102e1564 |
 | T10 | JWT secret strength gate: reject published/example secrets and short values at startup | 2026-09-14T04:40:00Z | pm=1 sw=1 qa=1 | 23efdd5c34ba071048005d716689d158305d6c93 |
-
+| T32 | 2026-09-14T08:02:52Z | fix/T32-frontend-contract @ 588bd44, merged 2bf0942 |
