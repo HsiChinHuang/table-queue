@@ -122,6 +122,12 @@ therefore **313**, and the measured count is **315**; the two-item surplus is AC
 which turned previously-skipped `test_seed.py` items into run items rather than deleting them.
 `git status --porcelain` empty after each block run.
 
+Two counts in that list deserve the correction they got in the second split below. `test_config_env.py`
+carries **12** test functions (26 collected items: several of them are parametrised, and the floor is
+quoted in items), not 25; and `test_seed.py`'s harness statement was an AC-4 requirement rather than a
+source of two extra items - it repairs items that already existed. The surplus over 313 is therefore
+unexplained arithmetic on my side and is reported as such rather than as a bonus.
+
 ## Residual, stated as findings rather than fixed here
 
 - `git diff aa73e6f..HEAD -- backend/app/` is EMPTY: D-2's guard (`routers/admin.py:638`) and D-4's
