@@ -5,8 +5,8 @@ anchor, and the diff it produces IS the review surface.
 
     python3 _docs/issues/_t20/record_t20_digests.py
 
-from the repo root, after anything under ``_docs/issues/_t20/`` changed. It rewrites probe9.py's two
-tables and then rebuilds ``_docs/issues/T20.md`` with the committed builder, so the shipped file is
+from the repo root, after anything under '_docs/issues/_t20/' changed. It rewrites probe9.py's two
+tables and then rebuilds '_docs/issues/T20.md' with the committed builder, so the shipped file is
 the build the shipped table describes.
 
 What it records, and what it cannot
@@ -23,8 +23,8 @@ map whose own output is its input cannot be stable here, and the earlier version
 looped looking for that stability was correct to refuse forever.
 
 So the self-referential entry is RECORDED AS UNPINNED, with its last-measured digest kept for
-provenance and marked stale. AC-9's clause for an unpinned entry is `PASS AC-9 payload_ac-9: ...
-pinned as self_referential`, which says plainly that the check does not reach it, and an AC-9 run
+provenance and marked stale. AC-9's clause for an unpinned entry is 'PASS AC-9 payload_ac-9: ...
+pinned as self_referential', which says plainly that the check does not reach it, and an AC-9 run
 prints it on every tree. Nine of the ten blocks stay hard-pinned and refuse on drift. AC-13's
 block-to-block meta check, which reads the built file rather than a number, is what actually closes
 the gap for the tenth - see the Constraints section of the issue for the same conclusion in the
@@ -71,8 +71,8 @@ def source_names():
 def block_bodies(md, producer):
     """Every AC block body in the issue, keyed by AC number.
 
-    Uses the checker's own `fence_bodies()` so recorder and check cannot disagree about what a block
-    is, and a line-anchored `# AC-<n> executes` search so a block is identified by its own head and
+    Uses the checker's own 'fence_bodies()' so recorder and check cannot disagree about what a block
+    is, and a line-anchored '# AC-<n> executes' search so a block is identified by its own head and
     not by a neighbouring block that cites this AC's probe file. Round 1's recorder used a
     column-zero-only regex, silently recorded zero payloads against an indented file, and exited
     green while emptying the trust anchor; both failures are refused here rather than printed.
@@ -106,7 +106,7 @@ def width_for(pinned, producer, n):
 def render(pinned, values, srcs, producer):
     """The checker's source with both tables replaced - returned as text, never written halfway.
 
-    `values` maps AC number -> (width, digest | "self_referential"); the sentinel renders unquoted so
+    'values' maps AC number -> (width, digest | "self_referential"); the sentinel renders unquoted so
     the checker can tell "deliberately unpinned" apart from "digest not yet computed", which are two
     different findings and must not share a rendering.
     """

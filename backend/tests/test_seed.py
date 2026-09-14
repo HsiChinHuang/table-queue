@@ -10,7 +10,34 @@ from zoneinfo import ZoneInfo
 import sqlite3
 import bcrypt
 
-from tests.test_config import TEST_JWT_SECRET
+# AC-4 (T20 #75): this module is one of the harness modules that AC names, so it has to state an
+# environment for ITSELF, above its imports, the way conftest.py and public_fixtures.py already do.
+# Before this issue the statement was unnecessary - ENV had a default - so this file never needed one,
+# and the only ENV the shipped suite carried for a child seed run sat inside a helper's `env.update`
+# below, which a harness that reads `setdefault` lines cannot see. Now that ENV is required, an
+# absent statement is a refused boot rather than a silent default. `setdefault` rather than an
+# assignment, so an operator's or CI's value outranks the file. `test` is the label the helper below
+# already chose for the same reason: it is what a suite names for itself, and it is not the label that
+# arms the development-only reset endpoint.
+#
+# The secret is the same literal every other harness module states, stated here in the same shape
+# rather than imported. That is not duplication for its own sake: AC-4's probe reads the `setdefault`
+# lines off this file's text and hands each one to a child process that boots the application with
+# nothing else in its environment, so a value this file inherits from another module is a value the
+# probe cannot see and the child never receives. The AC-6 mirror in test_config.py is what keeps the
+# literal honest - it scans backend/tests for exactly this shape and refuses any literal under the
+# secret gate - and the literal is the gate-compliant one, so the scan sees a compliant harness rather
+# than a second offender. tests/test_config.py still exports TEST_JWT_SECRET for the modules that are
+# not AC-4 targets and can afford to import it.
+os.environ.setdefault("DATABASE_URL", "sqlite:///./test_seed.db")
+os.environ.setdefault("JWT_SECRET", "tq-test-jwt-secret-value-0123456789abcdef")
+os.environ.setdefault("STAFF_PIN", "0000")
+os.environ.setdefault("ENV", "test")
+
+# Restored after the harness statement, whose secret it no longer needs: the helpers below pass the
+# same value to the child seed process by name, and the constant is the single place the suite's
+# gate-compliant secret is spelled for modules that are not AC-4 targets.
+from tests.test_config import TEST_JWT_SECRET  # noqa: E402
 
 # Helper to run the seed module with given env and args.
 def run_seed(db_path: str, reset: bool = False) -> subprocess.CompletedProcess:

@@ -238,6 +238,12 @@ SELF_EXTRACT = {13: [
     # The staged PROBE is still byte-identical to AC-13's probe source, which is the provenance
     # replay_block.py refuses without; the extractor reads only the running script, never a probe
     # file, so it cannot quietly substitute the tree's copy of itself.
+    # A copy of the running script, not the script itself. The extractor re-emits the region that
+    # contains its own source lines, so running it against $0 makes the file eat what it is writing:
+    # the first version of this pass measured a 12508-byte stage region against a 0-byte issue region
+    # while bash was still writing the file, then died with "Arg list too long" on the second run
+    # because the copy had grown an entire block. The copy is made before the extractor runs and the
+    # extractor is given the copy, so what it reads is the bytes the document shipped and nothing else.
     'echo '"'"'import re, sys'"'"' >> "$TMPDIR/extract13.py"',
     'echo '"'"'src = open(sys.argv[1]).read() if len(sys.argv) > 1 else ""'"'"' >> "$TMPDIR/extract13.py"',
     'echo '"'"'head = "AC-13 st" + "age ste" + "ps "'"'"' >> "$TMPDIR/extract13.py"',
@@ -256,7 +262,25 @@ SELF_EXTRACT = {13: [
     'echo '"'"'print("SELF_EXTRACTED_BYTES: %d" % len(region))'"'"' >> "$TMPDIR/extract13.py"',
     'echo '"'"'print("SELF_EXTRACT_MATCHED: %s" % ("yes" if region else "no"))'"'"' >> "$TMPDIR/extract13.py"',
     'echo '"'"'print("SELF_EXTRACT_MARKS: %d" % len(marks))'"'"' >> "$TMPDIR/extract13.py"',
-    'backend/.venv/bin/python "$TMPDIR/extract13.py" "$0" "$TMPDIR/block13.txt"',
+    # The copy of the running script, and the two delimiter sentences put back inside it. The
+    # extractor cuts from the END of the begin sentence to the START of the end sentence, so a copy
+    # without the brackets has no begin match and no end match and yields an empty region - which is
+    # precisely how a block whose own body was 12508 bytes long reported a 0-byte issue region and
+    # called the two unequal. The copy is taken before the extractor runs (running it against $0 lets
+    # the file eat what it is writing, which grew a second whole block into the script on the next
+    # round), and the brackets are restored around it by a python step assembled from pieces, because
+    # a step that quoted a marker sentence would put a second begin match into the document - the same
+    # hazard the search-by-stem rule exists to stop. The sentences themselves arrive from the
+    # environment, and replay_block.py is the only thing in this tree that knows both the AC number and
+    # the constants the markers are built from; run outside a replay the values are empty, the region
+    # stays empty and the block's first clause fails, which is the honest answer for a run nobody
+    # measured.
+    'cp "$0" "$TMPDIR/script13.txt"',
+    'echo '"'"'import sys'"'"' >> "$TMPDIR/wrap13.py"',
+    'echo '"'"'text = open(sys.argv[1]).read()'"'"' >> "$TMPDIR/wrap13.py"',
+    'echo '"'"'open(sys.argv[1], "w").write(sys.argv[2] + chr(10) + text + chr(10) + sys.argv[3])'"'"' >> "$TMPDIR/wrap13.py"',
+    'backend/.venv/bin/python "$TMPDIR/wrap13.py" "$TMPDIR/script13.txt" "$T20_MARK_BEGIN" "$T20_MARK_END"',
+    'backend/.venv/bin/python "$TMPDIR/extract13.py" "$TMPDIR/script13.txt" "$TMPDIR/block13.txt"',
     'cp "$TMPDIR/block13.txt" "$TMPDIR/probe.py"',
 ]}
 
@@ -268,6 +292,7 @@ def head_for(n):
 
 
 def emit(n, probe_file=None, clauses_file=None):
+    assert_self_extraction_agrees_with_the_markers()
     tail = ["export APP_DIR=$PWD"] if n == 4 else list(TAILS.get(n, []))
     # AC-9 is backed by the committed checker rather than a numbered probe/clauses pair,
     # because its "sources" are the digests themselves: it passes AC-9's `probe_clause_pairing`
@@ -275,6 +300,75 @@ def emit(n, probe_file=None, clauses_file=None):
     return block(n, BLK / (probe_file or "probe%d.py" % n),
                  BLK / (clauses_file or "clauses%d.py" % n),
                  envs=ENVS.get(n, []), extra_head=head_for(n), tail_extra=tail)
+
+
+# ---------------------------------------------------------------------------------------------
+# The self-extracting block, and the agreement its extractor has to keep with the markers.
+#
+# Exactly one block copies its own text out of the document at run time. Its reason is the reason the
+# block reviews at all: a block that certifies a digest table cannot be handed that table as an
+# # argument, because the argument would name a state of the file the block has already changed. So the
+# block reads the running script, extracts its own region and runs the extraction - which makes the
+# text it reads a contract between the block and the document, and the reason land_gate3.py consults
+# this module rather than editing the block: if the text a block copies ever differs from the text the
+# document ships, the block's first clause is reviewing a copy of a copy.
+# ---------------------------------------------------------------------------------------------
+
+SELF_EXTRACTING_BLOCKS = (13,)
+
+
+def self_extract_lines(ac):
+    """The echo/execute steps that make AC-<ac> read its own text back; empty for every other block."""
+    return list(SELF_EXTRACT.get(ac, []))
+
+
+def assert_self_extraction_agrees_with_the_markers():
+    """Every literal AC-13's extractor searches for must be a piece of the marker this module writes.
+
+    The extractor is deliberately free of the whole marker sentence - a block carrying it would hand
+    every marker-slicing tool a second block, which is the same hazard the backtick rule exists to
+    stop - so it carries fragments and reassembles them at run time. That is safe only while the
+    reassembly equals the sentence the document carries, and this is the one place that claim is
+    checked rather than left to a comment. It runs on every emit, so a reworded marker fails the first
+    time anybody generates a block rather than the first time a reviewer replays one.
+
+    MARK_STEM is deliberately NOT the basis of the reconstruction. Its percent-placeholder sits before
+    the word the extractor searches for, so the stem alone expands to 'AC-13 stage steps ' and the
+    distinguishing word appears only when BEGIN_MARK joins the pieces: a check written against the stem
+    compares an empty window with 'begin ' and thereby proves nothing, which is how the first version
+    of this function failed. The sentence is taken from the two constants the document is actually
+    built from, the only pair that can disagree with the extractor in a way that matters.
+
+    The extractor reads a fixed-width window one character past its stem. That offset is another
+    file's implementation detail and is not asserted here - pinning a neighbour's widths is the
+    mistake AC-13's own clause table records making, when a single-digit escape in a digest regex read
+    a populated table as empty. What IS pinned is that each distinguishing word is present, once, at
+    the head of the remainder: that is what makes the window unambiguous rather than merely long
+    enough.
+    """
+    begin, end = BEGIN_MARK % 13, END_MARK % 13
+    head = "AC-13 st" + "age ste" + "ps "
+    for sentence, word, size in ((begin, "beg" + "in ", 7), (end, "end ", 5)):
+        assert sentence.startswith(head), (sentence, head)
+        tail = sentence[len(head):]
+        assert tail.startswith(word), (word, repr(tail))
+        assert tail.count(word) == 1, (word, repr(tail))
+    assert MARK_TAIL in begin and MARK_TAIL in end, (repr(begin), repr(end))
+
+
+def stage_body_from_text(text, src_name):
+    """`stage_body`'s transformation applied to text already in hand, rather than read from disk.
+
+    One call site, land_gate3.py, which holds a source's text for other reasons already and must not
+    gain a private copy of the backtick assertion and the token substitution. A second implementation
+    of staging is how a staged copy stops being the source, which is the property AC-9 and AC-13 exist
+    to refuse.
+    """
+    lines = [_apply_tokens(ln) for ln in text.rstrip("\n").split("\n")]
+    for ln in lines:
+        assert chr(96) not in ln, ("stage: %s carries a backtick, which would break the issue's "
+                                   "bash fence: %r" % (str(src_name), ln[:90]))
+    return lines
 
 
 if __name__ == "__main__":

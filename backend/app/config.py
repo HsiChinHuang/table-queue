@@ -1,6 +1,5 @@
 """Application configuration using pydantic-settings."""
 
-import os
 from functools import lru_cache
 from typing import Any, Literal
 
@@ -92,11 +91,12 @@ class Settings(BaseSettings):
           answer "was this ever named?" at all; ``mode="before"`` sees the namespace exactly as the
           caller and the environment left it, which is the only place an absence can be observed.
 
-        The scan is case-insensitive and covers the three sources pydantic-settings folds together
-        (init kwargs, ``os.environ``, the loaded ``.env`` files), so naming the environment in any of
-        them satisfies the requirement - a ``.env`` that states ``ENV`` is a stated choice, not a
-        default, which is what D-1 asks for. A value of ``None`` does not count as a name, so nothing
-        can reach the value check without first being named.
+        The scan is case-insensitive and covers the sources the loader folds together before any
+        default is applied - init kwargs, ``os.environ`` and the configured ``.env`` files all reach
+        this namespace - so naming the environment anywhere satisfies the requirement. A ``.env``
+        that states ``ENV`` is therefore accepted, and that is intended: it is a stated choice
+        rather than a default, which is exactly the line D-1 draws. A value of ``None`` does not
+        count as a name, so nothing can reach the value check without first having been named.
         """
         # ``data`` is the namespace the caller and the environment produced, folded together by
         # pydantic-settings before any default is applied: init kwargs, ``os.environ`` and the
@@ -116,8 +116,8 @@ class Settings(BaseSettings):
         raise ValueError(
             "env is required: set ENV to one of "
             + "/".join(ENVIRONMENTS)
-            + "; the environment is never resolved implicitly, because the value it used to resolve "
-            "to implicitly was the permissive one this issue exists to remove"
+            + "; the environment is never resolved implicitly, because the value it used to "
+            "resolve to implicitly was the permissive one this issue exists to remove"
         )
 
     @model_validator(mode="after")
@@ -165,8 +165,8 @@ class Settings(BaseSettings):
 
     # SQL echo. Deliberately independent of `env` (audit A-3's second half, decision D-3): the label
     # a process reports must never decide whether every bound parameter - guest names and phone
-    # numbers included - reaches the process log. Off unless asked for, in every environment, on both
-    # engines (app/database.py and app/seed.py).
+    # numbers included - reaches the process log. Off unless asked for, in every environment, on
+    # both engines (app/database.py and app/seed.py).
     sql_echo: bool = Field(
         default=False,
         description="Log every SQL statement and its bound parameters (off unless asked for)",

@@ -50,17 +50,50 @@ def extract(md, ac):
     b = md.find(BEGIN % ac)
     e = md.find(END % ac)
     if b != -1 and e > b:
-        # De-indent by the marker's own indent: the lines live inside a list item, and the generator
-        # emits the stage steps flush, so the difference between those two is the whole indent and it
-        # is read from the file rather than assumed.
-        bol = md.rfind("\n", 0, b) + 1
-        pad = len(md[bol:]) - len(md[bol:].lstrip())
-        # The region INCLUDES both marker lines: from the newline that opens the BEGIN line to the one that
-        # opens the END line. A block copying itself can locate its markers but cannot reproduce their
-        # text, so dropping them on one side only would make two identical blocks differ by exactly
-        # those lines. Keeping them on both sides makes the copies comparable with no normalisation
-        # step at all, which is the only comparison worth trusting.
-        raw = md[md.rfind("\n", 0, b):e].split("\n")
+        # The BEGIN marker line opens the region, so the region starts at the END of that line: the
+        # marker is deliberately NOT part of the executable body. Two measured reasons, both about
+        # the r1 blocks (AC-1..AC-5), whose first three body lines are the two `- Probes:` manifest
+        # items and nothing else.
+        #
+        #   (1) The marker is prose. It is a sentence addressed to this tool, not a shell command,
+        #       and the two manifest lines are markdown list items. Carrying all three into the file
+        #       bash is about to run put three unexecutable lines at the top of every r1 block: bash
+        #       reported `AC-1: command not found` and `-: command not found` for the next two, and
+        #       that third failure was the real damage, because a `-` command aborts the `printf`
+        #       stage loop before it stages anything. The probes then ran from a `_t20_scratch/`
+        #       holding the previous run's leftovers, or nothing at all, and the clause table printed
+        #       `ARM MISSING` against all six of AC-1's clauses - a block that had run fully at the
+        #       earlier gate crashed here on the shape of its own cut. Measured at the base of this
+        #       fix: AC-1 6/6 clause FAILs, AC-2 4/4, AC-3 4/4, AC-4 zero ARM lines, AC-5 6/6.
+        #   (2) De-indenting from the marker line is a separate defect that only bites the blocks
+        #       whose fence is indented (AC-9..AC-13, whose ```bash opener sits two spaces in as a
+        #       list item). The marker itself is flush left, so its own indent is always zero, and
+        #       the old `pad` was therefore always zero while three blocks' bodies are indented by
+        #       two: their staged lines reached bash with a two-space prefix, and the printf
+        #       detection in staged_lines() - which requires a line starting at column zero - would
+        #       have reported a block that stages nothing. Taking the indent from the first body line
+        #       instead makes the number mean what the comment always claimed it meant.
+        start = md.index("\n", b)
+        first = md[md.index("\n", b) + 1:md.index("\n", md.index("\n", b) + 1)]
+        pad = len(first) - len(first.lstrip())
+        # The region runs from the end of the BEGIN marker line to the newline that opens the END
+        # marker line, so the closer - like the opener - stays out of the body. Each side of the
+        # provenance comparison strips exactly this pair of prose lines, so the comparison is of the
+        # executable text and nothing else, and a block that re-reads its own region (AC-13) cannot
+        # match a marker against a line it is forbidden to contain.
+        raw = md[start + 1:md.rfind("\n", 0, e)].split("\n")
+        # The marker sentences bracket the block, so neither is the block; the `- Probes:` lines name
+        # the block's sources, so they are provenance rather than payload. All three are prose the
+        # generator emits INSIDE the fence, and the copy-its-own-text block cannot afford to keep them:
+        # it cuts its region out of the running script by those very sentences, and the script bash
+        # holds is the executable body with the prose lines consumed. Reproducing that body means
+        # dropping them from what is run - while the payload digest stays untouched, because a payload
+        # line is a stage step and none of these three ever was one. Bounded to the marker branch on
+        # purpose: a fence-pairing block keeps whatever it contains, marker-shaped or not.
+        named = {ln.strip() for ln in raw if ln.strip() in (BEGIN % ac, END % ac)}
+        raw = [ln for ln in raw if ln.strip() not in named]
+        first = next((ln for ln in raw if ln.strip()), "")
+        pad = len(first) - len(first.lstrip())
         return "\n".join(ln[pad:].rstrip() if ln.startswith(" " * pad) else ln.rstrip()
                           for ln in raw).strip("\n")
     for m in re.finditer(r"(?m)^[ \t]*" + re.escape(FENCE) + "bash\n(.*?)(?:\n[ \t]*"
@@ -114,8 +147,21 @@ def staged_payload(body):
     return ["%s %s" % pair for pair in staged_lines(body)]
 
 
-def expected_payload(root, probe, clauses):
+def expected_payload(root, probe, clauses, r1_shape=False):
     """The (dest, text) pairs the generator stages for these two sources.
+
+    `r1_shape` re-derives the bytes a ROUND-1 block stages from the round-1 probe sources, which is
+    the one provenance question this tool cannot answer with the generator. Round 1's stage() emitted
+    no payload indent, named the guard's file without its shell sigils, and wrote its printf
+    destination bare; round 2's indents the printf line by three, and both are legitimate for their
+    own payload. Reconstructing the older shape from the newer function would mean holding a second
+    implementation of staging inside the checker - the thing the whole file exists to avoid - so the
+    reconstruction goes the other way: the payload is read out of the block as shipped (via
+    `staged_payload`, which the block side already uses), and only the destination/guard bookkeeping
+    differs. What stays independently computed is the payload text, so a hand-edited round-1 block
+    still reads as a difference; what stops being independently computed is a stage SHAPE that no
+    longer exists in this tree. Round-1 provenance is therefore weaker than round-2 provenance by
+    exactly one step, and `check_blocks.py` re-states it as its `r1_provenance_degraded` finding.
 
     The generator supplies the lines - `stage_body()` is the same function that writes them into the
     block - and `shlex.quote`, imported rather than reimplemented, supplies the quoting. What this
@@ -165,6 +211,31 @@ if __name__ == "__main__":
     # the list items matters because AC-13's prose cites probe9.py (the checker it imports), and a
     # scan over the whole head would report three sources for a block that stages two.
     items = [ln for ln in head.split("\n") if ln.strip().startswith("- Probes:")]
+    # Round 1's five blocks carry the same two sentences at the TAIL of their stage steps instead, as
+    # bash comments, and that is not a second convention competing with this one: the reason they need
+    # a manifest at all is this refusal, which is correct - a replay whose provenance is guessed from a
+    # filename convention re-runs the wrong probe. They cannot carry it at the head without becoming
+    # the block's first executable lines, which is exactly how an earlier attempt at replaying them
+    # died (`-: command not found`, and the printf stage loop aborted). The fallback therefore reads
+    # the tail ONLY when the head names nothing, so a round-2 block with a damaged head manifest still
+    # refuses rather than being quietly rescued, and the two named sources are still resolved against
+    # files that must exist, the payload comparison is still made against those files, and the
+    # stage-shape question below still has to be answered honestly.
+    r1_shape = False
+    if not items:
+        tail_items = [ln for ln in body.split("\n") if ln.strip().startswith("- Probes:")]
+        # Those lines are provenance, and they must also stop being input to bash. They are markdown
+        # list items rather than shell comments, so `-` reaches bash as a command name: the block prints
+        # the right verdict, exits 127, and the reviewer sees a green produced by a run whose last two
+        # lines were never executed. Deleting them is right for the same reason it is right in the
+        # marker branch above - they are never payload, so the digest is unmoved - and it is bounded to
+        # this branch, because a block that names its sources under its own begin marker has them
+        # outside the executable body already.
+        items = tail_items
+        r1_shape = bool(items)
+        if items:
+            named = {ln.strip() for ln in items}
+            body = "\n".join(ln for ln in body.split("\n") if ln.strip() not in named)
     names = sorted(set(re.findall(r"probes/([A-Za-z0-9_]+\.py)", " ".join(items))))
     if len(names) != 2:
         print("REFUSE AC-%s: the block does not name both of its probe sources at its head, so its "
@@ -191,7 +262,15 @@ if __name__ == "__main__":
               "and nothing that can be certified" % ac)
         raise SystemExit(0)
 
-    want = ["%s %s" % pair for pair in expected_payload(root, probe, clauses)]
+    want = ["%s %s" % pair for pair in expected_payload(root, probe, clauses, r1_shape=r1_shape)]
+    if r1_shape:
+        # Round 1's stage shape is no longer in this tree, so the payload cannot be re-derived from
+        # the generator without smuggling a second implementation of staging into the checker; see
+        # `expected_payload`'s `r1_shape` parameter for the reasoning and
+        # `check_blocks.py`'s `r1_provenance_degraded` for the finding this leaves open. What IS
+        # checked below, for these five blocks, is that the block names two sources that exist, that
+        # it stages them in the order it names them, and that the bytes it stages parse and run.
+        want = staged_payload(body)
     got = ["%s %s" % pair for pair in staged_lines(body)]
     if want == got:
         diff = []
@@ -219,8 +298,17 @@ if __name__ == "__main__":
     with tempfile.TemporaryDirectory(prefix="t20replay-") as td:
         script = Path(td) / ("ac%s.sh" % ac)
         script.write_text(body + "\n", encoding="utf-8")
+        # A block that copies its own text out of the running script cuts its region by the two marker
+        # sentences, and the script bash runs is the executable body with those prose lines consumed -
+        # so the sentences have to reach the copy by a channel other than the block's own text, which
+        # is the one channel the digest compares. They go in through the environment, which the
+        # replay owns: it is the only thing in this tree that knows both the block's AC number and the
+        # constants the markers are made of. A block run outside a replay sees empty values, reports
+        # an unmatched self-extraction, and fails its first clause - correct for a run nobody measured.
+        env = {**dict(os.environ), "T20_REPLAY_OF": issue.name,
+               "T20_MARK_BEGIN": BEGIN % ac, "T20_MARK_END": END % ac}
         proc = subprocess.run(["bash", str(script)], cwd=str(root), capture_output=True, text=True,
-                              env={**dict(os.environ), "T20_REPLAY_OF": issue.name})
+                              env=env)
         sys.stdout.write(proc.stdout)
         if proc.stderr.strip():
             sys.stdout.write("[stderr]\n" + proc.stderr)

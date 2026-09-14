@@ -77,14 +77,33 @@ def strip_markers(text):
     return "\n".join(out)
 
 
-def fence_counts(text):
-    """How many bash fences a copied region opens and closes, counted as bash and markdown see them.
+def splice_region(body):
+    """Wrap a copied body in the fences the document puts around it, and count what comes back.
 
-    The region a block copies out of itself is the BODY between its two marker lines, so the fences
-    that hold it belong to the document rather than to the copy - which is the whole reason this is
-    not a tautology: the count measures whether the body's own text keeps the document's fence pairing
-    intact. One opener and one closer is the balanced shape, and it is the shape every tool that slices
-    blocks out of the issue depends on.
+    This is the shape the clause is actually about. A block's stage steps are the BODY between its
+    two marker lines, so they can never contain the fence that opens them or the one that closes them:
+    those two lines belong to the document. The old clause asked the body to carry an opener and a
+    closer anyway ('opens == 1 and closes == 1'), so it could only be satisfied by a block whose text
+    embedded its own fence pair - which the generator's stage rule forbids: a line beginning with
+    three backticks in a staged probe drops an unbalanced fence into the issue file, which is the
+    exact thing AC-9's first contract clause exists to refuse. Measured at the base of this fix, that
+    mis-spec alone reddened the clause on a block whose fence pairing was in fact intact.
+
+    So the count is taken where the pairing lives: put the two fence lines back around the body and
+    ask whether the result opens exactly one bash fence and closes exactly one. A body carrying a
+    stray opener or a stray closer now breaks the count, and a body that stays fence-free does not
+    pay for a prohibition it was told to obey.
+    """
+    fence = chr(96) * 3
+    return fence + "bash\n" + body + "\n" + fence
+
+
+def fence_counts(text):
+    """How many bash fences a text opens and closes, counted as bash and markdown see them.
+
+    One opener and one closer is the balanced shape, and it is the shape every tool that slices
+    blocks out of the issue depends on. See splice_region for why the count is taken over the body
+    plus its document fences rather than over the bare body.
 
     Two details make the count honest, and each of them is a bug this function would otherwise have.
     A stage step may QUOTE a fence inside a printf argument, so a fence is only a fence when the line
@@ -165,7 +184,11 @@ if md:
         region = "\n".join(ln[pad:] if ln.startswith(" " * pad) else ln
                             for ln in raw).strip("\n")
 
-opens, closes = fence_counts(staged)
+# The count is taken over the body with its document fences spliced back (see splice_region), and the
+# bare body's own count is printed too so a reader can see both numbers and tell a body that carries a
+# fence from a body that is merely missing the pair the document supplies.
+opens, closes = fence_counts(splice_region(staged))
+bare_opens, bare_closes = fence_counts(staged)
 # What the block managed to copy out of itself, printed before anything is compared: when the
 # extraction fails, the failure has to be visible as an extraction rather than as a diff.
 print("PROBE_SEES_BYTES: %d" % len(staged), flush=True)
@@ -173,6 +196,8 @@ print("STAGED_BYTES: %d" % len(staged), flush=True)
 print("ISSUE_REGION_BYTES: %d" % len(region), flush=True)
 print("STAGED_FENCE_OPENS: %d" % opens, flush=True)
 print("STAGED_FENCE_CLOSES: %d" % closes, flush=True)
+print("BARE_BODY_FENCE_OPENS: %d" % bare_opens, flush=True)
+print("BARE_BODY_FENCE_CLOSES: %d" % bare_closes, flush=True)
 print("STAGED_MATCHES_ISSUE_REGION: %s"
       % ("yes" if strip_markers(staged).strip() and strip_markers(staged).strip()
          == strip_markers(region).strip() else "no"), flush=True)
