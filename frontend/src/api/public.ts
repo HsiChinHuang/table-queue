@@ -19,6 +19,12 @@ export interface JoinWaitlistRequest {
   name?: string;
 }
 
+// JoinResult includes status_token and status_url from backend 201 response
+export interface JoinResult extends WaitlistEntry {
+  status_token: string;
+  status_url: string;
+}
+
 export interface WaitlistEntry {
   id: string;
   queue_number: string;
@@ -38,6 +44,9 @@ export interface BoardResponse {
   waiting_count: number;
 }
 
+// Factor type for ownership verification - either token or phone_last3
+export type OwnershipFactor = { token: string } | { phone_last3: string };
+
 // AC-6: getPublicBranch endpoint
 export async function getPublicBranch(branchId: string): Promise<PublicBranch> {
   const result = await get<PublicBranch>(`/public/branches/${branchId}`);
@@ -56,13 +65,19 @@ export async function joinWaitlist(branchId: number, request: JoinWaitlistReques
   return result!;
 }
 
-// AC-6: getStatus endpoint
-export async function getStatus(queueNumber: string): Promise<WaitlistEntry | null> {
-  return get<WaitlistEntry>(`/waitlist/${queueNumber}`);
+// AC-6: getStatus endpoint with ownership factor
+export async function getStatus(queueNumber: string, factor: OwnershipFactor): Promise<WaitlistEntry | null> {
+  const params: Record<string, string> = 'token' in factor 
+    ? { token: factor.token }
+    : { phone_last3: factor.phone_last3 };
+  return get<WaitlistEntry>(`/waitlist/${queueNumber}`, undefined, params);
 }
 
-// AC-6: cancelWaitlist endpoint
-export async function cancelWaitlist(queueNumber: string): Promise<{ success: boolean }> {
-  const result = await post<{ success: boolean }>(`/waitlist/${queueNumber}/cancel`);
+// AC-6: cancelWaitlist endpoint with ownership factor
+export async function cancelWaitlist(queueNumber: string, factor: OwnershipFactor): Promise<{ success: boolean }> {
+  const body: Record<string, string> = 'token' in factor 
+    ? { token: factor.token }
+    : { phone_last3: factor.phone_last3 };
+  const result = await post<{ success: boolean }>(`/waitlist/${queueNumber}/cancel`, body);
   return result!;
 }

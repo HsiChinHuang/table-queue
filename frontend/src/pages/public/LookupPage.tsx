@@ -53,7 +53,7 @@ const LookupPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const result = await getStatus(normalizedQueueNumber);
+      const result = await getStatus(normalizedQueueNumber, { phone_last3: statusToken });
 
       if (!result) {
         // AC-6: Failure message for not found
