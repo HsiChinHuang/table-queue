@@ -27,10 +27,20 @@ LOG_PATH = os.environ.get('LOG_PATH', '/tmp/tq-walk.log')
 API_BASE = FRONTEND_URL + '/api/v1'
 
 # Test data - unique phone per run to avoid 409 WAITLIST_DUPLICATE_PHONE
+# Track used phones to ensure S12 duplicate-phone step works correctly
+_used_phones = set()
+
 def unique_phone():
-    """Generate a unique Taiwan mobile number."""
-    suffix = str(uuid.uuid4())[:8].replace('-', '')
-    return f"0900-000-{suffix[-3:]}"
+    """Generate a unique Taiwan mobile number (09 + 8 digits)."""
+    while True:
+        # Generate 8 random digits
+        suffix = str(uuid.uuid4().int)[:8]  # uuid4().int gives a large int, take first 8 chars
+        # Ensure it's exactly 8 digits (pad with zeros if needed)
+        suffix = suffix.zfill(8)[-8:]  # Take last 8 chars to ensure 8 digits
+        phone = f"09{suffix}"
+        if phone not in _used_phones:
+            _used_phones.add(phone)
+            return phone
 
 def log(msg):
     """Write log message."""
@@ -184,6 +194,7 @@ def main():
         if resp.status_code == 201:
             data = resp.json()
             qn2 = data.get('queue_number')
+            token2 = data.get('status_token')  # Store for S8/S9
             # Cancel without factor
             resp2 = requests.post(f"{API_BASE}/waitlist/{qn2}/cancel", json={}, timeout=10)
             s5_pass = assert_step("S5", resp2.status_code == 422,
@@ -262,6 +273,8 @@ def main():
         if resp.status_code == 201:
             data = resp.json()
             entry_id = data.get('id')
+            queue_number = data.get('queue_number')  # Update for S9
+            status_token = data.get('status_token')  # Update for S9
             if entry_id and staff_jwt:
                 resp2 = requests.post(f"{API_BASE}/staff/waitlist/{entry_id}/call",
                                       headers={"Authorization": f"Bearer {staff_jwt}"}, timeout=10)
@@ -282,44 +295,19 @@ def main():
     
     # S9: Status After Call
     # GET /api/v1/waitlist/{queue_number}?token={status_token} -> 200, status is CALLED
-    # Use the queue_number from S8's entry
-    if entry_id and staff_jwt:
-        # First get the entry to find its queue_number
+    # Use the queue_number and status_token from S1 join response
+    if queue_number and status_token and staff_jwt:
         try:
-            resp = requests.get(f"{API_BASE}/staff/waitlist",
-                                headers={"Authorization": f"Bearer {staff_jwt}"}, timeout=10)
+            resp = requests.get(f"{API_BASE}/waitlist/{queue_number}",
+                                params={"token": status_token}, timeout=10)
             if resp.status_code == 200:
                 data = resp.json()
-                items = data.get('items', [])
-                # Find our entry
-                my_entry = None
-                for item in items:
-                    if item.get('id') == entry_id:
-                        my_entry = item
-                        break
-                if my_entry:
-                    qn = my_entry.get('queue_number')
-                    # Get status - but we need the token, which we don't have for this entry
-                    # Use phone_last3 instead
-                    phone = my_entry.get('phone', '')
-                    phone_last3 = phone[-3:] if len(phone) >= 3 else ''
-                    if qn and phone_last3:
-                        resp2 = requests.get(f"{API_BASE}/waitlist/{qn}", 
-                                            params={"phone_last3": phone_last3}, timeout=10)
-                        if resp2.status_code == 200:
-                            data2 = resp2.json()
-                            is_called = data2.get('status') == 'CALLED'
-                            has_remaining = 'remaining_seconds' in data2
-                            s9_pass = assert_step("S9", is_called and has_remaining,
-                                                  details=f"status={data2.get('status')}" if not is_called else "")
-                        else:
-                            s9_pass = assert_step("S9", False, details=f"got {resp2.status_code}")
-                    else:
-                        s9_pass = assert_step("S9", False, details=f"no qn or phone_last3")
-                else:
-                    s9_pass = assert_step("S9", False, details="entry not found")
+                is_called = data.get('status') == 'CALLED'
+                has_remaining = 'remaining_seconds' in data
+                s9_pass = assert_step("S9", is_called and has_remaining,
+                                      details=f"status={data.get('status')}" if not is_called else "")
             else:
-                s9_pass = assert_step("S9", False, details=f"waitlist got {resp.status_code}")
+                s9_pass = assert_step("S9", False, details=f"got {resp.status_code}")
         except Exception as e:
             log(f"  Error: {e}")
             s9_pass = assert_step("S9", False, details=str(e))
@@ -327,7 +315,7 @@ def main():
         if not s9_pass:
             all_pass = False
     else:
-        log("  SKIPPED (no entry_id or jwt)")
+        log("  SKIPPED (no queue_number, status_token, or jwt)")
         results.append(("S9", False))
         all_pass = False
     
@@ -351,7 +339,8 @@ def main():
                     table_id = available.get('id')
                     if entry_id and table_id:
                         resp2 = requests.post(f"{API_BASE}/staff/waitlist/{entry_id}/seat",
-                                              json={"table_id": table_id}, timeout=10)
+                                              json={"table_id": table_id}, 
+                                              headers={"Authorization": f"Bearer {staff_jwt}"}, timeout=10)
                         s10_pass = assert_step("S10", resp2.status_code == 200,
                                                details=f"got {resp2.status_code}" if resp2.status_code != 200 else "")
                     else:
