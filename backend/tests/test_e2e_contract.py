@@ -36,8 +36,9 @@ def client():
 @pytest.fixture
 def db_session():
     """Provide a fresh database session with schema created."""
-    from app import database
     from sqlalchemy.orm import Session
+
+    from app import database
 
     # Create all tables
     database.Base.metadata.create_all(bind=database.engine)
@@ -72,7 +73,6 @@ def test_e2e_join_and_board(client, db_session):
     assert "queue_number" in join_data
     assert "status" in join_data
     assert join_data["status"] == "WAITING"
-    queue_number = join_data["queue_number"]
 
     # Board should show the waiting count
     board_response = client.get("/api/v1/public/branches/1/board")
@@ -97,8 +97,8 @@ def test_e2e_full_flow(client, db_session):
     Note: Status endpoint requires ownership factor (T34 scope) - skipped here.
     Note: Seat/release require table setup - tested separately.
     """
-    # Setup: seed a branch and settings
-    branch = seed_branch(db_session, branch_id=1, is_open=True)
+    # Setup: seed a branch and settings (seed_branch mutates the session)
+    seed_branch(db_session, branch_id=1, is_open=True)
     db_session.commit()
 
     # Step 1: Guest joins waitlist
@@ -123,7 +123,7 @@ def test_e2e_full_flow(client, db_session):
     login_data = login_response.json()
     assert "access_token" in login_data, "Login response missing access_token"
     access_token = login_data["access_token"]
-    assert login_data["token_type"] == "bearer"
+    assert login_data["token_type"] == "bearer"  # noqa: S105  # contract literal, not a credential
 
     # Step 3: Staff calls next party (requires auth)
     # Note: call endpoint is POST /api/v1/staff/waitlist/{entry_id}/call
@@ -185,7 +185,7 @@ def test_e2e_login_response_shape(client, db_session):
     assert "access_token" in login_data, "Login response must have access_token"
     assert "expires_in" in login_data, "Login response must have expires_in"
     assert "token_type" in login_data, "Login response must have token_type"
-    assert login_data["token_type"] == "bearer"
+    assert login_data["token_type"] == "bearer"  # noqa: S105  # contract literal, not a credential
     assert isinstance(login_data["expires_in"], int), "expires_in must be seconds count"
 
 
@@ -213,4 +213,6 @@ def test_e2e_cancel_endpoint(client, db_session):
     cancel_response = client.post(f"/api/v1/waitlist/{queue_number}/cancel")
     # Cancel may require auth/token - just verify the endpoint exists
     # and returns a structured response (200 or 4xx with error)
-    assert cancel_response.status_code in (200, 201, 401, 403, 422), f"Unexpected cancel status: {cancel_response.status_code}"
+    assert cancel_response.status_code in (200, 201, 401, 403, 422), (
+        f"Unexpected cancel status: {cancel_response.status_code}"
+    )
