@@ -1,11 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-interface StaffStore {
+export interface StaffStore {
   token: string | null;
   soundEnabled: boolean;
   setToken: (token: string | null) => void;
   logout: () => void;
+  /** Alias of `logout` - the name `StaffLayout`'s destructure and `client.ts` call. */
+  clearToken: () => void;
   setSoundEnabled: (enabled: boolean) => void;
 }
 
@@ -16,6 +18,7 @@ export const staffStore = create<StaffStore>()(
       soundEnabled: true,
       setToken: (token) => set({ token }),
       logout: () => set({ token: null }),
+      clearToken: () => set({ token: null }),
       setSoundEnabled: (enabled) => set({ soundEnabled: enabled }),
     }),
     {
