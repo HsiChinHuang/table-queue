@@ -1,5 +1,5 @@
 // App shell - mounted by src/main.tsx as the main entry of the SPA.
-import { RouterProvider, createBrowserRouter } from 'react-router-dom';
+import { RouterProvider, createBrowserRouter, createMemoryRouter } from 'react-router-dom';
 import PublicLayout from '@/layouts/PublicLayout';
 import StaffLayout from '@/layouts/StaffLayout';
 import NotFoundPage from '@/pages/NotFoundPage';
@@ -24,7 +24,7 @@ const ADMIN_SETTINGS = '/admin/settings';
 
 
 
-const router = createBrowserRouter([
+const routeTable = [
   {
     path: '/',
     element: <PublicLayout />,
@@ -49,7 +49,17 @@ const router = createBrowserRouter([
     path: '*',
     element: <NotFoundPage />,
   },
-]);
+];
+
+// Factory for tests: createMemoryRouter when initialRoute given, else createBrowserRouter
+export function createAppRouter(initialRoute?: string) {
+  if (initialRoute) {
+    return createMemoryRouter(routeTable, { initialEntries: [initialRoute] });
+  }
+  return createBrowserRouter(routeTable);
+}
+
+const router = createAppRouter();
 
 function App() {
   return <RouterProvider router={router} />;
