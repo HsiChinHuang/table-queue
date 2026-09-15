@@ -39,7 +39,7 @@ function useStatus(token: string): StatusView {
     const MINUTES_PER_GROUP = 5; // mock estimate until settings land in Phase 2
     const branchId = Number(import.meta.env.VITE_BRANCH_ID || 1);
     const load = () => {
-      void Promise.all([getStatus(token), getBoard(branchId)]).then(
+      void Promise.all([getStatus(queueNumber, { token }), getBoard(branchId)]).then(
         ([entry, board]) => {
           if (!alive || !entry) return;
           const waiting = board.waiting_count;
@@ -66,7 +66,7 @@ function useStatus(token: string): StatusView {
       window.clearInterval(refetchInterval);
       window.removeEventListener('focus', refetchOnWindowFocus);
     };
-  }, [token]);
+  }, [queueNumber, token]);
 
   return view;
 }
@@ -108,7 +108,7 @@ const StatusPage: React.FC = () => {
   const { status, queueNumber, groupsAhead, estimatedWait, remainingSeconds } = useStatus(token);
 
   const handleCancel = () => {
-    void cancelWaitlist(queueNumber);
+    void cancelWaitlist(queueNumber, { token });
   };
 
   // AC-7: vibrate when the party is called.

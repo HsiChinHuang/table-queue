@@ -8,7 +8,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Users, Clock, AlertCircle } from 'lucide-react';
 
 import { usePublicBranch } from '@/api/hooks';
-import { joinWaitlist, JoinWaitlistRequest } from '@/api/public';
+import { joinWaitlist, JoinResult } from '@/api/public';
 import { ApiError } from '@/api/errors';
 import { ROUTES } from '@/routes';
 import { Button } from '@/components/ui/Button';
@@ -131,20 +131,21 @@ const JoinPage: React.FC = () => {
 
   const onSubmit = async (data: JoinFormData) => {
     try {
-      const request: JoinWaitlistRequest = {
+      const request = {
         phone: data.phone,
         party_size: data.partySize,
         name: data.name,
       };
 
-      const result = await joinWaitlist(branchIdNum, request);
+      const result = await joinWaitlist(branchIdNum, request) as JoinResult;
       
       // Clear form
       queryClient.invalidateQueries({ queryKey: ['publicBranch'] });
 
-      // Navigate to status page with queue number
-      if (result && result.queue_number) {
-        navigate(`${ROUTES.STATUS.replace(':queueNumber', result.queue_number)}?token=${result.id}`);
+      // Navigate to status page using the REAL status_url from backend response
+      if (result && result.status_url) {
+        // status_url is like /status/A012?token=xxxx - navigate to it directly
+        navigate(result.status_url);
       }
     } catch (err) {
       if (err instanceof ApiError) {

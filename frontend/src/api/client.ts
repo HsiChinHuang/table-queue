@@ -112,8 +112,13 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 }
 
 // HTTP method wrappers
-export async function get<T>(path: string, headers?: Record<string, string>): Promise<T | null> {
-  return request<T>(path, { method: 'GET', headers });
+export async function get<T>(path: string, headers?: Record<string, string>, params?: Record<string, string>): Promise<T | null> {
+  let fullPath = path;
+  if (params && Object.keys(params).length > 0) {
+    const searchParams = new URLSearchParams(params);
+    fullPath = `${path}?${searchParams.toString()}`;
+  }
+  return request<T>(fullPath, { method: 'GET', headers });
 }
 
 export async function post<T>(path: string, body?: unknown, headers?: Record<string, string>): Promise<T | null> {
