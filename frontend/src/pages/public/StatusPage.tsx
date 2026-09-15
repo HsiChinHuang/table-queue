@@ -4,7 +4,7 @@
  * countdown mm:ss for CALLED, sound/vibration handling, Join Again for CANCELLED.
  */
 import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useParams } from 'react-router-dom';
 import { StatusBadge } from '@/components/StatusBadge';
 import Countdown from '@/components/Countdown';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -24,10 +24,10 @@ interface StatusView {
  * Fetch status for the token in the query string and poll every 5s
  * (refetchInterval: 5000, refetchOnWindowFocus: true).
  */
-function useStatus(token: string): StatusView {
+function useStatus(queueNumber: string, token: string): StatusView {
   const [view, setView] = useState<StatusView>({
     status: 'WAITING',
-    queueNumber: token,
+    queueNumber: queueNumber,
     groupsAhead: 0,
     estimatedWait: 0,
     remainingSeconds: 0,
@@ -80,12 +80,13 @@ export function formatCountdown(seconds: number): string {
 
 const StatusPage: React.FC = () => {
   const [searchParams] = useSearchParams();
+  const { queueNumber } = useParams<{ queueNumber: string }>();
   const token = searchParams.get('token') ?? '';
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   // AC-1: without a token query param the guest enters their last 3 digits.
-  if (!token) {
+  if (!token || !queueNumber) {
     return (
       <div className="max-w-lg mx-auto p-4">
         <h2 className="text-xl font-bold mb-2">Enter last 3 digits of your queue number</h2>
@@ -105,7 +106,7 @@ const StatusPage: React.FC = () => {
     );
   }
 
-  const { status, queueNumber, groupsAhead, estimatedWait, remainingSeconds } = useStatus(token);
+  const { status, queueNumber: displayedQueueNumber, groupsAhead, estimatedWait, remainingSeconds } = useStatus(queueNumber, token);
 
   const handleCancel = () => {
     void cancelWaitlist(queueNumber, { token });
@@ -120,7 +121,7 @@ const StatusPage: React.FC = () => {
 
   return (
     <div className="max-w-lg mx-auto p-4">
-      <div className="text-5xl font-bold mb-4">{queueNumber}</div>
+      <div className="text-5xl font-bold mb-4">{displayedQueueNumber}</div>
       <StatusBadge status={status} size="lg" className="mb-4" />
       <div className="mb-2">{groupsAhead} groups ahead</div>
       <div className="mb-2">Estimated wait: {estimatedWait} min</div>

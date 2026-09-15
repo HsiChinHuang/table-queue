@@ -116,15 +116,9 @@ vi.mock('@/api/hooks', () => ({
 
 function createWrapper() {
   const queryClient = new QueryClient({
-    logger: {
-      log: () => {},
-      warn: () => {},
-      error: () => {},
-    },
     defaultOptions: {
       queries: {
         retry: false,
-        suspense: false,
       },
     },
   });
