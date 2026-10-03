@@ -76,7 +76,7 @@ Work order is topological: every issue appears after all of its `depends`.
 | T17 | Frontend client lifecycle: expires_at honoured, router-driven redirect, shared-U | [] | #72 | backlog |
 | T18 | Response-envelope compliance: contract error envelope on every non-2xx, includin | [] | #73 | backlog |
 | T19 | Store contention is a contract outcome: busy/locked maps to a retryable code, WA | [] | #74 | backlog |
-| T20 | ENV fail-open: ENV must be explicit; development-mode reset and SQL echo must no | [] | #75 | backlog |
+| T20 | ENV fail-open: ENV must be explicit; development-mode reset and SQL echo must no | [] | #75 | closed |
 | T21 | Log hygiene: no PII or tracebacks to stdout, no credentials in query strings, sp | [] | #76 | backlog |
 | T22 | eslint flat config for eslint 9: author it, get the codebase lint-clean, retire  | [] | #77 | backlog |
 | T23 | Rate limiter actually applies to API routes, honours proxy trust, covers change- | [] | #78 | backlog |
