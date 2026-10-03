@@ -70,7 +70,7 @@ def run(target):
            if ln.startswith(("ENVIRONMENT:", "BOOT", "RESOLVED_ENV:", "ECHO:", "MAIN_ECHO:"))]
     if not obs:
         obs = ["NO VERDICT LINE: " + (res.stderr.strip().splitlines() or [""])[-1][:120]]
-    print("ARM %s " + V + " %s" % (target, " ; ".join(obs)), flush=True)
+    print(("ARM %s " + V + " %s") % (target, " ; ".join(obs)), flush=True)
     if db.exists():
         db.unlink()
 

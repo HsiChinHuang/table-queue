@@ -39,7 +39,11 @@ engine = create_engine(
     settings.database_url,
     connect_args={"check_same_thread": False, "timeout": 30},
     poolclass=NullPool,
-    echo=settings.env == "development",
+    # D-3 (audit A-3): echo answers its OWN flag, never the environment label. The label used
+    # to decide this, so a process that simply never named an environment resolved to the
+    # permissive default and printed every bound parameter - guest names and phone numbers
+    # included - to the process log.
+    echo=settings.sql_echo,
 )
 
 # Create session factory

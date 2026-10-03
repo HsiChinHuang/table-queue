@@ -32,7 +32,10 @@ def get_engine():
     return create_engine(
         settings.database_url,
         connect_args={"check_same_thread": False},
-        echo=settings.env == "development",
+        # D-3: the seeder's engine is the second of the two echo sites and the one the audit
+        # actually reproduced (a reset prints its own bound parameters). Same rule: the flag
+        # decides, not the label.
+        echo=settings.sql_echo,
     )
 
 

@@ -9,10 +9,10 @@ Four checks per block, all of which this file's history has already paid for:
   fence-safe  no staged line carries a backtick, single or triple, because a block body sits inside
               a bash fence and one backtick makes the whole block unparseable;
   bash -n     the emitted body parses as shell, so a quoting bug fails here rather than at run time
-              (bash -n catches what a successful `bash file` run hides: an error inside a single-
+              (bash -n catches what a successful 'bash file' run hides: an error inside a single-
               quoted printf argument never reaches the parser, so the staged python can be corrupt
               while the block reports a clean run);
-  manifest    the head's `- Probes:` items name exactly the two sources the block stages, because
+  manifest    the head's '- Probes:' items name exactly the two sources the block stages, because
               that is the only place a block states its own provenance and replay_block.py refuses
               on it.
 
