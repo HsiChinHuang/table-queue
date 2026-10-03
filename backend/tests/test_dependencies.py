@@ -156,23 +156,30 @@ def test_get_current_staff_cases():
         ("wrong secret", {"Authorization": f"Bearer {wrong_secret_token}"}, 401),
         ("valid", {"Authorization": f"Bearer {valid_token}"}, 200),
     ]
-    for index, (label, headers, want_status) in enumerate(cases):
-        # /health has no auth dependency: it must answer regardless of headers.
-        response = client.get("/health", headers=headers)
-        assert response.status_code == 200
+    # The probe routes are this test's, not the application's: remember where the route table ends
+    # and cut everything past that on the way out (B-17 AC-7 - hand every piece of state back), so
+    # a module that runs later cannot see routes the live application does not declare.
+    routes_before = len(main_app.router.routes)
+    try:
+        for index, (label, headers, want_status) in enumerate(cases):
+            # /health has no auth dependency: it must answer regardless of headers.
+            response = client.get("/health", headers=headers)
+            assert response.status_code == 200
 
-        path = f"/dep_{index}_{label.replace(' ', '_')}"
+            path = f"/dep_{index}_{label.replace(' ', '_')}"
 
-        @main_app.get(path)
-        def dep_route(staff: Annotated[dict, Depends(get_current_staff)]):
-            return staff
+            @main_app.get(path)
+            def dep_route(staff: Annotated[dict, Depends(get_current_staff)]):
+                return staff
 
-        resp = client.get(path, headers=headers)
-        assert resp.status_code == want_status, (label, resp.text)
-        if want_status == 401:
-            assert resp.json()["error"]["code"] == "AUTH_TOKEN_EXPIRED"
-        else:
-            assert resp.json()["sub"] == "staff"
+            resp = client.get(path, headers=headers)
+            assert resp.status_code == want_status, (label, resp.text)
+            if want_status == 401:
+                assert resp.json()["error"]["code"] == "AUTH_TOKEN_EXPIRED"
+            else:
+                assert resp.json()["sub"] == "staff"
+    finally:
+        del main_app.router.routes[routes_before:]
 
 
 def test_get_db_generator(monkeypatch):

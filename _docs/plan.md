@@ -593,7 +593,7 @@ Legend:
 - **Deps**: B-02, B-03, B-04
 - **Goal**: Implement `POST /api/v1/auth/login` and `POST /api/v1/auth/change-pin`.
 - **Acceptance criteria**:
-  - [ ] Login validates PIN against `Settings.staff_pin_hash`, fallback to `STAFF_PIN`
+  - [ ] Login validates PIN against `Settings.staff_pin_hash`, fallback to `STAFF_PIN` — superseded by T9 (D-1): the `STAFF_PIN` login fallback is removed; an unconfigured or empty `staff_pin_hash` fails closed with 401, and `STAFF_PIN` only seeds the initial hash at first bootstrap
   - [ ] Returns JWT with `sub=staff`, `role=staff`, `iat`, `exp`
   - [ ] Rate limit: 5/minute per IP
   - [ ] Change PIN validates current, new, confirm; new ≠ current
@@ -3098,7 +3098,7 @@ Implement `POST /api/v1/auth/login` and `POST /api/v1/auth/change-pin`.
 - Specs: `_docs/specs.md#3-roles-and-permissions`
 
 ## Acceptance criteria
-- [ ] `POST /api/v1/auth/login` validates PIN against `Settings.staff_pin_hash`, fallback to `STAFF_PIN`
+- [ ] `POST /api/v1/auth/login` validates PIN against `Settings.staff_pin_hash`, fallback to `STAFF_PIN` — superseded by T9 (D-1): the `STAFF_PIN` login fallback is removed; an unconfigured or empty `staff_pin_hash` fails closed with 401, and `STAFF_PIN` only seeds the initial hash at first bootstrap
 - [ ] Returns JWT with `sub=staff`, `role=staff`, `iat`, `exp`
 - [ ] `expires_in` in seconds
 - [ ] Rate limit: 5/minute per IP
