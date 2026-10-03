@@ -48,17 +48,16 @@ EXPECTED_BLOCK_PAYLOADS = {
 }
 
 EXPECTED_BLOCK_PAYLOADS = {
-    "AC-1": (2, "67e0e3381b69456f"),
-    "AC-2": (2, "e59a6dd34741276a"),
-    "AC-3": (2, "6a078c71d52785b4"),
-    "AC-4": (2, "f474413c3cc04f99"),
-    "AC-5": (2, "c1c7396b3c7ce8d1"),
-    "AC-9": (2, SELF_REFERENTIAL),  # unpinned: this block stages probe9.py, the file holding this
-                                   # table; see AC-9's own PASS line and record_t20_digests.py
+    "AC-1": (2, "922b9c4d2daf51e1"),
+    "AC-2": (2, "10c662682fb85a8f"),
+    "AC-3": (2, "9be88094190c767a"),
+    "AC-4": (2, "570e9796b23ba639"),
+    "AC-5": (2, "82e2f2bd0981f8a9"),
+    "AC-9": (2, SELF_REFERENTIAL),  # unpinned: this block stages probe9.py, the file holding this table; see AC-9's own PASS line
     "AC-10": (2, "a48510729863aac3"),
     "AC-11": (2, "b6306ba6ac4d9f5f"),
     "AC-12": (2, "abd2a82252bba924"),
-    "AC-13": (2, "066ae4f9dfbf1131"),
+    "AC-13": (2, "6be4ac46e4fd2571"),
 }
 
 EXPECTED_SOURCE_DIGESTS = {
@@ -75,15 +74,15 @@ EXPECTED_SOURCE_DIGESTS = {
     "clauses6.py": "ce1c84af84fe44a1",
     "clauses7.py": "c087848343339deb",
     "clauses9.py": "1cad8a2a84a06f11",
-    "probe1.py": "1fa604748002c364",
+    "probe1.py": "db9df57ddc829b4d",
     "probe10.py": "e58b05d165376e5a",
     "probe11.py": "c42e5943e58ea706",
     "probe12.py": "975f73156009d5ff",
-    "probe13.py": "dc7928582dbdb2d5",
-    "probe2.py": "8dc61c3c6d6407fb",
-    "probe3.py": "8420962383c3a6c4",
-    "probe4.py": "760a1bdb86da397a",
-    "probe5.py": "952b9f4257f195c1",
+    "probe13.py": "1ae54a0eec7b5441",
+    "probe2.py": "603358c485b1f33a",
+    "probe3.py": "9c2eda85e0ea22b8",
+    "probe4.py": "e204f6cb5cad1a64",
+    "probe5.py": "895cbc31f3fc438c",
     "probe6.py": "b1a0d745840c68bd",
     "probe7.py": "8a785818950f5b3c",
 }

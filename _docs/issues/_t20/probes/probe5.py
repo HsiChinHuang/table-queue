@@ -67,7 +67,8 @@ def run(name, extra):
     paths = [ln for ln in res.stdout.splitlines() if ln.startswith("DB_FILE:")]
     if paths:
         obs.append(paths[0])
-    print("ARM %s " + V + " %s" % (name, " ; ".join(obs) if obs else "NO VERDICT LINE"), flush=True)
+    print(("ARM %s " + V + " %s") % (name, " ; ".join(obs) if obs else "NO VERDICT LINE"),
+          flush=True)
 
 
 def truthy(v):

@@ -235,9 +235,10 @@ PRELUDES = {12: [
 # delimiters, and the probe reads that file back. The markers are built at runtime from BEGIN_MARK
 # / END_MARK rather than spelled into a quoted string, because the marker sentence contains the
 # word "here" that the sed address searches for and a hand-copied literal is one rename away from
-# a block that silently extracts nothing. The extracted file is then written where the staged probe
-# normally sits, so `probe.py` IS the block under review - the probe reads its own bytes, and the
-# one copy of the text being certified is the copy bash is executing.
+# a block that silently extracts nothing. The extracted region stays in its scratch file rather than
+# overwriting the staged probe with itself: the region is bash and the probe is python, so one file
+# can only be one of the two, and the probe reads the region back from the scratch file. The one
+# copy of the text being certified is still the copy bash was executing when the block cut it.
 # The two marker words are located by plain substring search, and the reason is recorded at length in
 # assert_marker_words_reachable_without_a_line_anchor(): the script bash executes is the block body with
 # its marker sentences consumed and its indent removed, so nothing that anchors a search to a line
@@ -250,11 +251,11 @@ SELF_EXTRACT = {13: [
     # awkward, and both are handled here rather than wished away.
     #
     # (1) The extractor is python, not sed. The region is bracketed by two prose sentences and the
-    # delimiters, and the probe reads that file back. The markers are built at runtime rather than
-    # spelled, because a hand-copied literal is one rename away from a block that silently extracts
-    # nothing. The extracted file is then written where the staged probe normally sits, so probe.py IS
-    # the block under review - the probe reads its own bytes, and the one copy of the text being
-    # certified is the copy bash is executing.
+    # delimiters, and the probe reads the region back from the scratch file it was cut into. The
+    # markers are built at runtime rather than spelled, because a hand-copied literal is one rename
+    # away from a block that silently extracts nothing. The region is the block's own stage steps -
+    # bash, not python - so it stays in block13.txt for the probe to review, and probe.py keeps the
+    # probe source the block staged it with.
     #
     # (2) The running script carries no brackets, so they are put back before the cut rather than
     # stripped after it. `replay_block.extract` de-indents a block body and consumes the two marker
@@ -272,12 +273,12 @@ SELF_EXTRACT = {13: [
     'echo \'mark = re.compile("^" + re.escape(head), re.M)\' >> "$TMPDIR/extract13.py"',
     'echo \'marks = [m.start() for m in mark.finditer(src)]\' >> "$TMPDIR/extract13.py"',
     'echo \'word = "beg" + "in "\' >> "$TMPDIR/extract13.py"',
-    'echo \'begs = [k for k in marks if src[k + off:k + off + 7] == word]\' >> "$TMPDIR/extract13.py"',
-    'echo \'ends = [k for k in marks if src[k + off:k + off + 5] == "end " and k]\' >> "$TMPDIR/extract13.py"',
+    'echo \'begs = [k for k in marks if src[k + off:k + off + 6] == word]\' >> "$TMPDIR/extract13.py"',
+    'echo \'ends = [k for k in marks if src[k + off:k + off + 4] == "end " and k]\' >> "$TMPDIR/extract13.py"',
     'echo \'region = ""\' >> "$TMPDIR/extract13.py"',
     'echo \'if begs and ends and ends[-1] > begs[0]:\' >> "$TMPDIR/extract13.py"',
     'echo \'    w = src.index(word, begs[0])\' >> "$TMPDIR/extract13.py"',
-    'echo \'    nl = src.find(chr(10), src.index(":", w))\' >> "$TMPDIR/extract13.py"',
+    'echo \'    nl = src.find(chr(10), w)\' >> "$TMPDIR/extract13.py"',
     'echo \'    region = src[nl + 1:src.rfind(chr(10), 0, ends[-1])] if nl != -1 else ""\' >> "$TMPDIR/extract13.py"',
     'echo \'open(sys.argv[2], "w").write(region)\' >> "$TMPDIR/extract13.py"',
     'echo \'print("SELF_EXTRACTED_BYTES: %d" % len(region))\' >> "$TMPDIR/extract13.py"',
@@ -310,7 +311,6 @@ SELF_EXTRACT = {13: [
     'echo \'open(sys.argv[4], "w").write(text)\' >> "$TMPDIR/wrap13.py"',
     'backend/.venv/bin/python "$TMPDIR/wrap13.py" "$TMPDIR/script13.txt" "$T20_MARK_BEGIN" "$T20_MARK_END" "$TMPDIR/bracketed13.txt"',
     'backend/.venv/bin/python "$TMPDIR/extract13.py" "$TMPDIR/bracketed13.txt" "$TMPDIR/block13.txt"',
-    'cp "$TMPDIR/block13.txt" "$TMPDIR/probe.py"',
 ]}
 
 

@@ -242,3 +242,95 @@ is what makes the remaining three closures checkable.
    (`staged_block_is_the_issue_block`, `checker_reports_no_fail`) are consequences of closure 2, not
    separate work: `ISSUE_REGION_BYTES: 0` is the de-indent problem the shipped wrap addresses, and the
    checker reports 2 FAIL lines because of `payload_ac-13` plus the fence clause.
+
+## Round 4: the three closures landed and measured
+
+The three closures above, landed in one commit together with the digest table, and measured one block at
+a time in the same environment (ENV deliberately unset; `replay_block.py <n>` from the repo root; `rc`
+diagnostic).
+
+### 1. AC-1..5 ARM crash: the concatenation, parenthesized at the five crash sites
+
+The crash is exactly what the root-cause-1 arithmetic predicted: `+` binds tighter than `%`, so
+`"ARM %s " + V + " %s" % (tuple)` formats the short assembled string and dies on the surplus argument.
+The closure is the minimal operator fix at the five sites that execute (probe1.py:58, probe2.py:115,
+probe3.py:64, probe4.py:73, probe5.py:70):
+
+    before  print("ARM %s " + V + " %s" % (name, ...), flush=True)
+    after   print(("ARM %s " + V + " %s") % (name, ...), flush=True)
+
+The staged bytes change (the parentheses are inside the staged probe text), so the five blocks were
+regenerated with the committed builder and the payload table re-recorded with the committed recorder in
+this same commit - the single owning commit the Residual section required, with the clause named in the
+message. The sibling prints the round-2 section cites are already parenthesized in this tree
+(probe11.py:99, probe12.py:196, since the r2 salvage 6d0d693), and the remaining concatenations are
+one-placeholder-per-argument forms that do not crash: probe12.py:161 (the "ARM NOT RUN" guard message,
+which also prints only when the mutation arm has no tree), probe13.py:243 (CHECK_DETAIL), probe5.py:109
+(three placeholders, three values), probe7.py:81/92 (dormant - no AC-7 block exists). None of them is
+touched.
+
+Measured: AC-1 6/6 clauses, AC-2 4/4, AC-3 4/4, AC-5 7/7, all with `PROVENANCE OK`; AC-4 8/8 modules
+(`_atomicity_probe.py`, `conftest.py`, `public_fixtures.py`, `test_public_board.py`,
+`test_public_waitlist.py`, `test_seed.py`, `test_staff_dashboard.py`, `test_staff_tables.py`), each
+booting under the required-ENV contract with `MAIN_ECHO: False`.
+
+### 2. AC-13 self-extraction: four machinery defects, one per clause's demand
+
+(a) **The staged step made the "probe" a bash+python concatenation.** The block's staging lines wrote
+the python probe and then `cp "$TMPDIR/block13.txt" "$TMPDIR/probe.py"` overwrote it with the bash
+region, so the file the checker imports was never valid python - no green path existed in the shipped
+design. The staged steps now keep the extracted region in `$TMPDIR/block13.txt` and probe13 reads it
+back from there (`staged_path` from `os.environ.get("TMPDIR")`); the generator's `cp` line is deleted.
+
+(b) **`fence_counts` always returned (0,0).** The scan advanced its top-level marker past fence lines,
+so no fence line survived as top-level and both counts were 0. Rewritten as a while-loop that breaks on
+the first top-level character, with backslash-escape handling inside double-quoted continuations.
+
+(c) **Word-slice off-by-one.** `find(word) + 7` / `+ 5` against words of 6 and 4 characters put the cut
+after the word's newline, so `begins`/`ends` were empty and the region was 0 bytes. Fixed in probe13 and
+in the generator's extract13 echo, so the staged text and the sources agree again.
+
+(d) **The alignment cut landed one line late.** extract13's colon-based start skipped the marker line's
+own content; both cuts (extract13 and probe13's issue-side cut) now take their bounds from the marker
+line's own newline.
+
+Measured: `PASS AC-13:` with all six clauses green - `staged_block_is_the_issue_block` (staged
+byte-identical to the issue region), `staged_fence_balanced` (document fence 1/1 with the two document
+lines spliced back), `checker_importable`, `checker_reports_no_fail` (the checker reports zero drift
+over all its lines), `machinery_committed`, `digests_pinned_non_empty` (10 payloads + 24 sources).
+
+### 3. AC-9's live table: the recorder rewrote the provenance copy
+
+`render()` searched forward for the table marker, so it rewrote the FIRST occurrence - the round-1
+provenance table - while the live binding (the second occurrence, the one python reads and the one
+clauses13's `table_slice` reads) stayed stale. It now targets the last occurrence (`rindex`), and the
+sentinel entry is compared against the checker's own constant (`producer.SELF_REFERENTIAL`) rather than
+the AC number (`SELF_REFERENTIAL = 9`), so the live entry renders as unquoted `SELF_REFERENTIAL` with
+its explanatory comment, as the recorder's docstring promises. The round-1 table stays byte-identical as
+provenance.
+
+Measured: `PASS AC-9:` - the nine pinned block payloads match, the self-referential row prints its own
+unpinned line (reached by AC-13's block-to-block check), all 24 source digests match, `no_unrecorded_block`
+and `no_unrecorded_source` green, pairing complete.
+
+## Floors, measured at this tip
+
+    replay_block 1..5, 9..13   all ten blocks print PASS AC-<n>: with PROVENANCE OK
+    backend suite, ENV unset + JWT_SECRET supplied   315 passed, 2 xfailed, 0 failed, 0 errors  (64s)
+    frontend vitest, node 22.23.3   228 passed / 27 files, 0 failed  (40s)
+    ruff check --fix .              All checks passed!
+    git status --porcelain          the round's own edits only; nothing staged
+
+The DoD floor is 292 collected on a branch with T10; the measured count is 317 (315 passed + 2 xfailed).
+The frontend count is 228 rather than the 232 measured on current main because this branch bases on
+b4a8021, which predates T9's frontend additions (19 files); the branch itself changes no frontend file
+(`git diff b4a8021..HEAD -- frontend/` is empty), so 228/27 is the base's own green state, not a
+regression.
+
+Environment note, stated plainly: the worktree's `frontend/node_modules` arrived as a broken copy - 41
+packages missing `package.json` (including vite, vitest, jsdom, typescript, rollup, eslint), further
+files missing inside packages whose manifest survived (vite-node 53 of 78 files), and `.bin` empty (0 of
+34). It was not rebuilt: `frontend/node_modules` is now a symlink onto the shared install in the main
+repo (`.gitignore:97` already expects exactly this shape for harness worktrees), and the main repo's
+`package.json`/`package-lock.json` are byte-identical to the branch's. The broken copy is preserved at
+`_t20_scratch/nm-broken` (gitignored) for inspection.

@@ -24,6 +24,7 @@ re-emits its PASS/FAIL lines so this issue's token convention is kept.
 import contextlib
 import hashlib
 import io
+import os
 import re
 import runpy
 import sys
@@ -44,10 +45,13 @@ PROBE9 = Path("_docs/issues/_t20/probes/probe9.py")
 GENERATOR = Path("_docs/issues/_t20/generate_t20_probes.py")
 RECORD = Path("_docs/issues/_t20/record_t20_digests.py")
 
-# The block under review is this file's own block: the stage steps the block copied out of the
-# running script. Reading them back from that file is what makes the comparison a measurement of
-# the issue rather than a restatement of the generator.
-staged_path = Path(__file__).resolve()
+# The block under review is this block's own stage steps: the region the block cut out of the
+# running script into its scratch file before invoking this probe. Reading it back from that
+# scratch file - not from this file, which carries the probe source, not the block - is what
+# makes the comparison a measurement of the issue rather than a restatement of the generator,
+# and it keeps the probe executable at all: the region is bash, this file is the python that
+# reviews it, and only one of the two may be valid python.
+staged_path = Path(os.environ.get("TMPDIR", "")) / "block13.txt"
 staged = staged_path.read_text(encoding="utf-8", errors="replace") if staged_path.exists() else ""
 md = ISSUE.read_text(encoding="utf-8") if ISSUE.exists() else ""
 
@@ -115,22 +119,37 @@ def fence_counts(text):
     in_single = in_double = False
     fence = chr(96) * 3
     for ln in text.split("\n"):
-        top = 0                          # index where this line stops being inside a quoted argument
-        for i, ch in enumerate(ln):
+        # The first top-level position: 0 when the line starts at the top level of the script,
+        # otherwise the index just past the quote that still had the line open when it began. A
+        # top-level fence must be the line's entire content - a line with anything else on it is
+        # not a fence line - so the scan stops at the first top-level character instead of
+        # walking the whole line, and a backslash inside a double quote escapes its neighbour.
+        top = 0
+        i = 0
+        while i < len(ln):
+            ch = ln[i]
             if in_single:
                 if ch == "'":
                     in_single = False
                     top = i + 1
+                i += 1
             elif in_double:
-                if ch == '"':
+                if ch == "\\" and i + 1 < len(ln):
+                    i += 2
+                elif ch == '"':
                     in_double = False
                     top = i + 1
+                    i += 1
+                else:
+                    i += 1
             elif ch == "'":
                 in_single = True
+                break
             elif ch == '"':
                 in_double = True
+                break
             else:
-                top = i + 1
+                break
         bare = ln[top:].strip()
         if bare == fence + "bash":
             opens += 1
@@ -163,16 +182,16 @@ if md:
     off = len(head)
     marks = [m.start() for m in re.finditer("^" + re.escape(head), md, re.M)]
     word = "beg" + "in "
-    begs = [k for k in marks if md[k + off:k + off + 7] == word]
-    ends = [k for k in marks if md[k + off:k + off + 5] == "end " and k]
+    begs = [k for k in marks if md[k + off:k + off + 6] == word]
+    ends = [k for k in marks if md[k + off:k + off + 4] == "end " and k]
     if begs and ends and ends[-1] > begs[0]:
         # The same two cuts the block's own extractor makes, made again here instead of imported: the
-        # region is the text between the opener's prose tail and the closer's own line. Deriving both
-        # bounds from the markers - colon, newline - is what lets a rewording move the region rather
-        # than cut it in half, and keeping this search independent of the generator's constants is
-        # what lets the two disagree when one of them is wrong.
+        # region is the text from the opener's own line to the closer's own line, each bound taken at
+        # the marker line's newline. Deriving both bounds from the markers' newlines is what lets a
+        # rewording move the region rather than cut it in half, and keeping this search independent of
+        # the generator's constants is what lets the two disagree when one of them is wrong.
         w = md.index(word, begs[0])
-        start = md.find("\n", md.index(":", w)) + 1
+        start = md.find("\n", w) + 1
         stop = md.rfind("\n", 0, ends[-1])
         body = md[start:stop]
         # De-indent by the region's own indent: in the document the stage steps sit inside a markdown

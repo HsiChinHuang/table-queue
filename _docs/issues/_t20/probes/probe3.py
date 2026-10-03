@@ -61,7 +61,8 @@ def arm(name, env_value):
     res = subprocess.run([sys.executable, str(CHILD_FILE)], env=env,
                          capture_output=True, text=True, timeout=120)
     obs = [ln for ln in res.stdout.splitlines() if ln.startswith(("BOOT:", "HEALTH:"))]
-    print("ARM %s " + V + " %s" % (name, " ; ".join(obs) if obs else "NO VERDICT LINE"), flush=True)
+    print(("ARM %s " + V + " %s") % (name, " ; ".join(obs) if obs else "NO VERDICT LINE"),
+          flush=True)
     if DB.exists():
         DB.unlink()
 

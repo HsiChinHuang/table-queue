@@ -55,7 +55,8 @@ def run(name, env_extra):
     res = subprocess.run([sys.executable, str(CHILD_FILE)], env=dict(env, T20DB=str(db)),
                          capture_output=True, text=True, timeout=120)
     lines = [ln for ln in res.stdout.splitlines() if ln.startswith(("BOOT:", "HEALTH:"))]
-    print("ARM %s " + V + " %s" % (name, " ; ".join(lines) if lines else "NO VERDICT LINE"), flush=True)
+    print(("ARM %s " + V + " %s") % (name, " ; ".join(lines) if lines else "NO VERDICT LINE"),
+          flush=True)
     if db.exists():
         db.unlink()
 

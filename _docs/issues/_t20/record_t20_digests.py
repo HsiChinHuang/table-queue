@@ -116,7 +116,11 @@ def render(pinned, values, srcs, producer):
         # The sentinel renders as the module constant, not a bare word: probe9.py is executed by
         # python the moment anything reads it, so an unpinned entry has to name a defined name. The
         # comment on the line says why this entry is the odd one, in the file a reviewer is reading.
-        if v == SELF_REFERENTIAL:
+        # v is the digest string the checker compares against, so the test is made against the
+        # checker's own sentinel (producer.SELF_REFERENTIAL) rather than SELF_REFERENTIAL above,
+        # which is the AC number the sentinel stands for: comparing the string to the number made the
+        # constant render unreachable and recorded the quoted round-1 shape into the live binding.
+        if v == producer.SELF_REFERENTIAL:
             return ('    "AC-%d": (%d, SELF_REFERENTIAL),  # unpinned: this block stages probe9.py,'
                     " the file holding this table; see AC-9's own PASS line\n" % (n, w))
         return '    "AC-%d": (%d, "%s"),\n' % (n, w, v)
@@ -125,7 +129,11 @@ def render(pinned, values, srcs, producer):
              "".join(entry(n, w, v) for n, (w, v) in sorted(values.items()))),
             ("EXPECTED_SOURCE_DIGESTS = {",
              "".join('    "%s": "%s",\n' % (n, d) for n, d in sorted(srcs.items())))):
-        a = s.index(marker)
+        # rindex, not index: the payload table is declared twice in the checker (the round-1 copy,
+        # then the live binding python actually reads), and the record must land on the live one.
+        # clauses13.py's table_slice reads the same last occurrence, so the recorder and the clause
+        # that audits it cannot point at different tables while both claim the other's authority.
+        a = s.rindex(marker)
         b = s.index("\n}\n", a) + 3
         s = s[:a] + marker + "\n" + payload + "}\n" + s[b:]
     return s

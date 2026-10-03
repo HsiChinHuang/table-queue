@@ -112,8 +112,9 @@ def arm(name, env_extra):
                          capture_output=True, text=True, timeout=180)
     obs = [ln for ln in res.stdout.splitlines()
            if ln.startswith(("BOOT:", "RESET:", "COUNT_"))]
-    print("ARM %s " + V + " %s" % (name, " ; ".join(obs) if obs
-                           else "NO VERDICT LINE (seed rc=%s)" % seed.returncode),
+    print(("ARM %s " + V + " %s")
+          % (name, " ; ".join(obs) if obs
+             else "NO VERDICT LINE (seed rc=%s)" % seed.returncode),
           flush=True)
 
 
