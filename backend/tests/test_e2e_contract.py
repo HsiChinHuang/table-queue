@@ -23,7 +23,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from tests._db_test_support import ensure_credential
+from tests._db_test_support import TEST_CREDENTIAL_HASH
 from tests.public_fixtures import seed_branch
 
 
@@ -44,19 +44,26 @@ def db_session():
     # Create all tables
     database.Base.metadata.create_all(bind=database.engine)
     session = Session(bind=database.engine)
-    # The store the test serves is put into the application's own bootstrapped state here, rather
-    # than being left to a TestClient lifespan: main.py binds its lifespan to the engine it
-    # imported, which is not necessarily the factory a request reads once another module has
-    # swapped the ambient engine (test_auth holds its private file for the rest of the session,
-    # by design). T9 (D-1) made the initial credential hash a precondition of login, so a store
-    # that never got the startup's INSERT answers every PIN with 401 and this module would be
-    # order-dependent. bootstrap_defaults reproduces that startup INSERT on an empty store, and
-    # ensure_credential covers the one shape it deliberately does not touch: a row an earlier
-    # module's seed left with an empty hash.
+    # The store the test serves is put into this module's own state here, rather than being left
+    # to a TestClient lifespan: main.py binds its lifespan to the engine it imported, which is
+    # not necessarily the factory a request reads once another module has swapped the ambient
+    # engine (test_auth holds its private file for the rest of the session, by design). T9 (D-1)
+    # made the initial credential hash a precondition of login, so the row this module serves
+    # must be the one it can answer, in every intra-session state the ambient store can arrive in:
+    #   * an empty store (never bootstrapped) - bootstrap_defaults reproduces the startup INSERT;
+    #   * a row an earlier seed left with an empty hash - the set below fills it;
+    #   * a row holding ANOTHER module's PIN: test_auth rotates its own private PIN and its
+    #     insert_setting leaves whichever row its last test wrote, so a store that arrives here
+    #     can carry a hash that answers to a PIN this module never submits. Only a set of the
+    #     credential this module logs in with (TEST_CREDENTIAL_HASH, the hash of the PIN below)
+    #     reaches all three shapes; reading or filling the row conditionally leaves the third one
+    #     order-dependent.
     from app.main import bootstrap_defaults
+    from app.models import Settings as SettingsModel
 
     bootstrap_defaults(session)
-    ensure_credential(session)
+    session.query(SettingsModel).first().staff_pin_hash = TEST_CREDENTIAL_HASH
+    session.commit()
     try:
         yield session
     finally:
