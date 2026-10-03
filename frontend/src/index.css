@@ -1,3 +1,51 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/*
+ * Tailwind v4 theme (T12: migrated from tailwind.config.js).
+ * Status colors from _docs/ui.md section 2 (values carried over unchanged from the
+ * v3 config so the rendered UI is identical).
+ */
+@theme {
+  /* Waitlist status colors */
+  --color-WAITING: #3B82F6;
+  --color-CALLED: #EA580C;
+  --color-SEATED: #16A34A;
+  --color-NO_SHOW: #DC2626;
+  --color-CANCELLED: #64748B;
+  --color-DONE: #166534;
+  /* Table status colors */
+  --color-AVAILABLE: #16A34A;
+  --color-OCCUPIED: #EA580C;
+  --color-CLEANING: #F59E0B;
+  /* Base tokens */
+  --color-bg-guest: #FFFBF5;
+  --color-bg-staff: #F8FAFC;
+  --color-text-primary: #1E293B;
+  --color-text-secondary: #64748B;
+  --color-border-default: #E2E8F0;
+  --color-primary: #EA580C;
+  --color-primary-hover: #C2410C;
+  /* Typography */
+  --font-sans: 'Inter', 'Noto Sans TC', sans-serif;
+  /* Border radii (same values as the v3 config extend) */
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+  /* v3-compat: v4 re-scaled the shadow scale (shadow-sm now maps to the old `shadow`);
+     pin the v3 value so the UI renders identically. */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+/*
+ * v3-compat: v4's preflight resets borders to `border: 0 solid` (color: currentColor);
+ * v3's default border color was gray-200 (#e5e7eb). Restore it for the bare `border`
+ * usages (e.g. SettingsPage table rows, StatusPage) so the UI renders identically.
+ */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: #e5e7eb;
+  }
+}
