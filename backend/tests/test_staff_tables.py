@@ -20,7 +20,6 @@ from __future__ import annotations
 import os
 import warnings
 from datetime import UTC, datetime, timedelta
-from functools import lru_cache
 from pathlib import Path
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///./_b08_test.db")
@@ -77,22 +76,15 @@ FROZEN = "2026-09-10 13:00:00"
 FROZEN_DT = datetime(2026, 9, 10, 13, 0, tzinfo=UTC)
 
 
-def _staff_token() -> str:
-    """A current staff bearer, minted by the module that owns the credential.
-
-    T9 decision D-2 puts the store's token-generation value into the HS256 key, so a bearer rebuilt
-    from ``JWT_SECRET`` alone is refused outright (AC-5) and the mint has to name the store - here
-    the file's own database, which the module fixture below binds onto
-    ``app.database.SessionLocal`` for every request in this module. It is minted per call rather
-    than at import for the same reason: the first thing that has to be true of a mint is that the
-    row it reads still exists.
-    """
-    return staff_token(role="staff")
+# The module's one staff bearer: minted by ``isolated_database`` below, on the unfrozen clock,
+# and read by ``_headers`` for every request in the module.
+_STAFF_BEARER: str | None = None
 
 
 @pytest.fixture(scope="module", autouse=True)
 def isolated_database():
     """Point ``app.database.SessionLocal`` at this file's own database, then restore it."""
+    global _STAFF_BEARER
     original = app_database.SessionLocal
     app_database.SessionLocal = sessionmaker(
         autocommit=False, autoflush=False, bind=test_engine
@@ -100,10 +92,18 @@ def isolated_database():
     Base.metadata.create_all(bind=test_engine)
     session = app_database.SessionLocal()
     _seed_branch(session)
+    # Mint the bearer here, not lazily on first request. The mint and the verifier both read
+    # ``time.time()``, and freezegun freezes it on the calling thread only - so a lazy first mint
+    # that pytest-randomly places inside one of the ``freeze_time`` blocks below would carry a
+    # horizon measured from the frozen instant and be expired by the wall-clock instant the
+    # verifier reads (round-2 QA finding). The row the mint reads exists by construction, because
+    # ``_seed_branch`` just wrote it, so minting here is safe in every intra-module order.
+    _STAFF_BEARER = staff_token(role="staff", session=session)
     session.close()
     try:
         yield
     finally:
+        _STAFF_BEARER = None
         app_database.SessionLocal = original
         Base.metadata.drop_all(bind=test_engine)
         test_engine.dispose()
@@ -192,25 +192,10 @@ def _make_entry(session, queue_number, status, table=None, seated_at=None, party
     return entry
 
 
-@lru_cache(maxsize=1)
-def _bearer_once() -> str:
-    """The module's one staff bearer, minted lazily and never inside a frozen block.
-
-    It is minted the first time a request asks for it and cached, which is both correct and
-    enough: the credential and the token-generation value the key is built from are seeded once for
-    the whole module and nothing here rotates them, so one signature serves every request.
-
-    Caching is what keeps the mint out of the four ``freeze_time`` blocks below. Those blocks freeze
-    the clock the mint and the verifier both read, and the request is served after the block has
-    closed - so a bearer minted inside one would carry a horizon measured from the frozen instant
-    and would already be expired when presented. Minting outside the block and reusing the result is
-    the simple version of the same fix, and it leaves the frozen-clock assertions untouched.
-    """
-    return _staff_token()
-
-
 def _headers():
-    return {"Authorization": "Bearer " + _bearer_once()}
+    """The module's staff bearer header; ``isolated_database`` mints the token before any test."""
+    assert _STAFF_BEARER is not None, "isolated_database must run before any request"
+    return {"Authorization": "Bearer " + _STAFF_BEARER}
 
 
 def test_list_tables_active():

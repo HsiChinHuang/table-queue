@@ -112,19 +112,26 @@ def test_rate_limit():
     limiter = main_mod.limiter
     previous_enabled = limiter.enabled
     limiter.enabled = True
-
-    @probe_app.get("/_probe")
-    @limiter.limit("1/minute")
-    async def _probe(request: Request):
-        return {"ok": True}
-
-    probe_client = TestClient(probe_app, raise_server_exceptions=False)
-    resp1 = probe_client.get("/_probe")
-    resp2 = probe_client.get("/_probe")
+    # The probe route is this test's, not the application's: remember where the shared route
+    # table ends and cut everything past that on the way out, so a module that runs later
+    # (AC-10's route walk in test_admin_reset) cannot see a route the live application does
+    # not declare.
+    routes_before = len(probe_app.router.routes)
     try:
-        assert resp1.status_code == 200
-        assert resp2.status_code == 429
-        body = resp2.json()
-        assert body["error"]["code"] == "RATE_LIMITED"
+        @probe_app.get("/_probe")
+        @limiter.limit("1/minute")
+        async def _probe(request: Request):
+            return {"ok": True}
+
+        probe_client = TestClient(probe_app, raise_server_exceptions=False)
+        resp1 = probe_client.get("/_probe")
+        resp2 = probe_client.get("/_probe")
+        try:
+            assert resp1.status_code == 200
+            assert resp2.status_code == 429
+            body = resp2.json()
+            assert body["error"]["code"] == "RATE_LIMITED"
+        finally:
+            limiter.enabled = previous_enabled
     finally:
-        limiter.enabled = previous_enabled
+        del probe_app.router.routes[routes_before:]

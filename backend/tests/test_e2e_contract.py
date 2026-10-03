@@ -23,6 +23,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from tests._db_test_support import ensure_credential
 from tests.public_fixtures import seed_branch
 
 
@@ -43,6 +44,19 @@ def db_session():
     # Create all tables
     database.Base.metadata.create_all(bind=database.engine)
     session = Session(bind=database.engine)
+    # The store the test serves is put into the application's own bootstrapped state here, rather
+    # than being left to a TestClient lifespan: main.py binds its lifespan to the engine it
+    # imported, which is not necessarily the factory a request reads once another module has
+    # swapped the ambient engine (test_auth holds its private file for the rest of the session,
+    # by design). T9 (D-1) made the initial credential hash a precondition of login, so a store
+    # that never got the startup's INSERT answers every PIN with 401 and this module would be
+    # order-dependent. bootstrap_defaults reproduces that startup INSERT on an empty store, and
+    # ensure_credential covers the one shape it deliberately does not touch: a row an earlier
+    # module's seed left with an empty hash.
+    from app.main import bootstrap_defaults
+
+    bootstrap_defaults(session)
+    ensure_credential(session)
     try:
         yield session
     finally:
