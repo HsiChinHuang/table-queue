@@ -208,6 +208,8 @@ cd backend && .venv/bin/python -m uvicorn app.main:app --reload --host 0.0.0.0
 cd frontend && npm run dev -- --host
 ```
 
+Log hygiene (T21): the backend owns its process log. No log line - access, app, or traceback - carries a phone number, name, token, PIN, or `Authorization` value, and `SQL_ECHO` never logs bound parameter values. The setup lives in `backend/app/logging_config.py` and runs at app import, so it holds for any uvicorn startup, not just the commands above.
+
 Seed
 
 ```bash

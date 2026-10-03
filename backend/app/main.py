@@ -12,6 +12,7 @@ Features added for B-04:
 from __future__ import annotations
 
 import bisect
+import logging
 import time
 import uuid
 from collections.abc import Callable
@@ -30,6 +31,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.config import get_settings
 from app.database import Base, engine
 from app.errors import register_error_handlers
+from app.logging_config import configure_logging
 from app.routers import admin as admin_router
 from app.routers import auth as auth_router
 from app.routers import public as public_router
@@ -38,6 +40,12 @@ from app.routers import staff_waitlist as staff_waitlist_router
 from app.routers.auth import INITIAL_TOKEN_GENERATION
 
 settings = get_settings()
+
+# T21: the app owns the process log (specs.md section 15, lines 593-598). This must run after
+# the ``app.database`` import above - ``create_engine(echo=True)`` attaches the echo handler at
+# engine-creation time, so the cleanup in ``configure_logging`` has to run later to win. See
+# ``app/logging_config.py`` for the full contract and the reason behind each step.
+configure_logging()
 
 # ---------------------------------------------------------------------------
 # Rate limiter - module-level so tests can import ``app.main.limiter``.
@@ -435,6 +443,56 @@ class HeadersMiddleware(BaseHTTPMiddleware):
         _add_security_headers(response)
         return response
 
+
+# ---------------------------------------------------------------------------
+# Access log (T21, audit A-14): the app owns the access line.
+# ---------------------------------------------------------------------------
+
+access_log = logging.getLogger("app.access")
+
+
+class AccessLogMiddleware:
+    """Log the access line with the query string masked out.
+
+    uvicorn's own access log prints the full request line - the status lookup's query string
+    (``?token=...&phone_last3=...``) included - so ``app.logging_config.configure_logging``
+    disables ``uvicorn.access`` and this middleware emits the line instead, with the path only:
+    no query string on any path (T21 D-2: app-level, effective for any uvicorn startup; masking
+    every path is the reading the issue licenses, and it is the one that keeps a future
+    credential-carrying path from needing its own carve-out).
+
+    Pure ASGI on purpose, not a ``BaseHTTPMiddleware``: it never copies the request, so the rate
+    limiter's ``request.state`` flag round-trips unchanged no matter where this sits in the stack
+    (see the note above the ``SlowAPIMiddleware`` registration for why that flag is load-bearing).
+    """
+
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+        status: dict[str, int] = {"code": 500}
+
+        async def send_with_status(message: Any) -> None:
+            if message.get("type") == "http.response.start":
+                status["code"] = message.get("status", 500)
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_with_status)
+        finally:
+            client = scope.get("client")
+            client_addr = f"{client[0]}:{client[1]}" if client else "-"
+            access_log.info(
+                '%s - "%s %s HTTP/1.1" %d',
+                client_addr,
+                scope.get("method", "-"),
+                scope.get("path", "-"),
+                status["code"],
+            )
+
 # Register global error handlers, then the routers that need the shared limiter (B-05, B-06).
 #
 # Both routers take the ONE limiter above through their own ``configure_limiter`` hook, called
@@ -488,6 +546,12 @@ def _reachable_paths(app_: FastAPI) -> set[str]:
 # note above the SlowAPI registration - a header middleware in front of the limiter costs every
 # shared rate limit in the process half of its budget.
 app.add_middleware(HeadersMiddleware)
+
+# T21: the access line is app-owned (see AccessLogMiddleware above for why it is pure ASGI and
+# why its position cannot disturb the limiter's flag round-trip). Registered last, so it lands
+# outermost among the user middleware and every request - including a 429 from the limiter -
+# gets exactly one access line, the way uvicorn's own access log would have logged it.
+app.add_middleware(AccessLogMiddleware)
 
 auth_router.configure_limiter(limiter)
 mount(auth_router.router)
