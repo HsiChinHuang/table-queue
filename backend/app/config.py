@@ -151,6 +151,21 @@ class Settings(BaseSettings):
         default="http://localhost:5173", description="CORS allowed origins"
     )
 
+    # Proxy trust for the rate-limit client key (T23 AC-3, audit A-7). A comma-separated list of
+    # client addresses whose ``X-Forwarded-For`` header the limiter is allowed to believe; empty
+    # (the default) honours no proxy, so the key is always the address the process is connected
+    # from and a forged header cannot rotate a client around its budget. The shipped run commands
+    # additionally pass ``--no-proxy-headers`` so uvicorn itself never rewrites the connecting
+    # address from the header before this setting gets to decide - see
+    # ``app/services/rate_limit.get_rate_limit_key`` for the rule as applied.
+    trusted_proxies: str = Field(
+        default="",
+        description=(
+            "Comma-separated client addresses whose X-Forwarded-For header the rate limiter "
+            "honours; empty (the default) honours no proxy"
+        ),
+    )
+
     # Environment. Required, no default: see _refuse_an_unnamed_environment for why absence is
     # refused rather than defaulted, and why the allow-list travels in the type rather than in a
     # comment. The label drives exactly two things - the reset guard and the /health field - and

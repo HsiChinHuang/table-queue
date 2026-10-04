@@ -4,7 +4,8 @@ Endpoints (the only two paths this router mounts):
 - ``POST /api/v1/auth/login``: verify the shared staff PIN and return an HS256 JWT. Rate limited to
   5 requests/minute; the 6th becomes 429 ``RATE_LIMITED`` (ruling R-B05-1 - ``AUTH_RATE_LIMITED``
   sits outside the contract and is never emitted).
-- ``POST /api/v1/auth/change-pin``: verify the current PIN and persist a new bcrypt hash.
+- ``POST /api/v1/auth/change-pin``: verify the current PIN and persist a new bcrypt hash. Budgeted
+  by the process default (10/minute) through the limiter's middleware (T23).
 
 PIN verification is bcrypt-only (T9, superseding ruling R-B05-3): the stored
 ``Settings.staff_pin_hash`` column is the ONLY credential the staff surface accepts, and the only
@@ -60,11 +61,11 @@ to ``router``. Neither obvious placement works, and both were measured:
 that wrapper to ``router.post`` in one step, so the ``APIRoute`` wraps the limiter's own wrapper and
 the request body keeps coming from ``StaffLoginRequest``. Login carries no ``@router.post``
 decorator of its own, so the route exists exactly once and is never duplicated.
-POST /api/v1/auth/change-pin is deliberately left unregistered (AC-7: change-pin is never rate
-limited in this issue). ``Limiter.limit`` files the limit under the endpoint's dotted name, which is
-what B-04's ``SlowAPIMiddleware`` derives from the matched route, so the middleware answers 429
-before login runs; the 429 body comes from B-04's ``RateLimitExceeded`` handler, i.e. code
-``RATE_LIMITED``, and no second error shape is built here.
+POST /api/v1/auth/change-pin registers no limit of its own (T23): the process default
+(10/minute) prices it, because the limiter's middleware resolves the handler a mounted route
+actually serves and applies ``default_limits`` to every route that carries no limit of its own.
+The 429 body comes from B-04's ``RateLimitExceeded`` handler, i.e. code ``RATE_LIMITED``, and no
+second error shape is built here.
 """
 
 from __future__ import annotations
@@ -298,8 +299,9 @@ async def change_pin(payload: ChangePinRequest, staff: Staff, db: DbSession) -> 
 
     ``Staff`` (B-04) is ``Annotated[dict, Depends(get_current_staff)]`` and yields 401
     ``AUTH_TOKEN_EXPIRED`` for a missing, non-bearer, forged or expired token. It accepts any
-    ``sub``, so the staff claim is checked here too (AC-7). This route carries no rate limit. The
-    new hash is never returned (AC-11) and the success body is empty (AC-8).
+    ``sub``, so the staff claim is checked here too (AC-7). This route carries no limit of its
+    own; the process default (10/minute) prices it (T23). The new hash is never returned (AC-11)
+    and the success body is empty (AC-8).
     """
     if staff.get("sub") != "staff":
         raise AppError("AUTH_TOKEN_EXPIRED")
