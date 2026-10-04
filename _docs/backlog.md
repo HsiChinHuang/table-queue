@@ -86,5 +86,5 @@ Work order is topological: every issue appears after all of its `depends`.
 | T27 | CI from nothing: lint+test+audit workflows on push, frontend build smoke, secret | [] | #82 | backlog |
 | T28 | ready.py readiness tool: closed-set by issue-map intersect platform-state, never | [] | #83 | backlog |
 | T29 | Integer and length bounds live in schemas: no overflow-500, no out-of-domain val | [] | #84 | backlog |
-| T30 | Frontend session storage: one store, one key, remember-me actually controls pers | [] | #85 | backlog |
+| T30 | Frontend session storage: one store, one key, remember-me actually controls pers | [] | #85 | closed |
 | T31 | Staff waitlist list paginates in SQL instead of materialising the full result | [] | #86 | backlog |
