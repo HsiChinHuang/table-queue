@@ -36,18 +36,20 @@ the two, and the reason no ``Limiter`` is constructed anywhere in this module - 
 thing AC-14 checks.
 
 Enforcement sits with the middleware rather than with the wrapper these routes carry, and that
-is a measured choice rather than a preference. slowapi's middleware resolves the handler for the
-current request by calling ``matches()`` over the application's TOP-LEVEL routes and exempts any
-request whose handler it cannot name, or whose handler's dotted name is absent from
-``_route_limits``; on this FastAPI version ``include_router`` does not copy routes up, so a
-mounted router's handlers are never named and a per-route limit registered by a decorator is
-never seen (an earlier revision of ``app/main.py`` flattened that container to work around it and
-paid for it by mounting each staff route twice). What is enforced instead is the guest budget the
-application's limiter carries as ``default_limits``, which the middleware applies per client
-before any handler is chosen - see ``app.main.GUEST_LIMIT``. The registration below still files
-the per-path budgets and still wraps the handlers, because that is what AC-14's route-table
-inspection reads and what keeps the two records agreeable; :func:`_check_budgets_agree` is what
-makes a disagreement fatal at startup rather than a silent row of 200s.
+is a measured choice rather than a preference. The middleware
+(``app.main.MountedRouteLimiterMiddleware``) resolves the handler for the current request by
+calling ``matches()`` over the application's TOP-LEVEL routes and descending into the
+``include_router`` containers - on this FastAPI version a container is the only place a mounted
+route's handler can be named, and following it down is what makes the default reach these routes
+at all (T23 AC-1) - and exempts any request whose handler it cannot name, or whose handler's
+dotted name holds a per-route limit of its own or was filed out of the default. What is enforced
+is the guest budget the application's limiter carries as ``default_limits``, which the middleware
+applies per client to every route that carries no limit of its own - see ``app.main.GUEST_LIMIT``.
+The middleware sets the count-once flag after its check and the wrapper below reads it, so a
+request that passes both is counted exactly once. The registration below still files the per-path
+budgets and still wraps the handlers, because that is what AC-14's route-table inspection reads
+and what keeps the two records agreeable; :func:`_check_budgets_agree` is what makes a
+disagreement fatal at startup rather than a silent row of 200s.
 
 Each limited handler still declares ``request`` as its first parameter, as B-05's does: it is how a
 limiter identifies the client to count, and a response that skips the ``request`` parameter makes

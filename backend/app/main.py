@@ -11,9 +11,7 @@ Features added for B-04:
 
 from __future__ import annotations
 
-import bisect
 import logging
-import time
 import uuid
 from collections.abc import Callable
 from contextlib import asynccontextmanager
@@ -22,11 +20,11 @@ from typing import Any
 import bcrypt
 from fastapi import APIRouter, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from limits.storage.memory import MemoryStorage
+from limits.strategies import STRATEGIES
 from slowapi import Limiter
-from slowapi.middleware import SlowAPIMiddleware
-from slowapi.util import get_remote_address
+from slowapi.middleware import _should_exempt, sync_check_limits
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.routing import Match
 
 from app.config import get_settings
 from app.database import Base, engine
@@ -38,6 +36,7 @@ from app.routers import public as public_router
 from app.routers import staff as staff_router
 from app.routers import staff_waitlist as staff_waitlist_router
 from app.routers.auth import INITIAL_TOKEN_GENERATION
+from app.services.rate_limit import BoundedFrozenClockMemoryStorage, get_rate_limit_key
 
 settings = get_settings()
 
@@ -71,90 +70,11 @@ carries no limit of its own, so a surface the contract does not budget has to be
 rather than merely left unpriced here.
 """
 
-class FrozenClockSafeMemoryStorage(MemoryStorage):
-    """A memory storage whose counters survive a frozen clock.
-
-    ``limits`` 5.8.0 expires memory counters with a background ``threading.Timer`` that calls
-    ``time.time()`` inside the timer thread. freezegun patches ``time.time`` in the thread that
-    froze it, so under ``freeze_time`` the storage writes expiries stamped with the FROZEN epoch
-    and then sweeps them against the REAL one - a minute-ahead expiry looks two months overdue,
-    every key is popped the moment it is written, and no counter can ever reach its threshold.
-    Measured on this lockfile (limits 5.8.0, slowapi 0.1.10, freezegun 1.5.5): eleven writes to a
-    10/minute budget answer True eleven times, and the same eleven writes against a storage whose
-    sweep is stopped answer 429 on the eleventh. Any rate-limit test that pins the clock is
-    therefore unsatisfiable, whatever the application does.
-
-    Two hooks are overridden, and both state the same rule from either side: a request must not be
-    refused for a window that has already closed, and closing one is the only legitimate reason to
-    forget it.
-
-    * :meth:`_sweep` compares an expiry with the clock the *writer* used, so a frozen request
-      expires its own keys at the frozen deadline - a real fixed window, on a clock the test chose.
-      Under an unfrozen clock ``_clock()`` is ``time.time`` and this is the parent's behaviour word
-      for word.
-    * :meth:`_arm` is called on every write and does nothing. The parent's re-arm only ever asks
-      the sweep to run sooner, and the sweep has just been made correct above, so the parent's own
-      timer needs no help. Re-arming from a write is what let the sweep race the request loop and
-      clear a counter between two adjacent requests.
-
-    Memory bound, stated because the parent has one too: keys are dropped only by the sweep, so a
-    process frozen for its whole life - which is what a test suite does - keeps one entry per
-    client per window. At a handful of keys per client per window that is a test-suite cost, not a
-    production one; a deployed process is never frozen, sees the parent's behaviour, and its timer
-    runs on a real clock.
-    """
-
-    def _clock(self) -> float:
-        """Return the clock a counter on this thread is stamped with.
-
-        Writer and sweeper have to read the same clock or the sweeper is choosing between "not
-        yet" and "already gone" with someone else's watch. ``time.time`` resolves through this
-        module's globals at call time, which is exactly what a frozen test thread rebinds and a
-        real request thread does not.
-        """
-        return time.time()
-
-    def _arm(self) -> None:
-        """Do nothing where the parent re-arms the expiry timer.
-
-        Private-name override: ``limits`` offers no supported way to disable the background sweep,
-        and a subclass that overrode only ``__init__`` would leave a timer the parent re-arms on
-        every write. Both private names this class touches are asserted below rather than trusted,
-        so an upgrade that renames either one fails at import - loudly - rather than silently
-        returning an application that can never refuse anyone.
-        """
-
-    def _sweep(self) -> None:
-        """Drop the keys whose window has closed on the writer's clock.
-
-        Same three effects as the parent, one of them corrected: entries older than their expiry
-        leave the sliding-window lists, then a key whose expiry has passed loses its counter, its
-        expiry and its lock. Only the clock differs - see :meth:`_clock`.
-        """
-        now = self._clock()
-        for key in list(self.events.keys()):
-            with self.locks[key]:
-                events = self.events.get(key, [])
-                cut = bisect.bisect_left(events, -now, key=lambda event: -event.expiry)
-                self.events[key] = events[:cut]
-                if not self.events.get(key, None):
-                    self.locks.pop(key, None)
-        for key in list(self.expirations.keys()):
-            if self.expirations[key] <= now:
-                self.storage.pop(key, None)
-                self.expirations.pop(key, None)
-                self.locks.pop(key, None)
-
-    def _MemoryStorage__expire_events(self) -> None:  # noqa: N802 - the parent's own name
-        """Bind the parent's sweep hook to :meth:`_sweep`."""
-        self._sweep()
-
-    def _MemoryStorage__schedule_expiry(self) -> None:  # noqa: N802 - the parent's own name
-        """Bind the parent's re-arm hook to :meth:`_arm`."""
-        self._arm()
-
-
-limiter = Limiter(key_func=get_remote_address, default_limits=[GUEST_LIMIT])
+# The storage policy - frozen-clock safe, and capped at COUNTER_KEY_CAP counters per process - is
+# ``BoundedFrozenClockMemoryStorage`` in ``app/services/rate_limit.py``. The class owns its own
+# hooks, so installing it below is a plain instance swap rather than a rebind onto slowapi's
+# default instance.
+limiter = Limiter(key_func=get_rate_limit_key, default_limits=[GUEST_LIMIT])
 
 
 def exempt_surface(*handlers: Callable[..., Any]) -> None:
@@ -200,25 +120,17 @@ def exempt_surface(*handlers: Callable[..., Any]) -> None:
 
 # The limiter above is constructed with slowapi's own default storage, because that constructor
 # builds its storage from a URI string through ``limits``' scheme registry and offers no way to
-# hand it an instance. The policy in FrozenClockSafeMemoryStorage is therefore installed here, once
-# and in the one place that owns the limiter, by rebinding the two hooks on the instance the
-# limiter already holds. It is the same object the middleware, ``app.state.limiter`` and every
-# route wrapper go on to use, so there is exactly one clock policy in the process and no second
-# storage for counters to hide in.
-#
-# assert rather than a silent fallback: an upgrade that renames either hook would otherwise leave
-# this module importing cleanly and shipping an application that answers 200 forever.
-for _hook in ("_MemoryStorage__expire_events", "_MemoryStorage__schedule_expiry"):
-    assert hasattr(limiter._storage, _hook), (  # noqa: SLF001 - see the note above
-        f"limits' memory storage no longer exposes {_hook!r}, so the frozen-clock policy could not "
-        "be installed and every rate limit in this process would be silently unenforceable"
-    )
-for _hook, _bound in (
-    ("_MemoryStorage__expire_events", FrozenClockSafeMemoryStorage._sweep),
-    ("_MemoryStorage__schedule_expiry", FrozenClockSafeMemoryStorage._arm),
-):
-    setattr(limiter._storage, _hook, _bound.__get__(limiter._storage))  # noqa: SLF001
-del _hook, _bound
+# hand it an instance. The app's own storage - capped at COUNTER_KEY_CAP counters per process and
+# frozen-clock safe, see ``app/services/rate_limit.py`` - is therefore installed here, once, in
+# the one place that owns the limiter. The strategy object that wraps the storage is the only
+# other reference to the default instance, so it is rebuilt around the new one: after this block
+# the middleware, ``app.state.limiter`` and every route wrapper all count against the same capped
+# store, and no second storage is left for counters to hide in.
+_rate_limit_storage = BoundedFrozenClockMemoryStorage()
+limiter._storage = _rate_limit_storage  # noqa: SLF001 - the instance the constructor refused
+_rate_limit_strategy = limiter._strategy or "fixed-window"  # noqa: SLF001
+limiter._limiter = STRATEGIES[_rate_limit_strategy](_rate_limit_storage)  # noqa: SLF001
+del _rate_limit_storage, _rate_limit_strategy
 
 
 # ---------------------------------------------------------------------------
@@ -384,34 +296,81 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# SlowAPI middleware. Position in this file is the whole story: ``add_middleware`` PREPENDS, so the
-# LAST registration in the module body ends up OUTERMOST at runtime. This one is registered last and
-# therefore runs first, before any other middleware has copied the request.
-#
-# That ordering is what makes a budget enforceable at all, and it took two failed readings to see
-# why. ``app.state.limiter`` is one object shared by slowapi's middleware and by the wrapper each
-# limited route carries (``app/routers/public.py``), and neither asks the other whether the request
-# has already been counted - the only thing either can consult is ``request.state``, and
-# ``BaseHTTPMiddleware`` builds its OWN ``Request`` over the same ``scope`` for ``dispatch()`` and
-# hands the application downstream an instance built fresh from that scope. Two ``Request``
-# objects, two state namespaces, one flag: whoever sits inside another middleware's boundary
-# cannot see a flag written outside it, so the same request is counted on both sides of that
-# boundary. Measured on the 10/minute guest budget, five lookups emptied it and AC-14's ninth
-# lookup - which the AC requires to still answer 200 - came back 429.
-#
-# Outermost is the one arrangement in which the flag survives: with nothing in front of it, the
-# middleware's ``Request`` is the same object the router's wrapper is handed, the flag round-trips,
-# and each request is counted exactly once wherever it is checked. A header middleware registered in
-# front of it breaks that - the copy of the request it passes downstream holds a different
-# namespace, the flag is lost, and the budget empties at double speed.
-#
-# So the order is a construction rather than a comment to read carefully: the two registrations
-# below leave CORS outermost and this one first among the ones that count the request, and the
-# request-id and security-header middleware is NOT a decorator further down any more - see
-# ``HeadersMiddleware``, registered after this line so that it lands on the inside of the limiter's
-# boundary. Swapping those two registrations re-introduces the double count, and
-# ``tests/test_public_waitlist.py`` measures the ten-then-429 boundary directly.
-app.add_middleware(SlowAPIMiddleware)
+def _resolve_route_handler(routes: list, scope: dict) -> Callable[..., Any] | None:
+    """Resolve the endpoint a request lands on, following ``include_router`` containers.
+
+    slowapi's own lookup walks the application's TOP-LEVEL route list only, and on this FastAPI
+    version (0.141.1) ``include_router`` appends one container per router rather than copying the
+    routes up. A container answers a full match for a request its router serves while carrying no
+    ``endpoint`` of its own, so the library's lookup names no handler for a mounted route and its
+    exemption rule then exempts the route from every limit - the 10/minute default never reached
+    any ``/api/v1`` path (T23 AC-1). This resolver walks the same list but descends into each
+    container's router, so a mounted route is priced for the handler it actually serves. The last
+    full match wins, as the library's own loop takes it, so a probe route appended at the top
+    level after the containers still prices a request it answers for its own handler.
+    """
+    handler = None
+    for route in routes:
+        match, _ = route.matches(scope)
+        if match != Match.FULL:
+            continue
+        if hasattr(route, "endpoint"):
+            handler = route.endpoint
+            continue
+        nested = getattr(route, "original_router", None)
+        if nested is not None:
+            inner = _resolve_route_handler(nested.routes, scope)
+            if inner is not None:
+                handler = inner
+    return handler
+
+
+class MountedRouteLimiterMiddleware(BaseHTTPMiddleware):
+    """slowapi's middleware with one correction: mounted routes are priced, not exempted.
+
+    Everything else is the library's: the exemption rule (a route that holds a limit of its own,
+    or one filed out by :func:`exempt_surface`, stays out of the default), the check itself
+    (``sync_check_limits``) and the error response. The only addition is the flag set below: the
+    library's middleware never sets ``request.state._rate_limiting_complete`` because its design
+    exempts decorated routes instead of counting them, but this app's public router counts its
+    wrapped routes with a wrapper of its own, and the flag is the one message the two sides can
+    exchange - without it the same request would spend the budget twice.
+    """
+
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Response]
+    ) -> Response:
+        app_ = request.app
+        limiter_ = app_.state.limiter
+        if not limiter_.enabled:
+            return await call_next(request)
+        handler = _resolve_route_handler(app_.routes, request.scope)
+        if _should_exempt(limiter_, handler):
+            return await call_next(request)
+        error_response, should_inject_headers = sync_check_limits(
+            limiter_, request, handler, app_
+        )
+        if error_response is not None:
+            return error_response
+        request.state._rate_limiting_complete = True
+        response = await call_next(request)
+        if should_inject_headers:
+            response = limiter_._inject_headers(  # noqa: SLF001 - the library's own seam
+                response, request.state.view_rate_limit
+            )
+        return response
+
+
+# Rate-limit middleware (T23). ``add_middleware`` PREPENDS, so the LAST registration in the module
+# body ends up OUTERMOST at runtime: the order below leaves ``AccessLogMiddleware`` outermost (a
+# 429 from the limiter still gets exactly one access line) and ``HeadersMiddleware`` inside the
+# limiter's boundary. The count-once flag this middleware sets survives to the router's wrapper
+# because ``Request.state`` is the ``scope["state"]`` dict, shared by every ``Request`` built over
+# the same scope - measured, and it is what keeps a request that passes both the middleware and a
+# wrapper counted exactly once. ``tests/test_public_waitlist.py`` measures the ten-then-429
+# boundary directly.
+app.add_middleware(MountedRouteLimiterMiddleware)
+
 
 # Request-ID and security-header middleware.
 def _add_security_headers(response: Response) -> None:
@@ -463,7 +422,8 @@ class AccessLogMiddleware:
 
     Pure ASGI on purpose, not a ``BaseHTTPMiddleware``: it never copies the request, so the rate
     limiter's ``request.state`` flag round-trips unchanged no matter where this sits in the stack
-    (see the note above the ``SlowAPIMiddleware`` registration for why that flag is load-bearing).
+    (see the note above the ``MountedRouteLimiterMiddleware`` registration for why that flag is
+    load-bearing).
     """
 
     def __init__(self, app: Any) -> None:
@@ -510,11 +470,10 @@ def mount(router: APIRouter) -> None:
     sub-router rather than copying its routes, so a route can be mounted and still not be found
     by a test that reads ``app.routes``. This helper deliberately does not splice
     ``router.routes`` into the
-    top-level routes, and a container answers NO MATCH, which reads as "no handler" and exempts the
-    route from its limit. Enforcement therefore does not depend on this lookup at all - the guest
-    budget is a ``default_limits`` one, applied per client before a handler is chosen (see
-    ``app.routers.public.configure_limiter``) - and flattening here would only trade an honest 404
-    for a doubled mount.
+    top-level routes, and flattening here would only trade an honest 404 for a doubled mount.
+    The container answers a full match while naming no handler of its own, which is exactly what
+    ``MountedRouteLimiterMiddleware`` follows down into when it prices a mounted route (T23
+    AC-1); reachability itself is measured without any lookup at all, in ``_reachable_paths``.
     """
     app.include_router(router)
     served = _reachable_paths(app)
@@ -543,7 +502,7 @@ def _reachable_paths(app_: FastAPI) -> set[str]:
 
 # Registered here, after the line above, so it ends up INSIDE the limiter's boundary: decorator
 # registration and this call both prepend onto the same list and only the sequence matters. See the
-# note above the SlowAPI registration - a header middleware in front of the limiter costs every
+# note above the rate-limit registration - a header middleware in front of the limiter costs every
 # shared rate limit in the process half of its budget.
 app.add_middleware(HeadersMiddleware)
 
@@ -609,9 +568,10 @@ admin_router.publish_reset_contract_on(app)
 # and its assert are below, and the behaviour is pinned in ``tests/test_admin_settings.py``.
 #
 # What this line does NOT do is change what a request to the settings PATH answers. The resolver
-# above reads the application's TOP-LEVEL route list and takes the last full match, and
-# ``include_router`` appends a container rather than the routes themselves, so a request that a
-# probe route answers is priced for that probe's handler and not for these two. Measured, and it is
+# in ``MountedRouteLimiterMiddleware`` walks the application's route list - descending into
+# ``include_router`` containers, the only way a mounted route names a handler on this FastAPI
+# version (T23 AC-1) - and takes the last full match, so a request that a probe route answers is
+# priced for that probe's handler and not for these two. Measured, and it is
 # the reason this exemption is not the same thing as "the path is unpriced": with a hand-appended
 # probe route answering the path, the middleware named the probe's handler on all two hundred
 # requests and answered 429 on the eleventh; with the two real routes answering, the same burst

@@ -204,9 +204,11 @@ The dev target starts uvicorn and vite as the two children of one foreground rec
 Or in two terminals:
 
 ```bash
-cd backend && .venv/bin/python -m uvicorn app.main:app --reload --host 0.0.0.0
+cd backend && .venv/bin/python -m uvicorn app.main:app --reload --host 0.0.0.0 --no-proxy-headers
 cd frontend && npm run dev -- --host
 ```
+
+`--no-proxy-headers` (T23): uvicorn 0.52.4 defaults to `proxy_headers=True` with `forwarded_allow_ips` defaulting to `127.0.0.1`, i.e. it rewrites the connecting address from `X-Forwarded-For` for a local peer before the app sees the request. The rate limiter must key on the address the process is connected from and decide `X-Forwarded-For` trust itself - the `TRUSTED_PROXIES` setting, off by default (empty honours no proxy) - so every shipped uvicorn command passes the explicit off switch. Behind a real proxy, name it in `TRUSTED_PROXIES` and keep `--no-proxy-headers` so the app, not uvicorn, makes the trust call.
 
 Log hygiene (T21): the backend owns its process log. No log line - access, app, or traceback - carries a phone number, name, token, PIN, or `Authorization` value, and `SQL_ECHO` never logs bound parameter values. The setup lives in `backend/app/logging_config.py` and runs at app import, so it holds for any uvicorn startup, not just the commands above.
 
@@ -377,7 +379,7 @@ Both servers come from the dev target above (backend http://localhost:8000, fron
 
 - SQLite concurrent writes limited
 
-- Single worker rate limit
+- Rate limit counters are per-process: the store is in-process memory capped at 10000 counters per process (see `backend/app/services/rate_limit.py`), so each uvicorn worker enforces the budgets on its own counters - N workers give every client N independent budgets, and a burst spread across workers sees up to N times the stated rate limit until the windows close. There is no shared counter backend in v1.
 
 - No Alembic
 

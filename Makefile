@@ -111,7 +111,13 @@ endif
 RUN           = cd $(ROOT)backend && exec
 RUN_SEED      = $(RUN) $(PYTHON_EXEC) app.seed --reset
 RUN_UVICORN   = $(RUN) $(PYTHON_EXEC) uvicorn app.main:app --reload \
-                --port $(BACKEND_PORT) --host $(BACKEND_HOST)
+                --port $(BACKEND_PORT) --host $(BACKEND_HOST) \
+                --no-proxy-headers
+# --no-proxy-headers (T23 AC-3): uvicorn 0.52.4 defaults to proxy_headers=True with
+# forwarded_allow_ips 127.0.0.1, i.e. it rewrites scope["client"] from X-Forwarded-For for a
+# local peer before the app ever sees the request. The rate limiter must key on the address the
+# process is connected from and decide XFF trust itself (TRUSTED_PROXIES, off by default), so
+# every shipped uvicorn command passes the explicit off switch.
 # Log-hygiene contract (T21): the app owns its process log. No log line - access, app, or
 # traceback - may carry a phone number, name, token, PIN, or Authorization value, and SQL_ECHO
 # never logs bound parameter values. The setup lives in backend/app/logging_config.py (invoked
