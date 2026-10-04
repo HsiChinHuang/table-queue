@@ -112,6 +112,10 @@ RUN           = cd $(ROOT)backend && exec
 RUN_SEED      = $(RUN) $(PYTHON_EXEC) app.seed --reset
 RUN_UVICORN   = $(RUN) $(PYTHON_EXEC) uvicorn app.main:app --reload \
                 --port $(BACKEND_PORT) --host $(BACKEND_HOST)
+# Log-hygiene contract (T21): the app owns its process log. No log line - access, app, or
+# traceback - may carry a phone number, name, token, PIN, or Authorization value, and SQL_ECHO
+# never logs bound parameter values. The setup lives in backend/app/logging_config.py (invoked
+# at app import), so it holds for ANY uvicorn startup, not just this target.
 RUN_PYTEST    = $(RUN) $(PYTHON_EXEC) pytest $(PYTEST_ARGS)
 RUN_RUFF_LINT = $(RUN) $(PYTHON_EXEC) ruff check $(RUFF_ARGS)
 RUN_RUFF_FMT  = $(RUN) $(PYTHON_EXEC) ruff format $(RUFF_ARGS)
