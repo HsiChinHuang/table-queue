@@ -20,6 +20,10 @@ Runtime-maintained by Orchestrator.
 | D-02 | Add more tests | 2026-09-13T12:05:00Z | pm=3 sw=1 qa=1 | 160ab19c953fd0fa820c14ee32419c89de816107 |
 | D-03 | Verify all tests pass (final verification gate) | 2026-09-13T16:20:00Z | pm=2 sw=1 qa=1 (qa r1 ceiling-death, inventory-resume, zero loss) | d5d97d74587e0a32dca485ac17535ff0102e1564 |
 | T10 | JWT secret strength gate: reject published/example secrets and short values at startup | 2026-09-14T04:40:00Z | pm=1 sw=1 qa=1 | 23efdd5c34ba071048005d716689d158305d6c93 |
-| T32 | 2026-09-14T08:02:52Z | fix/T32-frontend-contract @ 588bd44, merged 2bf0942 |
-| T33 | 2026-09-14T08:35:15Z | fix/T33-run-surface @ 67e9f6b, merged 376dd5f |
+| T32 | Frontend speaks the published contract: real API integration works with VITE_USE_MOCK=false | 2026-09-14T08:02:52Z | n/a (pre-log-window) | 2bf0942eb79a21395519d0d3d5e5ce984b8e623d |
+| T33 | Run surface actually runs: make seed/dev/test-backend resolve an interpreter on this machine | 2026-09-14T08:35:15Z | n/a (pre-log-window) | 376dd5f80bf2afd28b1de47ba22d365ec287ec52 |
+| T9 | Staff PIN integrity: hash on bootstrap, no plaintext env fallback, constant-time compare, rotation revokes tokens | 2026-10-03T11:05:00Z | pm=2 (r2 probe repair) sw=2 (r2 timeout-resume) qa=2 (r1 FAIL implementation + timeout-resume; r2 PASS) | 62dc0742da1f00a49ab018276522d4a0b1742815 |
+| T20 | ENV fail-open: ENV must be explicit; development-mode reset and SQL echo must not be reachable by default | 2026-10-03T14:30:00Z | pm=1 sw=4 (multiple timeout-resumes) qa=1 (PASS with diff-sanity note) | 6de23b32160bc91d52c3f69a8ea54e21222cf365 |
+| T12 | Frontend dependency advisories: dev-server RCE-class and react-router open redirect to fixed versions | 2026-10-03T21:00:00Z | pm=1 sw=1 qa=1 (5/5 AC PASS) | 5684160ff661bbc533b89f37d56cdcbe2a1331a7 |
+| T21 | Log hygiene: no PII or tracebacks to stdout, no credentials in query strings, specs 593-598 honoured | 2026-10-04T06:14:00Z | pm=1 (reached_state line omitted — process blemish) sw=1 qa=1 (5/5 AC PASS) | bf3d643a9d8a99a77bca83a02f01097909625ea4 |
 | T23 | Rate limiter actually applies to API routes, honours proxy trust, covers change-pin, and states its memory bound | 2026-10-04T13:32:51Z | pm=2 (r1 groom + r1 AC-suggestion re-groom) sw=1 qa=1 (qa r1 500 config error, not charged; r2 PASS) | 402fa34d0d4b305f557431323db0420396c399a6 |
