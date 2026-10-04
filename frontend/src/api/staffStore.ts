@@ -12,14 +12,14 @@
  * the shape older modules import: the `useStaffStore` hook and the
  * `staffStore.token / setToken / clearToken` facade used by `client.ts`.
  *
- * KNOWN DEFERRED (T30, by operator directive): LoginPage still keeps a raw
- * `tq_staff_token` copy for remember-me and logout does not sweep every slot.
- * That durable-copy hygiene fix stays scoped to T30 - this file only removes the
- * second STORE so the app has one session truth.
+ * T30 (resolved): the raw `tq_staff_token` dual write is gone and logout/401 now
+ * call `destroySession`, which sweeps all four storage slots plus the in-memory
+ * token. This file only re-exports that contract; it defines no store of its own.
  */
-import { staffStore } from '@/stores/staffStore';
+import { staffStore, destroySession } from '@/stores/staffStore';
 
 export type { StaffStore } from '@/stores/staffStore';
+export { destroySession } from '@/stores/staffStore';
 
 /** The one and only session hook - same store instance as `@/stores/staffStore`. */
 export const useStaffStore = staffStore;

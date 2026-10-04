@@ -11,13 +11,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 
-const clearToken = vi.fn();
+const { destroySession } = vi.hoisted(() => ({ destroySession: vi.fn() }));
 let session: { token: string | null } = { token: 'tok-12345678' };
+
+vi.mock('@/stores/staffStore', () => ({
+  destroySession,
+}));
 
 vi.mock('@/api/staffStore', () => ({
   useStaffStore: () => ({
     token: session.token,
-    clearToken,
   }),
 }));
 
@@ -45,7 +48,7 @@ function renderAt(path: string) {
 
 afterEach(() => {
   cleanup();
-  clearToken.mockClear();
+  destroySession.mockClear();
   session = { token: 'tok-12345678' };
   vi.unstubAllEnvs();
 });
@@ -86,7 +89,7 @@ describe('chrome', () => {
   it('clears the session when Log out is clicked', () => {
     renderAt('/staff/board');
     fireEvent.click(screen.getByLabelText('Log out'));
-    expect(clearToken).toHaveBeenCalledTimes(1);
+    expect(destroySession).toHaveBeenCalledTimes(1);
   });
 
   it('shows the brand heading and the main landmark', () => {

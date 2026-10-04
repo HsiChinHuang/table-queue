@@ -1,4 +1,5 @@
 import { staffStore } from './staffStore';
+import { destroySession } from '@/stores/staffStore';
 import { ApiError, getErrorMessage } from './errors';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
@@ -64,9 +65,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
     const data = await response.json();
 
-    // AC-3: Handle 401 - clear token, redirect to login
+    // AC-3: Handle 401 - a real logout: sweep every storage slot + in-memory token,
+    // then redirect to login (T30: an expired session must leave no live JWT behind).
     if (response.status === 401) {
-      staffStore.clearToken();
+      destroySession();
       // Clear query cache would be handled by calling code
       window.location.href = '/staff/login';
       throw new ApiError('AUTH_TOKEN_EXPIRED', 401, 'Session expired. Please login again.');

@@ -16,13 +16,6 @@ import { login } from '@/api/auth';
 import { isApiError } from '@/api/errors';
 import { ROUTES } from '@/routes';
 
-export const STAFF_TOKEN_KEY = 'tq_staff_token';
-
-// Storage selection helper: remember-me decides where the raw token lives
-export function tokenStorageFor(remember: boolean): 'localStorage' | 'sessionStorage' {
-  return remember ? 'localStorage' : 'sessionStorage';
-}
-
 const loginSchema = z.object({
   pin: z.string().min(1, 'PIN is required'),
   remember: z.boolean().default(true),
@@ -41,7 +34,7 @@ function NavigateToWaitlist() {
 function LoginPage() {
   const navigate = useNavigate();
   const token = staffStore((s) => s.token);
-  const setToken = staffStore((s) => s.setToken);
+  const setSession = staffStore((s) => s.setSession);
   const [error, setError] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
 
@@ -64,8 +57,9 @@ function LoginPage() {
     setError(null);
     try {
       const response = await login({ pin: data.pin });
-      window[tokenStorageFor(data.remember)].setItem(STAFF_TOKEN_KEY, response.access_token);
-      setToken(response.access_token);
+      // T30: the single persisted store owns the token write. remember-me chooses
+      // the slot (ON = localStorage, OFF = sessionStorage); no raw copy is written here.
+      setSession(response.access_token, data.remember);
       // Route constant ROUTES.STAFF_WAITLIST === '/staff/waitlist'
       navigate('/staff/waitlist', { replace: true });
     } catch (err) {

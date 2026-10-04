@@ -163,6 +163,9 @@ describe('response handling', () => {
     vi.stubGlobal('location', locationProbe);
     Object.defineProperty(window, 'location', { value: locationProbe, writable: true, configurable: true });
     staffStore.setToken('stale-token');
+    // Simulate leftover legacy bare-JWT slots from the pre-T30 dual write.
+    localStorage.setItem('tq_staff_token', 'stale-token');
+    sessionStorage.setItem('tq_staff_token', 'stale-token');
     stubFetch({ ok: false, status: 401, body: {} });
     await expect(get('/staff/dashboard')).rejects.toMatchObject({
       code: 'AUTH_TOKEN_EXPIRED',
@@ -170,6 +173,11 @@ describe('response handling', () => {
     });
     expect(staffStore.token).toBeNull();
     expect(locationProbe.href).toBe('/staff/login');
+    // T30: destroySession sweeps all four storage slots, not just one.
+    expect(localStorage.getItem('staff-storage')).toBeNull();
+    expect(sessionStorage.getItem('staff-storage')).toBeNull();
+    expect(localStorage.getItem('tq_staff_token')).toBeNull();
+    expect(sessionStorage.getItem('tq_staff_token')).toBeNull();
   });
 
   it('maps a network failure to NETWORK_ERROR with status 0', async () => {

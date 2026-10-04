@@ -9,7 +9,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/react';
 import type { RenderResult } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import LoginPage, { tokenStorageFor, STAFF_TOKEN_KEY } from './LoginPage';
+import LoginPage from './LoginPage';
 import { login } from '@/api/auth';
 import { staffStore } from '@/stores/staffStore';
 
@@ -71,16 +71,6 @@ async function submitPin(pin: string, uncheckRemember = false) {
   return page;
 }
 
-describe('tokenStorageFor', () => {
-  it('returns localStorage when remember is true', () => {
-    expect(tokenStorageFor(true)).toBe('localStorage');
-  });
-
-  it('returns sessionStorage when remember is false', () => {
-    expect(tokenStorageFor(false)).toBe('sessionStorage');
-  });
-});
-
 describe('LoginPage form', () => {
   it('renders a masked numeric PIN input', () => {
     const page = renderPage();
@@ -102,18 +92,24 @@ describe('LoginPage form', () => {
 });
 
 describe('LoginPage success path', () => {
-  it('stores the token in localStorage when remember-me is checked', async () => {
+  it('stores the token in the localStorage persist envelope when remember-me is checked', async () => {
     successfulLogin();
     await submitPin('1234');
-    await waitFor(() => expect(localStorage.getItem(STAFF_TOKEN_KEY)).toBe('test-token'));
-    expect(sessionStorage.getItem(STAFF_TOKEN_KEY)).toBeNull();
+    await waitFor(() => {
+      const stored = JSON.parse(localStorage.getItem('staff-storage') ?? 'null');
+      expect(stored?.state?.token).toBe('test-token');
+    });
+    expect(sessionStorage.getItem('staff-storage')).toBeNull();
   });
 
-  it('stores the token in sessionStorage when remember-me is unchecked', async () => {
+  it('stores the token in the sessionStorage persist envelope when remember-me is unchecked', async () => {
     successfulLogin();
     await submitPin('1234', true);
-    await waitFor(() => expect(sessionStorage.getItem(STAFF_TOKEN_KEY)).toBe('test-token'));
-    expect(localStorage.getItem(STAFF_TOKEN_KEY)).toBeNull();
+    await waitFor(() => {
+      const stored = JSON.parse(sessionStorage.getItem('staff-storage') ?? 'null');
+      expect(stored?.state?.token).toBe('test-token');
+    });
+    expect(localStorage.getItem('staff-storage')).toBeNull();
   });
 
   it('updates the staff store and navigates to /staff/waitlist', async () => {
