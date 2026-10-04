@@ -22,3 +22,4 @@ Runtime-maintained by Orchestrator.
 | T10 | JWT secret strength gate: reject published/example secrets and short values at startup | 2026-09-14T04:40:00Z | pm=1 sw=1 qa=1 | 23efdd5c34ba071048005d716689d158305d6c93 |
 | T32 | 2026-09-14T08:02:52Z | fix/T32-frontend-contract @ 588bd44, merged 2bf0942 |
 | T33 | 2026-09-14T08:35:15Z | fix/T33-run-surface @ 67e9f6b, merged 376dd5f |
+| T23 | Rate limiter actually applies to API routes, honours proxy trust, covers change-pin, and states its memory bound | 2026-10-04T13:32:51Z | pm=2 (r1 groom + r1 AC-suggestion re-groom) sw=1 qa=1 (qa r1 500 config error, not charged; r2 PASS) | 402fa34d0d4b305f557431323db0420396c399a6 |

@@ -79,7 +79,7 @@ Work order is topological: every issue appears after all of its `depends`.
 | T20 | ENV fail-open: ENV must be explicit; development-mode reset and SQL echo must no | [] | #75 | closed |
 | T21 | Log hygiene: no PII or tracebacks to stdout, no credentials in query strings, sp | [] | #76 | closed |
 | T22 | eslint flat config for eslint 9: author it, get the codebase lint-clean, retire  | [] | #77 | backlog |
-| T23 | Rate limiter actually applies to API routes, honours proxy trust, covers change- | [] | #78 | backlog |
+| T23 | Rate limiter actually applies to API routes, honours proxy trust, covers change- | [] | #78 | closed |
 | T24 | SQLite-only reality vs PostgreSQL affordance: add the driver and exercise the pa | [] | #79 | backlog |
 | T25 | Repository artifact hygiene: gitignore DB sidecars and local dot-env files; no D | [] | #80 | backlog |
 | T26 | Security headers on every response class plus CSP, HSTS-ready, cache policy | [] | #81 | backlog |
