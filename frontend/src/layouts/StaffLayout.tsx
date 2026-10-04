@@ -1,11 +1,12 @@
 import { Outlet, Navigate, Link, useLocation } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
 import { useStaffStore } from '@/api/staffStore';
+import { destroySession } from '@/stores/staffStore';
 import DevBadge from '@/components/DevBadge';
 import { ROUTES } from '@/routes';
 
 function StaffLayout() {
-  const { token, clearToken } = useStaffStore();
+  const { token } = useStaffStore();
   const location = useLocation();
 
   // Redirect to login if no token (except on login page itself)
@@ -14,7 +15,8 @@ function StaffLayout() {
   }
 
   const handleLogout = () => {
-    clearToken();
+    // T30: a real logout - sweep all four storage slots + the in-memory token.
+    destroySession();
   };
 
   const navItems = [
