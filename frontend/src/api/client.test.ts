@@ -222,11 +222,27 @@ describe('mock mode', () => {
   it('reaches a registered mock handler for a staff login', async () => {
     const fetchMock = stubFetch({});
     vi.stubEnv('VITE_USE_MOCK', 'true');
+    // T15: the seed PIN is env-driven - the test supplies it (test data, not product code).
+    vi.stubEnv('VITE_MOCK_STAFF_PIN', '1234');
     const data = await post<{ success?: boolean; token?: string }>('/api/v1/staff/login', {
       pin: '1234',
     });
     expect(fetchMock).not.toHaveBeenCalled();
     expect(data).toBeTruthy();
+    vi.stubEnv('VITE_USE_MOCK', 'false');
+  });
+
+  it('reads the seed PIN from VITE_MOCK_STAFF_PIN and derives the mock bearer from it (T15)', async () => {
+    const fetchMock = stubFetch({});
+    vi.stubEnv('VITE_USE_MOCK', 'true');
+    vi.stubEnv('VITE_MOCK_STAFF_PIN', '5678');
+    const data = await post<{ token?: string }>('/api/v1/staff/login', { pin: '5678' });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(data?.token).toBe('mock-jwt-token-5678');
+    // A PIN that does not match the env-supplied seed PIN is rejected.
+    await expect(post('/api/v1/staff/login', { pin: '9999' })).rejects.toMatchObject({
+      code: 'AUTH_INVALID_PIN',
+    });
     vi.stubEnv('VITE_USE_MOCK', 'false');
   });
 });

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && if grep -rIn -e 'mock-request-handler' -e '\"1234\"' -e 'mock-jwt-token' dist/; then echo 'FAIL (T15): mock layer leaked into dist/ - the production bundle must not link the mock module'; exit 1; fi",
     "preview": "vite preview",
     "test": "vitest",
     "lint": "eslint .",
