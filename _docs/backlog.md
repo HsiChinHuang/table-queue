@@ -69,6 +69,8 @@ Work order is topological: every issue appears after all of its `depends`.
 | T33 | Run surface actually runs: make seed/dev/test-backend resolve an interpreter on this machine | [] | #89 | closed |
 | T32 | Frontend speaks the published contract: real API integration works with VITE_USE_MOCK=false | [] | #88 | backlog |
 | T34 | Integration acceptance gate: a seeded store plus both servers complete the documented demo unattended | [T32, T33] | #90 | backlog |
+| T35 | test-infra: drvfs SQLite flake between test_log_hygiene and test_db_atomicity (order-dependent) | [] | #91 | backlog |
+| T36 | test-infra: test_rate_limit_t23.py XFF tests order-dependent shared limiter state (flake) | [] | #92 | backlog |
 | T13 | FINAL regression gate: every closed-feature QA surface re-passes green after the | [] | #68 | backlog |
 | T14 | Waitlist board render scale: bound the lists or virtualise, replace 3s full-list | [] | #69 | backlog |
 | T15 | Mock data out of the shipped bundle: env-gated dynamic import, build-time CI ass | [] | #70 | backlog |
