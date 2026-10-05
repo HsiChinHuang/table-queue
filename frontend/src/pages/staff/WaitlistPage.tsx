@@ -12,9 +12,10 @@
  * - Card actions: Call, Seat, No-show, Restore, Revert, Cancel, Edit
  * - Countdown timer for CALLED entries
  * - Move up/down reorder buttons
- * - Collapsible Closed today section
+ * - Collapsible Closed today section (capped at 50 rows + show-more)
+ * - Active list bounded (100 cards + show-more)
  * - Last updated timestamp
- * - Polling every 3 seconds
+ * - Invalidate-on-mutation refresh (no polling)
  */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -166,7 +167,6 @@ const WaitlistPage: React.FC = () => {
   const { data: dashboard, isLoading: loadingDashboard } = useQuery<DashboardResponse, Error>({
     queryKey: dashboardKeys.get(branchId),
     queryFn: () => getDashboard(branchId),
-    refetchInterval: 3000,
     staleTime: 5000,
   });
 
@@ -179,11 +179,13 @@ const WaitlistPage: React.FC = () => {
       const entries = await listWaitlist(branchId);
       return (Array.isArray(entries) ? entries : []) as unknown as WaitlistEntry[];
     },
-    refetchInterval: 3000,
     staleTime: 5000,
   });
 
-  const waitlistData = waitlistRaw ?? [];
+  // T14: stabilise identity to break the loading-state infinite re-render loop.
+  // Without useMemo, `waitlistRaw ?? []` creates a new array reference every render
+  // while loading, which triggers the "Last updated" effect on every render.
+  const waitlistData = useMemo(() => waitlistRaw ?? [], [waitlistRaw]);
 
   // Mutations
   const callMutation = useMutation({
@@ -357,10 +359,15 @@ const WaitlistPage: React.FC = () => {
     );
   }, [filteredEntries.closed]);
 
+  // T14: list bounds - cap rendered rows to keep DOM node count bounded at scale.
+  const [activeVisibleCount, setActiveVisibleCount] = useState(100);
+  const [closedVisibleCount, setClosedVisibleCount] = useState(50);
+
   // Last updated timestamp
+  // T14: gate on actual data arrival (length > 0) to prevent re-render loop while loading.
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   useEffect(() => {
-    if (waitlistData || dashboard) {
+    if (waitlistData.length > 0 || dashboard) {
       setLastUpdated(new Date());
     }
   }, [waitlistData, dashboard]);
@@ -581,7 +588,7 @@ const WaitlistPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Active Waitlist */}
+      {/* Active Waitlist - T14: bounded to activeVisibleCount cards */}
       <div className="space-y-4">
         <h2 className="text-lg font-semibold text-text-primary">Active Waitlist</h2>
         {sortedActive.length === 0 ? (
@@ -592,7 +599,7 @@ const WaitlistPage: React.FC = () => {
           />
         ) : (
           <div className="space-y-4">
-            {sortedActive.map((entry) => (
+            {sortedActive.slice(0, activeVisibleCount).map((entry) => (
               <div key={entry.id} className="relative">
                 <WaitlistCard
                   entry={{
@@ -635,11 +642,19 @@ const WaitlistPage: React.FC = () => {
                 </div>
               </div>
             ))}
+            {sortedActive.length > activeVisibleCount && (
+              <button
+                onClick={() => setActiveVisibleCount((c) => c + 100)}
+                className="w-full py-2 text-sm text-primary hover:underline"
+              >
+                Show more ({sortedActive.length - activeVisibleCount} remaining)
+              </button>
+            )}
           </div>
         )}
       </div>
 
-      {/* Closed today section (collapsible) */}
+      {/* Closed today section (collapsible) - T14: capped at closedVisibleCount rows */}
       <div className="bg-white rounded-xl shadow-sm border border-border-default">
         <button
           onClick={() => setShowClosed(!showClosed)}
@@ -657,19 +672,29 @@ const WaitlistPage: React.FC = () => {
             {sortedClosed.length === 0 ? (
               <p className="text-sm text-text-secondary">No closed entries today.</p>
             ) : (
-              sortedClosed.map((entry) => (
-                <div key={entry.id} className="border-t pt-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="font-medium">{entry.queue_number}</span>
-                      <span className="text-sm text-text-secondary ml-2">
-                        {entry.name || 'Guest'} · {entry.party_size} pax
-                      </span>
+              <>
+                {sortedClosed.slice(0, closedVisibleCount).map((entry) => (
+                  <div key={entry.id} className="border-t pt-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-medium">{entry.queue_number}</span>
+                        <span className="text-sm text-text-secondary ml-2">
+                          {entry.name || 'Guest'} · {entry.party_size} pax
+                        </span>
+                      </div>
+                      <StatusBadge status={entry.status} size="sm" />
                     </div>
-                    <StatusBadge status={entry.status} size="sm" />
                   </div>
-                </div>
-              ))
+                ))}
+                {sortedClosed.length > closedVisibleCount && (
+                  <button
+                    onClick={() => setClosedVisibleCount((c) => c + 50)}
+                    className="w-full py-2 text-sm text-primary hover:underline"
+                  >
+                    Show more ({sortedClosed.length - closedVisibleCount} remaining)
+                  </button>
+                )}
+              </>
             )}
           </div>
         )}
