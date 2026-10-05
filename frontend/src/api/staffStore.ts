@@ -16,7 +16,7 @@
  * call `destroySession`, which sweeps all four storage slots plus the in-memory
  * token. This file only re-exports that contract; it defines no store of its own.
  */
-import { staffStore, destroySession } from '@/stores/staffStore';
+import { staffStore } from '@/stores/staffStore';
 
 export type { StaffStore } from '@/stores/staffStore';
 export { destroySession } from '@/stores/staffStore';

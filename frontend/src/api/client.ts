@@ -26,10 +26,13 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const { method = 'GET', body, headers: customHeaders = {} } = options;
 
   // AC-8: Check for mock mode.
-  // I-01 mock-request-handler marker: with VITE_USE_MOCK=false this whole branch is
-  // dead code, rollup eliminates it and the mock chunk is never linked, so a built
-  // asset that contains 'mock-request-handler' means the mock layer is still reachable.
-  if (import.meta.env.VITE_USE_MOCK === 'true') {
+  // T15: the mock layer is reachable ONLY behind import.meta.env.DEV - a production
+  // build constant-folds DEV to false and drops this branch (and its dynamic import)
+  // whatever VITE_USE_MOCK says, so no production build can link the mock layer.
+  // VITE_USE_MOCK remains an additional gate inside the DEV guard.
+  // I-01 mock-request-handler marker: a built asset that contains 'mock-request-handler'
+  // means the mock layer is still reachable.
+  if (import.meta.env.DEV && import.meta.env.VITE_USE_MOCK === 'true') {
     return mockRequest(method, path, body) as T | null; // mock-request-handler
   }
 

@@ -31,11 +31,20 @@ export interface SeedData {
   }>;
 }
 
+// T15: the seed PIN is parameterised from env (VITE_MOCK_STAFF_PIN) - no hardcoded PIN
+// literal in the mock/seed source. The fallback is a non-privileged placeholder, not a PIN.
+export function getSeedPin(): string {
+  return import.meta.env.VITE_MOCK_STAFF_PIN ?? '0000';
+}
+
 export const seedData: SeedData = {
   restaurant: {
     id: 'rest-001',
     name: 'Sunny Bistro',
-    pin: '1234',
+    // T15: live getter so the PIN always reflects the current env value (tests stub it).
+    get pin(): string {
+      return getSeedPin();
+    },
   },
   branch: {
     id: 'branch-001',

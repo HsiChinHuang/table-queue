@@ -79,7 +79,8 @@ function initMockHandlers(): void {
     const data = body as { pin: string };
     if (data.pin === seedData.restaurant.pin) {
       return {
-        token: 'mock-jwt-token-1234',
+        // T15: the mock bearer is derived from the env-parameterised seed PIN - no literal.
+        token: `mock-jwt-token-${seedData.restaurant.pin}`,
         staff_id: 'staff-001',
         expires_at: new Date(Date.now() + 3600000).toISOString(),
       };
