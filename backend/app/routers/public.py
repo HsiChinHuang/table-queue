@@ -183,10 +183,10 @@ def get_waitlist_status(
     Registered by ``configure_limiter`` with the 10/minute limit AC-14 measures (ten lookups per
     minute per client IP, the eleventh answered 429 ``RATE_LIMITED``).
 
-    Credentials (section 15, "Customer status requires token or last 3 digits"): a ``token`` is
-    compared with the value derived from the stored row, so it works on any business date; a
-    ``phone_last3`` only searches the current business date, which is why the ``business_date``
-    query
+    Credentials (section 15, T11): a ``token`` is the minted credential stored on the row, so it
+    works on any business date; a ``phone_last3`` is a READ-ONLY lookup factor (T11 D-5) that only
+    searches the current business date and authorizes this read and nothing else, which is why the
+    ``business_date``
     parameter is declared and then deliberately unused - honouring it would return the previous
     day's
     row that rule exists to keep unreachable. With neither credential there is nothing to check the
@@ -214,6 +214,11 @@ def cancel_waitlist(
     second success. Cancelling a ``CALLED`` entry is allowed here: the confirmation dialog of
     section 4.7 is the frontend's step, which is what
     ``test_cancel_called_requires_confirmation`` records.
+
+    The minted token is the only credential that unlocks the row (T11 D-1): a cancel sent with a
+    phone tail, a forged token, or no credential at all is the same uniform 404
+    ``WAITLIST_NOT_FOUND`` - the tail in the body is accepted for the API surface but never
+    authorizes a cancel.
     """
     entry = resolve_entry(db, queue_number, payload.token, payload.phone_last3, for_cancel=True)
     return build_entry_response(service.cancel_entry(db, entry, get_now()))
@@ -231,21 +236,27 @@ def resolve_entry(
     ``openapi.yaml`` keys these two operations on ``queue_number`` alone, with no ``branch_id``
     parameter, so the lookup has to find the row - and therefore the branch and its day - from
     the credential itself. ``queue_number`` is not unique across days (section 8), so a
-    credential-less or tail-based search is bounded to the current business date, and a token
-    is checked against the stored row instead.
+    tail-based search is bounded to the current business date, and a token is matched against
+    the minted value stored on the row instead.
+
+    One uniform refusal (T11 D-1): any request that does not carry a valid minted token is
+    answered 404 ``WAITLIST_NOT_FOUND`` with no entry state change - a cancel sent with a phone
+    tail, with a forged token, or with no credential at all, and a status read sent with no
+    credential. That is exactly the response set ``openapi.yaml`` declares (status: 200/404;
+    cancel: 200/404/409), and it keeps the B-06 convention that a bad or missing credential never
+    confirms existence. The tail remains a READ-ONLY factor: it unlocks the status read and
+    nothing else (T11 D-5).
     """
     if token:
         return service.find_entry_by_token(db, queue_number, token)
-    if not phone_tail:
-        # A credential is the request itself, so its absence is a malformed request rather than an
-        # absent entry: answering 404 would tell a caller that a typed queue number is simply not
-        # in use, which is the information the credential exists to withhold.
-        raise AppError(
-            "VALIDATION_ERROR",
-            message="token or the last three digits of the phone are required",
-        )
     if for_cancel:
-        return service.find_entry_for_cancel(db, queue_number, phone_tail, service.utc_now())
+        # The tail is read-only (T11 D-5): a tail-only cancel is the same uniform 404 as any
+        # other missing minted credential.
+        raise AppError("WAITLIST_NOT_FOUND", message="Waitlist entry not found")
+    if not phone_tail:
+        # A credential-less read is the same uniform 404: the status neither the openapi status
+        # operation declares nor the contract pins (T11 D-1).
+        raise AppError("WAITLIST_NOT_FOUND", message="Waitlist entry not found")
     return service.find_entry_by_tail(db, queue_number, phone_tail, service.utc_now())
 
 
@@ -257,8 +268,8 @@ def build_entry_response(entry: Any) -> WaitlistEntryResponse:
     ``WaitlistEntryResponse`` declares it and the openapi example returns it: a guest reaching
     this entry did so with that guest's own token or phone tail, so the name is the caller's
     own, and a guest who joined is navigated to the status page where the number is shown
-    (section 4.1 step 8). ``status_token`` is derived on the way out rather than read, since no
-    column holds it (R-B06-4).
+    (section 4.1 step 8). ``status_token`` is the minted credential read straight off the row
+    (T11 D-2), and ``status_url`` is the bare path - the token never rides in a query string.
 
     ``phone_masked`` is deliberately handed the stored value: the field's own validator applies
     the mask, and the router must not pre-apply it. It would be idempotent, but reaching for
@@ -284,7 +295,7 @@ def build_entry_response(entry: Any) -> WaitlistEntryResponse:
         hold_minutes_snapshot=entry.hold_minutes_snapshot,
         table_id=entry.table_id,
         table_label=None,
-        status_token=service.derive_status_token(entry),
+        status_token=entry.status_token,
         status_url=service.status_url(entry),
     )
 

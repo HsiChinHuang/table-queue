@@ -9,6 +9,7 @@ import { Users, Clock, AlertCircle } from 'lucide-react';
 
 import { usePublicBranch } from '@/api/hooks';
 import { joinWaitlist, JoinResult } from '@/api/public';
+import { setGuestFactor } from '@/pages/public/StatusPage';
 import { ApiError } from '@/api/errors';
 import { ROUTES } from '@/routes';
 import { Button } from '@/components/ui/Button';
@@ -142,10 +143,14 @@ const JoinPage: React.FC = () => {
       // Clear form
       queryClient.invalidateQueries({ queryKey: ['publicBranch'] });
 
-      // Navigate to status page using the REAL status_url from backend response
-      if (result && result.status_url) {
-        // status_url is like /status/A012?token=xxxx - navigate to it directly
-        navigate(result.status_url);
+      // T11 D-3: hand the minted credential to the status page through memory and
+      // navigate to the bare /status/{queueNumber} path - the token never rides in
+      // the URL query string, so it stays out of history, logs and Referer headers.
+      if (result && result.status_token) {
+        setGuestFactor({ token: result.status_token });
+      }
+      if (result && result.queue_number) {
+        navigate(`/status/${result.queue_number}`);
       }
     } catch (err) {
       if (err instanceof ApiError) {

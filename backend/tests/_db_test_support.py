@@ -53,6 +53,7 @@ from app.models import (
     WaitlistEntry,
     WaitlistStatus,
 )
+from app.services.waitlist import mint_status_token
 
 # 2026-09-10 13:00 UTC is 21:00 Taipei: business date 2026-09-10 under the branch's 04:00 cutoff,
 # the same instant public_fixtures.NOW and the merged B-08/B-09 FROZEN constants name.
@@ -526,6 +527,9 @@ class Database:
             "party_size": 2,
             "status": status,
             "sort_order": sort_order if sort_order is not None else seq,
+            # T11 D-2: the join writer mints a status_token, so a fixture row that skipped it
+            # would be a row the minted-token lookups cannot answer.
+            "status_token": mint_status_token(),
             "source": "CUSTOMER",
             "table_id": table.id if table is not None else None,
         }

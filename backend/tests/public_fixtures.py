@@ -139,8 +139,9 @@ def seed_entry(
     ``phone`` defaults to a hyphenated number whose last three digits are the ``seq``, so a test can
     name the credential it expects (``seq=14`` answers to ``014``) without spelling it out, and so
     the mask a test reads back has the shape the contract's examples carry.
-    ``created_at`` is the module ``NOW`` unless overridden, which keeps the derived ``status_token``
-    reproducible from the stored columns (R-B06-4).
+    ``created_at`` is the module ``NOW`` unless overridden, and every seeded row carries a freshly
+    minted ``status_token`` (T11 D-2), because the join writer mints one and a seed that skipped it
+    would be a row the minted-token lookups cannot answer.
     """
     defaults = {
         "branch_id": branch_id,
@@ -155,6 +156,7 @@ def seed_entry(
         "status": status,
         "sort_order": sort_order,
         "source": WaitlistSource.CUSTOMER,
+        "status_token": service.mint_status_token(),
         "created_at": NOW,
         "updated_at": NOW,
     }
@@ -167,8 +169,8 @@ def seed_entry(
 
 
 def token_for(entry) -> str:
-    """Return the derived credential of a stored entry (the only token that exists, R-B06-4)."""
-    return service.derive_status_token(entry)
+    """Return the minted credential stored on the entry (the only token that exists, T11 D-2)."""
+    return entry.status_token
 
 
 def a_table_id() -> str:
