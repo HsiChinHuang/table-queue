@@ -73,7 +73,7 @@ Work order is topological: every issue appears after all of its `depends`.
 | T36 | test-infra: test_rate_limit_t23.py XFF tests order-dependent shared limiter state (flake) | [] | #92 | backlog |
 | T13 | FINAL regression gate: every closed-feature QA surface re-passes green after the | [] | #68 | backlog |
 | T14 | Waitlist board render scale: bound the lists or virtualise, replace 3s full-list | [] | #69 | closed |
-| T15 | Mock data out of the shipped bundle: env-gated dynamic import, build-time CI ass | [] | #70 | backlog |
+| T15 | Mock data out of the shipped bundle: env-gated dynamic import, build-time CI ass | [] | #70 | closed |
 | T16 | Contract completion: client-facing 404 trio, bodiless 422 docs, Close-Day endpoi | [] | #71 | backlog |
 | T17 | Frontend client lifecycle: expires_at honoured, router-driven redirect, shared-U | [] | #72 | backlog |
 | T18 | Response-envelope compliance: contract error envelope on every non-2xx, includin | [] | #73 | backlog |
