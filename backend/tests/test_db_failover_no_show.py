@@ -31,7 +31,7 @@ import pytest
 from freezegun import freeze_time
 
 from app.models import WaitlistEntry, WaitlistStatus
-from app.services.waitlist import _as_utc, derive_status_token
+from app.services.waitlist import _as_utc
 from tests._db_test_support import (
     BUSINESS_DATE,
     Database,
@@ -186,7 +186,7 @@ def test_lazy_no_show_at_the_hold_boundary_is_not_expired_and_one_second_later_i
         assert stamped.status is WaitlistStatus.CALLED, stamped
         assert stamped.hold_minutes_snapshot == 10
         boundary = called_at + timedelta(minutes=10)
-        guest_token = derive_status_token(stamped)
+        guest_token = stamped.status_token
 
         # One minute inside the hold: the sweep is not early, and the counters say so.
         with frozen_taipei(2026, 9, 10, 13, 9):
@@ -283,10 +283,10 @@ def test_lazy_no_show_at_the_hold_boundary_is_not_expired_and_one_second_later_i
 
 
 def guest_status(client, queue_number: str, token: str):
-    """GET the guest status read for one queue number, carrying its derived token.
+    """GET the guest status read for one queue number, carrying its minted token.
 
-    ``GET /api/v1/waitlist/{queue_number}`` answers 404 without a credential (``public.py:237-244``)
+    ``GET /api/v1/waitlist/{queue_number}`` answers 404 without a credential (``public.py``)
     - the read exists to withhold a queue position from anyone who types a number - so the guest
-    half of AC-6's third case has to carry the token the entry's own row derives.
+    half of AC-6's third case has to carry the token minted for the entry's own row (T11).
     """
     return client.get(f"/api/v1/waitlist/{queue_number}", params={"token": token})

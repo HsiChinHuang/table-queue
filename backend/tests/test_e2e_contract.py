@@ -6,8 +6,9 @@ join -> login -> call -> board.
 Uses the same TestClient pattern as other backend tests (no live server).
 Verifies the contract paths and response shapes that the frontend depends on.
 
-Note: The status endpoint requires ownership factor (token/phone_last3) which is
-T34 scope. This test focuses on paths that work without that factor.
+Note: The status endpoint requires a guest credential (the minted status_token or the
+read-only phone_last3 lookup factor, T11). This test focuses on paths that work without
+that factor, plus the cancel credential split.
 """
 
 from __future__ import annotations
@@ -211,10 +212,11 @@ def test_e2e_login_response_shape(client, db_session):
 
 
 def test_e2e_cancel_endpoint(client, db_session):
-    """Test cancel endpoint exists and accepts correct shape.
+    """Test the cancel endpoint's credential split (T11 D-1).
 
-    Verifies POST /api/v1/waitlist/{queue_number}/cancel.
-    Note: Cancel may require ownership factor - we verify the endpoint exists.
+    Verifies POST /api/v1/waitlist/{queue_number}/cancel: a credential-less cancel is the
+    uniform 404 WAITLIST_NOT_FOUND (the openapi cancel operation declares 200/404/409 only),
+    and the minted token the join handed back is the credential that cancels.
     """
     # Setup
     seed_branch(db_session, branch_id=1, is_open=True)
@@ -228,12 +230,19 @@ def test_e2e_cancel_endpoint(client, db_session):
     }
     join_response = client.post("/api/v1/branches/1/waitlist", json=join_payload)
     assert join_response.status_code == 201
-    queue_number = join_response.json()["queue_number"]
+    join_data = join_response.json()
+    queue_number = join_data["queue_number"]
+    token = join_data["status_token"]
+    assert isinstance(token, str) and token, "join response must carry the minted status_token"
 
-    # Cancel - endpoint exists, may require ownership factor
-    cancel_response = client.post(f"/api/v1/waitlist/{queue_number}/cancel")
-    # Cancel may require auth/token - just verify the endpoint exists
-    # and returns a structured response (200 or 4xx with error)
-    assert cancel_response.status_code in (200, 201, 401, 403, 422), (
+    # Cancel with no credential: the uniform 404, not a 422 the openapi file does not declare.
+    refused = client.post(f"/api/v1/waitlist/{queue_number}/cancel", json={})
+    assert refused.status_code == 404, f"Unexpected cancel status: {refused.status_code}"
+    assert refused.json()["error"]["code"] == "WAITLIST_NOT_FOUND"
+
+    # Cancel with the minted token: the only credential that authorizes it.
+    cancel_response = client.post(f"/api/v1/waitlist/{queue_number}/cancel", json={"token": token})
+    assert cancel_response.status_code == 200, (
         f"Unexpected cancel status: {cancel_response.status_code}"
     )
+    assert cancel_response.json()["status"] == "CANCELLED"

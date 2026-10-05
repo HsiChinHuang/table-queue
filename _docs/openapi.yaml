@@ -124,8 +124,8 @@ paths:
                 queue_number: A001
                 full_queue_number: A-20260910-001
                 status: WAITING
-                status_token: abc123def456
-                status_url: /status/A001?token=abc123def456
+                status_token: a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90
+                status_url: /status/A001
                 name: John Smith
                 phone_masked: 0900-***-001
                 party_size: 4
@@ -217,7 +217,7 @@ paths:
             schema:
               $ref: '#/components/schemas/CancelWaitlistRequest'
             example:
-              token: abc123def456
+              token: a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90
       responses:
         '200':
           description: Waitlist entry cancelled
@@ -1480,11 +1480,13 @@ components:
       properties:
         token:
           type: string
-          example: abc123def456
+          description: The minted status credential; the only credential that authorizes a cancel
+          example: a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90
         phone_last3:
           type: string
           minLength: 3
           maxLength: 3
+          description: Accepted for the API surface but never authorizes a cancel (READ-ONLY lookup factor)
           example: '001'
 
     SeatWaitlistRequest:
@@ -1594,12 +1596,12 @@ components:
         status_token:
           type: string
           nullable: true
-          description: Only returned on join
+          description: The minted opaque status credential; only returned on join
         status_url:
           type: string
           nullable: true
-          description: Only returned on join
-          example: /status/A001?token=abc123def456
+          description: The bare status page path; the token never rides in a query string
+          example: /status/A001
         updated_at:
           type: string
           format: date-time

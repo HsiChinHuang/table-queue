@@ -209,6 +209,11 @@ class WaitlistEntry(Base):
     table_id: Mapped[str | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("tables.id"), nullable=True
     )
+    # T11 (D-2): the server-minted opaque guest credential. Minted at join time from the OS
+    # randomness source and stored here - it is the only credential that authorizes cancel, and
+    # it is never recomputable from any other stored column. Nullable so rows written before the
+    # column existed (or by seeds that do not mint one) simply carry no credential.
+    status_token: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/Label';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingSkeleton } from '@/components/LoadingSkeleton';
 import { getStatus } from '@/api/public';
+import { setGuestFactor } from '@/pages/public/StatusPage';
 import { ApiError } from '@/api/errors';
 
 /**
@@ -62,8 +63,11 @@ const LookupPage: React.FC = () => {
         return;
       }
 
-      // AC-5: Success navigation to /status/{queueNumber}?token={statusToken}
-      navigate(`/status/${normalizedQueueNumber}?token=${statusToken}`);
+      // T11 D-3: hand the read-only lookup factor to the status page through memory
+      // and navigate to the bare /status/{queueNumber} path - the tail never rides
+      // in the URL query string.
+      setGuestFactor({ phone_last3: statusToken });
+      navigate(`/status/${normalizedQueueNumber}`);
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.code === 'WAITLIST_NOT_FOUND') {

@@ -3,8 +3,8 @@
 Transport lives in ``app/routers/public.py``; this module owns the rules and never builds an HTTP
 response: business date and ``seq`` allocation (specs.md section 8), the duplicate-phone rule
 (section 7), ``waiting_ahead`` and ``estimated_wait_minutes`` (ruling R-B06-3), the hold countdown
-and the lazy ``NO_SHOW`` transition (section 4.10), guest cancel (section 4.7) and the derived
-``status_token`` (R-B06-4).
+and the lazy ``NO_SHOW`` transition (section 4.10), guest cancel (section 4.7) and the minted
+``status_token`` (T11).
 
 Contract rules that bind every function here:
 
@@ -26,8 +26,8 @@ Contract rules that bind every function here:
 
 from __future__ import annotations
 
-import hashlib
 import re
+import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -165,44 +165,29 @@ def phone_last3(phone: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Derived status token (R-B06-4)
+# Minted status token (T11)
 # ---------------------------------------------------------------------------
 
 
-def _entry_created_at(entry: WaitlistEntry) -> str:
-    """Return the ISO text of ``created_at`` exactly as the stored row spells it.
+def mint_status_token() -> str:
+    """Mint a fresh opaque guest credential: 32 random bytes as 64 hex characters (256 bits).
 
-    The token input must be the stored value: re-formatting through UTC would add an offset a naive
-    SQLite round-trip does not carry, and the token would no longer be reproducible from the columns
-    AC-8 reads back.
+    The value is drawn from the OS randomness source at join time and stored on the row
+    (``WaitlistEntry.status_token``). It is never computable from any other stored column, which is
+    what makes it unguessable and, in principle, rotatable: re-minting one row's value invalidates
+    the old credential without touching any other row.
     """
-    created = entry.created_at
-    return created.isoformat() if isinstance(created, datetime) else str(created)
-
-
-def derive_status_token(entry: WaitlistEntry) -> str:
-    """Return an entry's status token: the first 16 hex characters of a SHA-256 over stored data.
-
-    ``WaitlistEntry`` (B-02, merged) has no ``status_token`` column, so the token is recomputed from
-    ``entry.id | entry.phone | entry.created_at.isoformat()`` rather than stored (R-B06-4). That
-    triple is stable for a stored row, which is what lets a later request re-derive and check the
-    credential, and it keeps the token a different secret from the ``phone_last3`` credential AC-10
-    checks.
-    """
-    raw = f"{entry.id}|{entry.phone}|{_entry_created_at(entry)}"
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
-
-
-def status_token_matches(entry: WaitlistEntry, token: str | None) -> bool:
-    """Compare a submitted token with the derived one, tolerating case and stray whitespace."""
-    if not token:
-        return False
-    return token.strip().lower() == derive_status_token(entry)
+    return secrets.token_hex(32)
 
 
 def status_url(entry: WaitlistEntry) -> str:
-    """Return the guest status page path for an entry, carrying its token (openapi example)."""
-    return f"/status/{entry.queue_number}?token={derive_status_token(entry)}"
+    """Return the guest status page path for an entry - the bare path, no query string (T11).
+
+    The minted token is handed to the frontend in the join response and carried in memory (or the
+    URL hash), never in a query parameter, so no backend-emitted URL can leak the credential into
+    a browser history entry, an access log or a Referer header.
+    """
+    return f"/status/{entry.queue_number}"
 
 
 # ---------------------------------------------------------------------------
@@ -248,31 +233,34 @@ def as_utc(value: Any) -> datetime | None:
 
 
 def find_entry_by_token(db: Any, queue_number: str, token: str) -> WaitlistEntry:
-    """Return the entry with this queue number whose derived token matches, or 404.
+    """Return the entry with this queue number and this minted token, or 404 (T11).
 
-    A derived token belongs to a row rather than to a day, so every row carrying the number is a
-    candidate - which is also what makes a token work after midnight. Newest first, so a guest who
-    re-joined under the same number is looking at the entry just created.
+    The token is an exact match against the stored column - there is no derivation to compare
+    against, so a forged or stale token simply finds no row. The queue number stays in the filter
+    because the URL already names it and a token minted for ``A001`` must never answer a request
+    for ``A002``. The token belongs to a row rather than to a day, so it works after midnight.
     """
-    rows = (
+    row = (
         db.query(WaitlistEntry)
-        .filter(WaitlistEntry.queue_number == queue_number)
-        .order_by(WaitlistEntry.created_at.desc())
-        .all()
+        .filter(
+            WaitlistEntry.queue_number == queue_number,
+            WaitlistEntry.status_token == token,
+        )
+        .first()
     )
-    for row in rows:
-        if status_token_matches(row, token):
-            return row
-    raise AppError("WAITLIST_NOT_FOUND", message="Waitlist entry not found")
+    if row is None:
+        raise AppError("WAITLIST_NOT_FOUND", message="Waitlist entry not found")
+    return row
 
 
 def find_entry_by_tail(db: Any, queue_number: str, last3: str, now: datetime) -> WaitlistEntry:
     """Return today's entry with this number whose phone ends in ``last3``, or 404.
 
-    Section 8: "Guest lookup without token only searches current business_date". The number alone
-    does not say which branch owns it, so each branch that carries the number is asked for its own
-    current business date - a stale row from the previous day, or a row belonging to a branch whose
-    settings row is gone, is simply not the answer.
+    The tail is a READ-ONLY lookup factor (T11 D-5): it authorizes the status read and nothing
+    else - cancel requires the minted token. Section 8: "Guest lookup without token only searches
+    current business_date". The number alone does not say which branch owns it, so each branch that
+    carries the number is asked for its own current business date - a stale row from the previous
+    day, or a row belonging to a branch whose settings row is gone, is simply not the answer.
     """
     rows = (
         db.query(WaitlistEntry)
@@ -290,35 +278,6 @@ def find_entry_by_tail(db: Any, queue_number: str, last3: str, now: datetime) ->
             continue
         return row
     raise AppError("WAITLIST_NOT_FOUND", message="Waitlist entry not found")
-
-
-def find_entry_for_cancel(
-    db: Any, queue_number: str, last3: str, now: datetime
-) -> WaitlistEntry:
-    """Return the entry a phone tail unlocks for cancellation.
-
-    Cancelling needs a live entry, and a live entry belongs to one business date, so the branch
-    whose number carries a live row decides the day - falling back to the current-date search when
-    the number matches only closed rows, which then answers 404 the way any stale credential does.
-    """
-    live = (
-        db.query(WaitlistEntry)
-        .filter(
-            WaitlistEntry.queue_number == queue_number,
-            WaitlistEntry.status.in_(CANCELABLE_STATUSES),
-        )
-        .order_by(WaitlistEntry.created_at.desc())
-        .all()
-    )
-    for row in live:
-        branch = db.get(Branch, row.branch_id)
-        if branch is None:
-            continue
-        if row.business_date != business_date_for(branch, now):
-            continue
-        if phone_last3(row.phone) == last3:
-            return row
-    return find_entry_by_tail(db, queue_number, last3, now)
 
 
 # ---------------------------------------------------------------------------
@@ -439,9 +398,10 @@ def join_waitlist(
 
     The row's own ``created_at`` is the injected ``now`` rather than the model's default: the
     business
-    date, the ``full_queue_number`` and the derived token all rest on one instant, and letting the
-    database clock supply a second one would let a token and a day disagree about when the guest
-    joined.
+    date and the ``full_queue_number`` rest on one instant, and letting the database clock supply a
+    second one would let the number and a day disagree about when the guest joined. The minted
+    ``status_token`` is drawn from the OS randomness source at the same step, so the response
+    carries the exact value stored on the row it shows the number for (T11 D-2).
     """
     clock = _ensure_aware(now) if now is not None else utc_now()
     branch = get_branch_or_404(db, branch_id)
@@ -474,6 +434,7 @@ def join_waitlist(
         note=(note or "").strip() or None,
         status=WaitlistStatus.WAITING,
         sort_order=next_sort_order(db, branch_id),
+        status_token=mint_status_token(),
         created_at=clock,
         updated_at=clock,
     )

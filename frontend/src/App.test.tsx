@@ -16,6 +16,7 @@ import { RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createAppRouter } from './App';
 import { useStaffStore } from '@/api/staffStore';
+import { setGuestFactor, clearGuestFactor } from '@/pages/public/StatusPage';
 
 // Mock API calls that pages make
 vi.mock('@/api/public', () => ({
@@ -133,11 +134,15 @@ function createWrapper() {
 beforeEach(() => {
   // Set a token so StaffLayout doesn't redirect to login
   useStaffStore.getState().setToken('test-token');
+  // T11: the guest credential is module state in StatusPage; start each test clean
+  // so one test's in-memory token cannot leak into the next test's status view.
+  clearGuestFactor();
   vi.clearAllMocks();
 });
 
 afterEach(() => {
   useStaffStore.getState().clearToken();
+  clearGuestFactor();
   vi.clearAllMocks();
   cleanup();
 });
@@ -162,19 +167,37 @@ describe('App shell mounts real page components', () => {
     unmount();
   });
 
-  it('renders StatusPage at /status/A001?token=123 (not placeholder)', async () => {
+  it('ignores a token in the query string and shows the lookup fallback (T11)', async () => {
     const router = createAppRouter('/status/A001?token=123');
     const { unmount } = render(
       <RouterProvider router={router} />,
       { wrapper: createWrapper() }
     );
 
-    // StatusPage shows the queue number
+    // T11: the credential never rides in the query string, so a token in the URL
+    // is ignored by design and the guest is asked for the read-only lookup factor.
+    await screen.findByText(/last 3 digits of your phone number/i, undefined, { timeout: 5000 });
+
+    // Ensure placeholder text is NOT present
+    expect(screen.queryByText(/StatusPage/i)).toBeNull();
+
+    unmount();
+  });
+
+  it('renders StatusPage from the in-memory credential (T11)', async () => {
+    setGuestFactor({ token: 'in-memory-credential' });
+    const router = createAppRouter('/status/A001');
+    const { unmount } = render(
+      <RouterProvider router={router} />,
+      { wrapper: createWrapper() }
+    );
+
+    // The in-memory token authorizes the status read, so the status view renders.
     await screen.findByText('A001', undefined, { timeout: 5000 });
 
     // Ensure placeholder text is NOT present
     expect(screen.queryByText(/StatusPage/i)).toBeNull();
-    
+
     unmount();
   });
 

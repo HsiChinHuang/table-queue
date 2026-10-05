@@ -131,7 +131,7 @@ There is no Phase 0 Q&A transcript in this repository, so this list is the audit
 - Reset data (development only)
 
 ### Auth Model
-- Guests: no account. Use `status_token` or `queue_number` + `phone_last3`.
+- Guests: no account. Use the minted `status_token` (the only credential that authorizes a cancel) or `queue_number` + `phone_last3` (the last 3 digits, a READ-ONLY lookup factor for the status read).
 - Staff/Admin: single shared PIN. Login returns JWT.
 - JWT payload: `sub="staff"`, `role="staff"`, `iat`, `exp`.
 - JWT algorithm: HS256. Secret from `JWT_SECRET`.
@@ -148,8 +148,8 @@ There is no Phase 0 Q&A transcript in this repository, so this list is the audit
 4. Guest fills name, phone, party size, optional note.
 5. Frontend calls `POST /api/v1/branches/1/waitlist`.
 6. Backend validates, checks duplicate phone, generates queue number.
-7. Backend returns `queue_number`, `full_queue_number`, `status_token`, `status_url`.
-8. Frontend navigates to `/status/A001?token=xxx`.
+7. Backend mints an opaque `status_token` (>=128 bits of entropy, stored on the entry's row) and returns `queue_number`, `full_queue_number`, `status_token`, `status_url`.
+8. Frontend keeps the `status_token` in memory and navigates to the bare `/status/A001` path - the token never rides in a URL query string.
 
 ### 4.2 Staff calls next guest
 1. Staff opens `/staff/waitlist`.
@@ -189,11 +189,12 @@ There is no Phase 0 Q&A transcript in this repository, so this list is the audit
 
 ### 4.7 Cancel
 1. Guest clicks `Cancel` on `/status`.
-2. If `WAITING`, cancel directly.
-3. If `CALLED`, show confirmation dialog.
-4. Backend sets status to `CANCELLED`, sets `cancelled_reason`, sets `closed_at`.
-5. Backend releases table if any.
-6. Guest status page shows `Cancelled` and `Join Again`.
+2. The cancel request carries the minted `status_token`; the token is the only credential that authorizes a cancel - a phone tail, a forged token, or no credential answers 404 `WAITLIST_NOT_FOUND` (the last 3 digits stay a READ-ONLY lookup factor).
+3. If `WAITING`, cancel directly.
+4. If `CALLED`, show confirmation dialog.
+5. Backend sets status to `CANCELLED`, sets `cancelled_reason`, sets `closed_at`.
+6. Backend releases table if any.
+7. Guest status page shows `Cancelled` and `Join Again`.
 
 ### 4.8 Release table
 1. Staff clicks `Release Table` on an `OCCUPIED` table.
@@ -609,7 +610,7 @@ Public board shows only queue number and party size.
 
 Staff list shows masked phone.
 
-Customer status requires token or last 3 digits.
+Customer status requires the minted status_token or the last 3 digits (a READ-ONLY lookup factor); cancellation requires the minted status_token only.
 
 No audit log in v1.
 

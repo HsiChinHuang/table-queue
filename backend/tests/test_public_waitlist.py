@@ -6,8 +6,8 @@ the surface lives in ``tests/test_public_board.py``; the shared seeding helpers 
 fixtures rather than a module that cannot import.
 
 Two of the rules below are worth the paragraph it takes to say why they are asserted the way they
-are: the status credential is *derived* from stored columns rather than stored (R-B06-4), so a test
-has to recompute it instead of reading a column; and the rate limits are attached to the handler
+are: the status credential is *minted* at join time and stored on the row (T11), so a test reads
+the column back rather than recomputing anything; and the rate limits are attached to the handler
 during route registration, so a test can only see them by inspecting the router rather than by
 sending requests - the 429 itself needs a limiter that is switched on, which is what
 ``limiter_enabled`` is for.
@@ -16,9 +16,9 @@ sending requests - the 429 itself needs a limiter that is switched on, which is 
 from __future__ import annotations
 
 import contextlib
-import hashlib
 import inspect
 import os
+import re
 from datetime import UTC, datetime
 
 os.environ.setdefault("DATABASE_URL", "sqlite:////tmp/tq_b06_pytest.db")
@@ -47,7 +47,7 @@ BRANCH = "/api/v1/public/branches/1"
 STATUS_PATH = "/api/v1/waitlist"
 CANCEL = "/api/v1/waitlist/A014/cancel"
 BODY = {"name": "John Smith", "phone": "0900-000-001", "party_size": 4, "note": "Window seat"}
-WRONG_TOKEN = "deadbeef" + "deadbeef"  # not a credential any stored row can derive (AC-9)
+WRONG_TOKEN = "deadbeef" + "deadbeef"  # not a credential any stored row holds (AC-9)
 CONTRACT_MASK = "0900-***-001"  # the masked shape AC-4 and AC-12 measure
 
 
@@ -335,23 +335,30 @@ def test_a_cancelled_phone_can_join_again(seeded):
     assert response.json()["queue_number"] == "A002"
 
 
-def test_join_hands_out_a_token_that_is_recomputable_from_the_row(seeded):
-    """AC-8 / R-B06-4: the credential is derived from stored columns, never stored beside them.
+def test_join_hands_out_a_minted_opaque_token_stored_on_the_row(seeded):
+    """T11: the credential is minted at join time, opaque, >=128 bits, and stored on the row.
 
-    Recomputing it here rather than reading a column is the check: a schema that persisted a
-    token would pass a naive round-trip test and still break every entry created before the
-    column existed.
+    Reading the column back rather than recomputing anything is the check: the pre-fix scheme
+    derived the value from stored columns, and a service that still derives would fail the
+    round-trip against the stored column. The entropy arm scores the hex alphabet at 4 bits per
+    character, the same rate the AC probe uses.
     """
     client = client_of(seeded)
     with freeze_time(NOW):
         body = join(client).json()
     row = seeded.query(service.WaitlistEntry).one()
-    assert len(body["status_token"]) == 16
-    assert body["status_token"] == token_for(row)
-    assert body["status_token"] == hashlib.sha256(
-        f"{row.id}|{row.phone}|{service._entry_created_at(row)}".encode()
-    ).hexdigest()[:16]
-    assert body["status_url"] == f"/status/{body['queue_number']}?token={body['status_token']}"
+    token = body["status_token"]
+    assert isinstance(token, str) and re.fullmatch(r"[0-9a-f]+", token)
+    assert len(token) * 4 >= 128  # hex at 4 bits/char: the minted value carries 256
+    assert token == token_for(row) == row.status_token
+    # D-2: the emitted URL is the bare path - no credential in a query string.
+    assert body["status_url"] == f"/status/{body['queue_number']}"
+    assert "token=" not in body["status_url"]
+    # The minted capability authorizes the status read.
+    with freeze_time(NOW):
+        read = status(client, body["queue_number"], token=token)
+    assert read.status_code == 200
+    assert read.json()["queue_number"] == body["queue_number"]
 
 
 # --- status (sections 4.10 and 15) -------------------------------------------------------------
@@ -443,7 +450,7 @@ def test_status_phone_tail_searches_only_todays_rows(seeded):
     # mask check, for instance) is not this assertion - both rows end in 014.
     assert "2026-09-09" not in todays.text
     assert "20260909" not in todays.text          # the compact spelling its full number would carry
-    assert token_for(stale_row) not in todays.text  # its own derived credential
+    assert token_for(stale_row) not in todays.text  # its own minted credential
     stamp = todays_row.created_at.strftime("%Y-%m-%dT%H:%M:%S")
     assert todays.json()["created_at"].startswith(stamp)
     # ``business_date`` is not a parameter of this operation, so the call above sends only declared
@@ -602,11 +609,13 @@ def test_second_cancel_is_a_conflict_not_a_second_success(seeded):
     assert second.json()["error"]["code"] == "WAITLIST_INVALID_STATUS"
 
 
-def test_cancel_by_phone_tail_works_without_a_token(seeded):
-    """AC-13: the tail is the fallback credential, and a wrong tail gets you nowhere.
+def test_cancel_by_phone_tail_is_refused(seeded):
+    """T11 D-1/D-5: the tail is a READ-ONLY factor, and a tail cancel is the uniform 404.
 
     The entry being left where it was is what matters in the refused half, and it is checked
-    with the token the join returned - the only credential no other caller holds.
+    with the minted token the row carries - the only credential that authorizes a cancel. A
+    wrong tail and the right tail are the same 404: the endpoint must not reveal which part
+    of the guess was wrong.
     """
     seed_entry(
         seeded,
@@ -616,25 +625,34 @@ def test_cancel_by_phone_tail_works_without_a_token(seeded):
         sort_order=1,
         phone="0900-000-014",
     )
+    entry = seeded.query(service.WaitlistEntry).one()
     client = client_of(seeded)
     with freeze_time(NOW):
-        refused = client.post(CANCEL, json={"phone_last3": "999"})
-        response = client.post(CANCEL, json={"phone_last3": "014"})
+        wrong_tail = client.post(CANCEL, json={"phone_last3": "999"})
+        refused = client.post(CANCEL, json={"phone_last3": "014"})
+        response = client.post(CANCEL, json={"token": token_for(entry)})
+    assert wrong_tail.status_code == 404
+    assert wrong_tail.json()["error"]["code"] == "WAITLIST_NOT_FOUND"
     assert refused.status_code == 404
+    assert refused.json()["error"]["code"] == "WAITLIST_NOT_FOUND"
     assert response.status_code == 200
     assert response.json()["status"] == "CANCELLED"
     seeded.expire_all()
     assert seeded.query(service.WaitlistEntry).one().status is WaitlistStatus.CANCELLED
 
 
-def test_cancel_needs_a_credential(seeded):
-    """A cancel with neither token nor tail is a validation failure, never an anonymous cancel."""
+def test_cancel_without_any_credential_is_not_found(seeded):
+    """T11 D-1: a credential-less cancel is the uniform 404, never a 422, never an anonymous cancel.
+
+    The openapi cancel operation declares 200/404/409 only, and the pre-fix 422
+    ``VALIDATION_ERROR`` was the status neither the contract nor the openapi file declared.
+    """
     seed_entry(seeded, queue_number="A014", seq=14, status=WaitlistStatus.WAITING, sort_order=1)
     client = client_of(seeded)
     with freeze_time(NOW):
         response = client.post(CANCEL, json={})
-    assert response.status_code == 422
-    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "WAITLIST_NOT_FOUND"
     assert seeded.query(service.WaitlistEntry).one().status is WaitlistStatus.WAITING
 
 
