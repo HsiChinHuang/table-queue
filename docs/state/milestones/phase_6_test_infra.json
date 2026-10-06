@@ -1,0 +1,14 @@
+{
+ "schema_version": "1.0",
+ "milestone": "phase_6_test_infra",
+ "survey_completed_at": "2026-10-06T17:39:56Z",
+ "review_plan_status": "pending",
+ "review_plan_completed_at": null,
+ "review_plan_verdict": null,
+ "review_plan_attempts": 0,
+ "issues_generated": [
+  "t35",
+  "t36"
+ ],
+ "survey_attempts": 0
+}

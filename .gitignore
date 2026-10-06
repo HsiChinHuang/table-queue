@@ -174,3 +174,5 @@ desktop.ini
 # package.json
 # tsconfig.json
 # .eslintrc.json
+# agent worktrees
+.worktrees/

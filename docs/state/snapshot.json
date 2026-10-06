@@ -1,8 +1,17 @@
 {
-  "schema_version": "1.0",
-  "updated_at": "2026-10-06T14:35:22Z",
-  "last_seq": 9,
-  "slots": [],
-  "merge_queue": [],
-  "active_issues": []
+ "schema_version": "1.0",
+ "updated_at": "2026-10-06T14:35:22Z",
+ "last_seq": 16,
+ "slots": [],
+ "merge_queue": [],
+ "active_issues": [
+  {
+   "id": "t16",
+   "state": "groomed",
+   "mode": "idle",
+   "role": null,
+   "note": "gate1 pass 19:38Z; builder:implement next (worktree)"
+  }
+ ],
+ "completed_issues": []
 }

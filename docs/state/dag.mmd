@@ -1,0 +1,60 @@
+graph TD
+  classDef done fill:#22c55e,stroke:#166534,color:#052e16;
+  classDef open fill:#60a5fa,stroke:#1e40af,color:#172554;
+  classDef gate fill:#f59e0b,stroke:#92400e,color:#451a03;
+  t7["t7 (closed)"]:::done
+  t8["t8 (closed)"]:::done
+  t9["t9 (closed)"]:::done
+  t10["t10 (closed)"]:::done
+  t11["t11 (closed)"]:::done
+  t12["t12 (closed)"]:::done
+  t13["t13 (open)"]:::gate
+  t14["t14 (closed)"]:::done
+  t15["t15 (closed)"]:::done
+  t16["t16 (open)"]:::open
+  t17["t17 (open)"]:::open
+  t18["t18 (open)"]:::open
+  t19["t19 (open)"]:::open
+  t20["t20 (closed)"]:::done
+  t21["t21 (closed)"]:::done
+  t22["t22 (open)"]:::open
+  t23["t23 (closed)"]:::done
+  t24["t24 (open)"]:::open
+  t25["t25 (open)"]:::open
+  t26["t26 (open)"]:::open
+  t27["t27 (open)"]:::open
+  t28["t28 (open)"]:::open
+  t29["t29 (open)"]:::open
+  t30["t30 (closed)"]:::done
+  t31["t31 (open)"]:::open
+  t32["t32 (closed)"]:::done
+  t33["t33 (closed)"]:::done
+  t34["t34 (closed)"]:::done
+  t35["t35 (open)"]:::open
+  t36["t36 (open)"]:::open
+  t9 --> t13
+  t10 --> t13
+  t11 --> t13
+  t12 --> t13
+  t14 --> t13
+  t15 --> t13
+  t16 --> t13
+  t17 --> t13
+  t18 --> t13
+  t19 --> t13
+  t20 --> t13
+  t21 --> t13
+  t22 --> t13
+  t23 --> t13
+  t24 --> t13
+  t25 --> t13
+  t26 --> t13
+  t27 --> t13
+  t28 --> t13
+  t29 --> t13
+  t30 --> t13
+  t31 --> t13
+  t32 --> t34
+  t33 --> t34
+
+%% Processing order (serial, MAX_SLOTS=1): phase_5_audit FIFO from t16 -> phase_6_test_infra (t35, t36) -> t13 (final regression gate). t35/t36 have no DAG edge into t13 by design; the gate ordering is documented in docs/plan.md.

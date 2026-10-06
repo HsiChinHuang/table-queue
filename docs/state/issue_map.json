@@ -1,1 +1,186 @@
-{"schema_version":"1.0","updated_at":"2026-10-06T00:00:00Z","mappings":{}}
+{
+ "schema_version": "1.0",
+ "updated_at": "2026-10-06T17:39:56Z",
+ "mappings": {
+  "t13": {
+   "platform_issue": 68,
+   "title": "FINAL regression gate: every closed-feature QA surface re-passes green after the audit batch",
+   "state_label": "defined",
+   "milestone": "phase_5_audit"
+  },
+  "t16": {
+   "platform_issue": 71,
+   "title": "Contract completion: client-facing 404 trio, bodiless 422 docs, Close-Day endpoint",
+   "state_label": "defined",
+   "milestone": "phase_5_audit"
+  },
+  "t17": {
+   "platform_issue": 72,
+   "title": "Frontend client lifecycle: expires_at honoured, router-driven redirect, shared-UI resource cleanup",
+   "state_label": "defined",
+   "milestone": "phase_5_audit"
+  },
+  "t18": {
+   "platform_issue": 73,
+   "title": "Response-envelope compliance: contract error envelope on every non-2xx, including router-level refusals",
+   "state_label": "defined",
+   "milestone": "phase_5_audit"
+  },
+  "t19": {
+   "platform_issue": 74,
+   "title": "Store contention is a contract outcome: busy/locked maps to a retryable code, WAL or documented single-writer, no silent 500",
+   "state_label": "defined",
+   "milestone": "phase_5_audit"
+  },
+  "t22": {
+   "platform_issue": 77,
+   "title": "eslint flat config for eslint 9: author it, get the codebase lint-clean, retire the D-03 AC-6 inversion",
+   "state_label": "defined",
+   "milestone": "phase_5_audit"
+  },
+  "t24": {
+   "platform_issue": 79,
+   "title": "SQLite-only reality vs PostgreSQL affordance: add the driver and exercise the path, or remove the claim",
+   "state_label": "defined",
+   "milestone": "phase_5_audit"
+  },
+  "t25": {
+   "platform_issue": 80,
+   "title": "Repository artifact hygiene: gitignore DB sidecars and local dot-env files; no DB artifacts left in the tree",
+   "state_label": "defined",
+   "milestone": "phase_5_audit"
+  },
+  "t26": {
+   "platform_issue": 81,
+   "title": "Security headers on every response class plus CSP, HSTS-ready, cache policy",
+   "state_label": "defined",
+   "milestone": "phase_5_audit"
+  },
+  "t27": {
+   "platform_issue": 82,
+   "title": "CI from nothing: lint+test+audit workflows on push, frontend build smoke, secret-scan on PRs",
+   "state_label": "defined",
+   "milestone": "phase_5_audit"
+  },
+  "t28": {
+   "platform_issue": 83,
+   "title": "ready.py readiness tool: closed-set by issue-map intersect platform-state, never by title parse",
+   "state_label": "defined",
+   "milestone": "phase_5_audit"
+  },
+  "t29": {
+   "platform_issue": 84,
+   "title": "Integer and length bounds live in schemas: no overflow-500, no out-of-domain values persisted",
+   "state_label": "defined",
+   "milestone": "phase_5_audit"
+  },
+  "t31": {
+   "platform_issue": 86,
+   "title": "Staff waitlist list paginates in SQL instead of materialising the full result",
+   "state_label": "defined",
+   "milestone": "phase_5_audit"
+  },
+  "t35": {
+   "platform_issue": 91,
+   "title": "T35 test-infra: drvfs SQLite flake between test_log_hygiene and test_db_atomicity (disk I/O error in setup)",
+   "state_label": "defined",
+   "milestone": "phase_6_test_infra"
+  },
+  "t36": {
+   "platform_issue": 92,
+   "title": "T36 test-infra: test_rate_limit_t23.py XFF tests order-dependent shared limiter state (flake)",
+   "state_label": "defined",
+   "milestone": "phase_6_test_infra"
+  },
+  "t7": {
+   "platform_issue": 59,
+   "title": "T7 Docs hygiene sweep: B-11 paperwork, testing.md counts, Constraints convention, main.py ASCII",
+   "state_label": "closed",
+   "milestone": null
+  },
+  "t8": {
+   "platform_issue": 61,
+   "title": "Repair B-11 AC-1 - the admin-slot set-difference has been red on main since B-10 merged",
+   "state_label": "closed",
+   "milestone": null
+  },
+  "t9": {
+   "platform_issue": 64,
+   "title": "T9 Staff PIN integrity: hash on bootstrap, no plaintext env fallback, constant-time compare, rotation revokes tokens",
+   "state_label": "closed",
+   "milestone": null
+  },
+  "t10": {
+   "platform_issue": 65,
+   "title": "T10 JWT secret strength gate: reject published/example secrets and short values at startup",
+   "state_label": "closed",
+   "milestone": null
+  },
+  "t11": {
+   "platform_issue": 66,
+   "title": "T11 Guest capability redesign: server-minted unguessable status token, no PII in URLs",
+   "state_label": "closed",
+   "milestone": null
+  },
+  "t12": {
+   "platform_issue": 67,
+   "title": "T12 Frontend dependency advisories: dev-server RCE-class and react-router open redirect to fixed versions",
+   "state_label": "closed",
+   "milestone": null
+  },
+  "t14": {
+   "platform_issue": 69,
+   "title": "T14 Waitlist board render scale: bound the lists or virtualise, replace 3s full-list refetch",
+   "state_label": "closed",
+   "milestone": null
+  },
+  "t15": {
+   "platform_issue": 70,
+   "title": "T15 Mock data out of the shipped bundle: env-gated dynamic import, build-time CI assertion, seed PIN not a literal",
+   "state_label": "closed",
+   "milestone": null
+  },
+  "t20": {
+   "platform_issue": 75,
+   "title": "T20 ENV fail-open: ENV must be explicit; development-mode reset and SQL echo must not be reachable by default",
+   "state_label": "closed",
+   "milestone": null
+  },
+  "t21": {
+   "platform_issue": 76,
+   "title": "T21 Log hygiene: no PII or tracebacks to stdout, no credentials in query strings, specs 593-598 honoured",
+   "state_label": "closed",
+   "milestone": null
+  },
+  "t23": {
+   "platform_issue": 78,
+   "title": "T23 Rate limiter actually applies to API routes, honours proxy trust, covers change-pin, and states its memory bound",
+   "state_label": "closed",
+   "milestone": null
+  },
+  "t30": {
+   "platform_issue": 85,
+   "title": "T30 Frontend session storage: one store, one key, remember-me actually controls persistence, real logout",
+   "state_label": "closed",
+   "milestone": null
+  },
+  "t32": {
+   "platform_issue": 88,
+   "title": "T32 Frontend speaks the published contract: real API integration works with VITE_USE_MOCK=false",
+   "state_label": "closed",
+   "milestone": null
+  },
+  "t33": {
+   "platform_issue": 89,
+   "title": "T33 Run surface actually runs: make seed/dev/test-backend resolve an interpreter on this machine",
+   "state_label": "closed",
+   "milestone": null
+  },
+  "t34": {
+   "platform_issue": 90,
+   "title": "T34 Integration acceptance gate: a seeded store plus both servers complete the documented demo unattended",
+   "state_label": "closed",
+   "milestone": null
+  }
+ }
+}

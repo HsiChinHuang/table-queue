@@ -1,0 +1,144 @@
+{
+  "schema_version": "1.0",
+  "issue_id": "t13",
+  "role": "definer",
+  "phase": "review_plan",
+  "status": "COMPLETE",
+  "reached_state": "defined",
+  "evidence": {
+    "evidence_type": "planning",
+    "milestone": "phase_5_audit",
+    "review_verdict": "PASS_WITH_WARNINGS",
+    "issues_reviewed": [
+      "t13",
+      "t16",
+      "t17",
+      "t18",
+      "t19",
+      "t22",
+      "t24",
+      "t25",
+      "t26",
+      "t27",
+      "t28",
+      "t29",
+      "t31"
+    ],
+    "findings": [
+      {
+        "issue_id": "t16",
+        "category": "granularity_too_large",
+        "severity": "warning",
+        "description": "Files section lists 5 paths (max_files 2): _docs/specs.md, _docs/openapi.yaml, backend/app/routers/*, frontend/src/api/*, backend/tests/. AC count (4 via ### AC-1..4) is within max_acs 4. warn_only: true, so warning only."
+      },
+      {
+        "issue_id": "t17",
+        "category": "granularity_too_large",
+        "severity": "warning",
+        "description": "Acceptance carries 5 criteria (max_acs 4: expiresAt-as-logout, 401 ROUTES redirect, shared 1Hz ticker, SoundToggle single AudioContext, ConnectionBanner tracked timeout) and Files lists 7 paths (max_files 2). warn_only: true, so warning only; candidate for AC/file split at groom."
+      },
+      {
+        "issue_id": "t18",
+        "category": "granularity_too_large",
+        "severity": "warning",
+        "description": "Files section lists 4 paths (max_files 2): backend/app/errors.py, backend/app/main.py, _docs/specs.md, backend/tests/. AC count (3) within max. warn_only: true, so warning only."
+      },
+      {
+        "issue_id": "t19",
+        "category": "granularity_too_large",
+        "severity": "warning",
+        "description": "Acceptance carries 5 criteria (max_acs 4: locked->503 Retry-After, busy-timeout reduction, WAL-or-single-writer, _sweep_expired audit, concurrent-writer probe) and Files lists 4 paths (max_files 2). warn_only: true, so warning only."
+      },
+      {
+        "issue_id": "t22",
+        "category": "granularity_too_large",
+        "severity": "warning",
+        "description": "Files section lists 5 entries (max_files 2) including glob frontend/src/** (violations) and conditional _docs/issues/D-04*. AC count (4) within max. warn_only: true, so warning only."
+      },
+      {
+        "issue_id": "t24",
+        "category": "granularity_too_large",
+        "severity": "warning",
+        "description": "Files section lists 5 entries (max_files 2): backend/app/database.py, backend/requirements.txt, README.md, deployment docs, backend/tests/. AC count (2 options) within max. warn_only: true, so warning only."
+      },
+      {
+        "issue_id": "t26",
+        "category": "granularity_too_large",
+        "severity": "warning",
+        "description": "Acceptance carries 5 criteria (max_acs 4: ExceptionMiddleware inside headers layer, CSP on html, X-Request-ID bounded, Cache-Control no-store, gated HSTS) and Files lists 4 paths (max_files 2). warn_only: true, so warning only."
+      },
+      {
+        "issue_id": "t27",
+        "category": "granularity_too_large",
+        "severity": "warning",
+        "description": "Files section lists 3 entries (max_files 2): .github/workflows/ci.yml, .github/workflows/audit.yml, requirements-dev additions. AC count (2) within max. warn_only: true, so warning only."
+      },
+      {
+        "issue_id": "t29",
+        "category": "granularity_too_large",
+        "severity": "warning",
+        "description": "Acceptance carries 5 criteria (max_acs 4: int ge/le bounds, UpdateTableRequest parity, overflow->422, negative limit/offset->422, _reject_int belt-and-braces) and Files lists 5 paths (max_files 2). warn_only: true, so warning only."
+      },
+      {
+        "issue_id": "t31",
+        "category": "granularity_too_large",
+        "severity": "warning",
+        "description": "Acceptance carries 5 criteria (max_acs 4: SQL LIMIT/OFFSET, COUNT total, schema-layer rejection, N=200 latency probe, response shape unchanged) and Files lists 4 paths (max_files 2). warn_only: true, so warning only."
+      },
+      {
+        "issue_id": "t35",
+        "category": "granularity_too_large",
+        "severity": "warning",
+        "description": "Files section lists 4 paths (max_files 2): test_log_hygiene.py, _db_test_support.py, test_db_atomicity.py, conftest.py. AC count (2) within max. warn_only: true, so warning only."
+      },
+      {
+        "issue_id": "t35",
+        "category": "orphan",
+        "severity": "warning",
+        "description": "No depends and no dependent in the DAG (its before-t13 ordering exists only in plan.md Processing order). By design: independent phase_6_test_infra issue per plan.md; recorded as warning, not error, per adoption semantics."
+      },
+      {
+        "issue_id": "t36",
+        "category": "orphan",
+        "severity": "warning",
+        "description": "No depends and no dependent in the DAG (its before-t13 ordering exists only in plan.md Processing order). By design: independent phase_6_test_infra issue per plan.md; recorded as warning, not error, per adoption semantics."
+      },
+      {
+        "issue_id": "t13",
+        "category": "other",
+        "severity": "warning",
+        "description": "depends (22 refs, all verified to exist: 10 closed + 12 open phase-5) omits t35/t36 although plan.md requires t13 to run after phase_6_test_infra; ordering is enforced only by milestone processing order, not a DAG edge, so a DAG-only scheduler could run t13 before the two flakes are fixed."
+      },
+      {
+        "issue_id": "t24",
+        "category": "other",
+        "severity": "warning",
+        "description": "Option A of the acceptance (PG boot + one-write smoke in a CI-postgres job) depends on the t27 CI net, but depends: []; if option A is chosen at groom, add t27 to depends (option B needs no such dependency)."
+      },
+      {
+        "issue_id": "t35",
+        "category": "other",
+        "severity": "warning",
+        "description": "Cross-issue interaction: t25 (processed earlier in phase 5) prefers conftest refusing DATABASE_URL-less runs, while t35's 10-green full-suite AC and t16's DoD suite command assume the default test.db invocation; t35 must be verified with a DATABASE_URL or tmp-gated invocation after t25 lands."
+      },
+      {
+        "issue_id": "t36",
+        "category": "other",
+        "severity": "warning",
+        "description": "No Files section in the adopted issue (0 files counted); plan.md notes 'Files section to be pinned at groom'. AC count (3) is within max_acs 4 and the missing Files section does not trigger granularity_too_small (requires AC count 1 AND 0 files)."
+      }
+    ]
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/state/outputs/phase_5_audit_definer_review_plan.json",
+      "docs/state/milestones/phase_5_audit.json"
+    ],
+    "platform_issue": null,
+    "output_path": "docs/state/outputs/phase_5_audit_definer_review_plan.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-06T18:04:35Z",
+  "retry_count": 0
+}
