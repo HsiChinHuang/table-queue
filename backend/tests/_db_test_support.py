@@ -397,19 +397,27 @@ class Database:
         file: the injected failure lands after the ORM has already flushed, so nothing ever commits
         or rolls back that transaction. A later test that happened to reuse the same path would read
         those rows and fail for a reason this file caused, so the file goes rather than being left
-        behind. The engine is disposed first so SQLite's handles are closed while the path is ours.
+        behind. The sessions are closed before the engine is disposed so the poisoned transaction
+        rolls back and its SQLite handle releases the file while the path is still ours; on Windows
+        a still-open handle makes the unlink fail (WinError 32), and dispose alone does not close a
+        connection that is still checked out by an open session.
         """
         self.stop_commit_listener()
-        self.engine.dispose()
         for session in self._requests:
             session.close()
         self._requests.clear()
+        self.engine.dispose()
         if self.path.exists():
             self.path.unlink()
         self._discarded = True
 
     def close(self) -> None:
-        """Dispose everything: override, listener, sessions, engine, scratch file."""
+        """Dispose everything: override, listener, sessions, engine, scratch file.
+
+        Sessions close before the engine disposes, for the same reason as :meth:`discard_file`: a
+        checked-out connection outlives the dispose, and on Windows its open SQLite handle blocks
+        the unlink (WinError 32).
+        """
         self.release_client()
         self.stop_commit_listener()
         for session in self._requests:

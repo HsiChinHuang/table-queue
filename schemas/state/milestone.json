@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pi-agent/schemas/state/milestone.json",
+  "title": "Milestone",
+  "description": "Milestone tracking, used to trigger review_plan",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "milestone",
+    "survey_completed_at",
+    "review_plan_status",
+    "issues_generated"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "milestone": {
+      "type": "string",
+      "pattern": "^phase_[0-9]+_[a-z_]+$",
+      "description": "Milestone ID, e.g. phase_1_auth"
+    },
+    "survey_completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "review_plan_status": {
+      "type": "string",
+      "enum": ["pending", "in_progress", "passed", "failed"]
+    },
+    "review_plan_completed_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "review_plan_verdict": {
+      "type": ["string", "null"],
+      "enum": ["PASS", "PASS_WITH_WARNINGS", "FAIL", null]
+    },
+    "review_plan_attempts": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    },
+    "issues_generated": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^t[0-9]+$"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "survey_attempts": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    }
+  }
+}

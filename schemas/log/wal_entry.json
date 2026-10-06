@@ -1,0 +1,131 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pi-agent/schemas/log/wal_entry.json",
+  "title": "WAL Entry",
+  "description": "Single WAL line, JSON Lines format",
+  "type": "object",
+  "required": ["seq", "ts", "level", "event", "result"],
+  "additionalProperties": false,
+  "properties": {
+    "seq": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Monotonically increasing sequence number"
+    },
+    "ts": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp"
+    },
+    "level": {
+      "type": "string",
+      "enum": ["INFO", "WARN", "ERROR", "CRITICAL"]
+    },
+    "issue": {
+      "type": ["string", "null"],
+      "pattern": "^t[0-9]+$",
+      "description": "Issue ID, if applicable"
+    },
+    "event": {
+      "type": "string",
+      "enum": [
+        "TRANSITION",
+        "SPAWN",
+        "COMPLETE",
+        "FAIL",
+        "SLOT_RELEASED",
+        "SLOT_STALE",
+        "SLOT_FORCE_RELEASED",
+        "BOUNDARY",
+        "SECRET_LEAK",
+        "DRIFT",
+        "RECOVER",
+        "RECOVERY_OK",
+        "ROLLBACK",
+        "PAUSED",
+        "RESUMED",
+        "CONFIG_CHANGED",
+        "CONFIG_DEFAULT",
+        "CONFIG_UNKNOWN_KEY",
+        "MERGE_CP",
+        "MERGE_START",
+        "MERGE_STEP",
+        "MERGE_OK",
+        "MERGE_FAIL",
+        "MERGE_ROLLBACK",
+        "MERGE_RESUME",
+        "MERGE_ABORT",
+        "MERGE_COMPLETE",
+        "FAST_MERGE",
+        "HUMAN_REVIEW_CREATED",
+        "HUMAN_REVIEW_RESOLVED",
+        "HUMAN_REVIEW_STALE",
+        "HUMAN_REVIEW_AUTO_CLOSED",
+        "HUMAN_OVERRIDE",
+        "BLOCKER_CREATED",
+        "BLOCKER_RESOLVED",
+        "REDACT_FAIL",
+        "REDACT_FAILURE_SPIKE",
+        "DISK_FULL",
+        "STALLED",
+        "INFINITE_LOOP",
+        "SCHEMA_VIOLATION",
+        "SCHEMA_MIGRATION",
+        "SCHEMA_MIGRATION_FAIL",
+        "FAILURE_PATTERN",
+        "PLAN_EDITED",
+        "PLAN_MODIFIED",
+        "REQ_MODIFIED",
+        "PLATFORM_GONE",
+        "PLATFORM_ORPHAN",
+        "CLOCK_SKEW",
+        "API_FAILURE",
+        "ROUTE_MISMATCH",
+        "CONTEXT_REFRESH",
+        "BUILDER_COMMAND_MISMATCH",
+        "MEMORY_PROMOTED",
+        "MEMORY_DEMOTED",
+        "MEMORY_DELETED",
+        "MEMORY_CONFLICT",
+        "MEMORY_CONFLICT_KNOWN",
+        "MEMORY_WRITTEN",
+        "MEMORY_READ",
+        "MILESTONE_CREATED",
+        "MILESTONE_REVIEW_START",
+        "MILESTONE_REVIEW_PASSED",
+        "MILESTONE_REVIEW_FAILED",
+        "PREFLIGHT_OK",
+        "PREFLIGHT_FAIL",
+        "ORCH_RESTART",
+        "RESTART_DISABLED",
+        "SHUTDOWN"
+      ]
+    },
+    "role": {
+      "type": ["string", "null"],
+      "enum": ["definer", "builder", "verifier", "orchestrator", null]
+    },
+    "from": {
+      "type": ["string", "null"],
+      "description": "Source state (TRANSITION events only)"
+    },
+    "to": {
+      "type": ["string", "null"],
+      "description": "Target state (TRANSITION events only)"
+    },
+    "result": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Result summary"
+    },
+    "duration_ms": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "extra": {
+      "type": ["object", "null"],
+      "description": "Event-specific fields",
+      "additionalProperties": true
+    }
+  }
+}

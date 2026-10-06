@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pi-agent/schemas/state/status_metrics.json",
+  "title": "Status Metrics",
+  "description": "Fairness and efficiency metrics updated per iteration",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "updated_at",
+    "active_slots",
+    "max_slots",
+    "slot_utilization",
+    "avg_wait_minutes",
+    "max_wait_minutes",
+    "max_wait_issue",
+    "starvation_events_24h",
+    "force_released_slots_24h"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "active_slots": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "max_slots": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "slot_utilization": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "active_slots / max_slots"
+    },
+    "avg_wait_minutes": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Average wait time from ready to spawn, in minutes"
+    },
+    "max_wait_minutes": {
+      "type": "number",
+      "minimum": 0
+    },
+    "max_wait_issue": {
+      "type": ["string", "null"],
+      "pattern": "^t[0-9]+$"
+    },
+    "starvation_events_24h": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "force_released_slots_24h": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

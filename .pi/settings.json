@@ -1,0 +1,18 @@
+{
+  "subagents": {
+    "agentOverrides": {
+      "definer": {
+        "inheritProjectContext": true,
+        "inheritSkills": true
+      },
+      "builder": {
+        "inheritProjectContext": true,
+        "inheritSkills": true
+      },
+      "verifier": {
+        "inheritProjectContext": true,
+        "inheritSkills": true
+      }
+    }
+  }
+}

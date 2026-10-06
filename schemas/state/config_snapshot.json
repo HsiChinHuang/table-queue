@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pi-agent/schemas/state/config_snapshot.json",
+  "title": "Config Snapshot",
+  "description": "Effective config snapshot after Preflight",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "timestamp",
+    "config_version",
+    "values",
+    "sources"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "config_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "values": {
+      "type": "object",
+      "description": "All effective config key-value pairs; keys are dot-separated",
+      "additionalProperties": true
+    },
+    "sources": {
+      "type": "object",
+      "description": "Source of each config key",
+      "patternProperties": {
+        "^[a-z0-9_]+(\\.[a-z0-9_]+)*$": {
+          "type": "string",
+          "enum": ["env", "yaml", "default"]
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

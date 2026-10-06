@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pi-agent/schemas/common/error.json",
+  "title": "Error",
+  "description": "Structured error for all role failures",
+  "type": "object",
+  "required": [
+    "error_type",
+    "error_code",
+    "message",
+    "context",
+    "retryable",
+    "suggested_action"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "error_type": {
+      "type": "string",
+      "enum": [
+        "verification_failure",
+        "implementation_failure",
+        "grooming_failure",
+        "test_failure",
+        "merge_conflict",
+        "regression",
+        "environment_error",
+        "schema_violation",
+        "timeout",
+        "crash",
+        "format_error",
+        "empty_output",
+        "refused",
+        "self_diagnosis"
+      ],
+      "description": "Error category"
+    },
+    "error_code": {
+      "type": "string",
+      "pattern": "^[A-Z_]+$",
+      "description": "Specific error code, uppercase with underscores"
+    },
+    "message": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 500,
+      "description": "Human-readable error description"
+    },
+    "context": {
+      "type": "object",
+      "description": "Error-specific context; fields vary by error_type",
+      "additionalProperties": true
+    },
+    "retryable": {
+      "type": "boolean",
+      "description": "Whether retry is allowed"
+    },
+    "suggested_action": {
+      "type": "string",
+      "enum": [
+        "rerun_same_role",
+        "rerun_with_role",
+        "escalate_to_human",
+        "skip_and_continue",
+        "rollback",
+        "abort"
+      ],
+      "description": "Suggested handling action"
+    },
+    "suggested_role": {
+      "type": ["string", "null"],
+      "enum": ["definer", "builder", "verifier", null],
+      "description": "Suggested role when suggested_action = rerun_with_role"
+    },
+    "suggested_phase": {
+      "type": ["string", "null"],
+      "description": "Suggested phase when suggested_action = rerun_with_role"
+    }
+  }
+}

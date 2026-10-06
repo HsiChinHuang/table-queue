@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pi-agent/schemas/state/idempotency.json",
+  "title": "Idempotency Records",
+  "description": "Records of idempotent operations to prevent duplicate execution",
+  "type": "object",
+  "required": ["schema_version", "updated_at", "keys"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "keys": {
+      "type": "object",
+      "description": "Mapping of idempotency keys; key format is <operation>-<identifier>",
+      "patternProperties": {
+        "^[a-z0-9_-]+$": {
+          "type": "object",
+          "required": ["created_at", "operation", "result"],
+          "additionalProperties": false,
+          "properties": {
+            "created_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "operation": {
+              "type": "string",
+              "enum": [
+                "platform_issue_create",
+                "branch_push",
+                "comment_post",
+                "blocker_create",
+                "memory_write",
+                "approval_consume"
+              ]
+            },
+            "result": {
+              "type": "object",
+              "additionalProperties": true,
+              "description": "Operation result; fields vary by operation"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pi-agent/schemas/state/merge_history.json",
+  "title": "Merge History",
+  "description": "Permanently retained merge history",
+  "type": "object",
+  "required": ["schema_version", "updated_at", "entries"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "issue_id",
+          "merge_sha",
+          "timestamp",
+          "merge_type"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "issue_id": {
+            "type": "string",
+            "pattern": "^t[0-9]+$"
+          },
+          "merge_sha": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{7,40}$"
+          },
+          "pre_merge_sha": {
+            "type": ["string", "null"],
+            "pattern": "^[a-f0-9]{7,40}$"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "merge_type": {
+            "type": "string",
+            "enum": ["clean", "merge-fix"]
+          },
+          "test_suite": {
+            "type": "string",
+            "enum": ["full", "affected", "fast", "smoke"]
+          }
+        }
+      }
+    }
+  }
+}

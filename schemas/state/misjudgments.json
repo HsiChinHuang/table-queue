@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pi-agent/schemas/state/misjudgments.json",
+  "title": "Misjudgments",
+  "description": "Verifier misjudgment records",
+  "type": "object",
+  "required": ["schema_version", "updated_at", "entries"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "entries": {
+      "type": "object",
+      "patternProperties": {
+        "^t[0-9]+$": {
+          "type": "object",
+          "required": ["count", "events"],
+          "additionalProperties": false,
+          "properties": {
+            "count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "events": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "timestamp",
+                  "reason",
+                  "reported_by",
+                  "third_party_verdict"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "timestamp": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 10
+                  },
+                  "reported_by": {
+                    "type": "string",
+                    "enum": ["builder"]
+                  },
+                  "third_party_verdict": {
+                    "type": "string",
+                    "enum": [
+                      "verifier_correct",
+                      "verifier_false_positive",
+                      "unclear"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

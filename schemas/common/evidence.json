@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pi-agent/schemas/common/evidence.json",
+  "title": "Evidence",
+  "description": "Base evidence supporting a state declaration",
+  "type": "object",
+  "required": ["evidence_type"],
+  "additionalProperties": true,
+  "properties": {
+    "evidence_type": {
+      "type": "string",
+      "enum": ["planning", "grooming", "build", "verification", "merge_verification"],
+      "description": "Evidence type; determines the remaining fields"
+    }
+  }
+}

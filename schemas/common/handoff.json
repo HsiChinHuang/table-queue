@@ -1,0 +1,115 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pi-agent/schemas/common/handoff.json",
+  "title": "Handoff",
+  "description": "Base handoff envelope for all role outputs",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "issue_id",
+    "role",
+    "phase",
+    "status",
+    "reached_state",
+    "evidence",
+    "artifacts",
+    "timestamp"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "issue_id": {
+      "type": "string",
+      "pattern": "^t[0-9]+$"
+    },
+    "role": {
+      "type": "string",
+      "enum": ["definer", "builder", "verifier"]
+    },
+    "phase": {
+      "type": "string",
+      "enum": [
+        "survey", "review_plan", "groom", "re_groom",
+        "implement", "fix_qa", "fix_merge", "fix_regression",
+        "verify_issue", "verify_pre_merge", "verify_post_merge"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["COMPLETE", "FAIL", "BLOCKER"],
+      "description": "COMPLETE = success; FAIL = retryable failure; BLOCKER = needs human"
+    },
+    "reached_state": {
+      "type": "string",
+      "enum": [
+        "defined",
+        "groomed",
+        "built",
+        "verified",
+        "closed",
+        "unchanged"
+      ],
+      "description": "unchanged = state unchanged due to failure"
+    },
+    "evidence": {
+      "$ref": "evidence.json",
+      "description": "Evidence supporting the state declaration"
+    },
+    "artifacts": {
+      "type": "object",
+      "required": ["files_written", "platform_issue", "output_path"],
+      "additionalProperties": false,
+      "properties": {
+        "files_written": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Files written, paths relative to project root"
+        },
+        "platform_issue": {
+          "type": ["integer", "null"],
+          "description": "Corresponding platform issue number"
+        },
+        "output_path": {
+          "type": "string",
+          "description": "Path to this handoff JSON file"
+        }
+      }
+    },
+    "error": {
+      "oneOf": [
+        { "$ref": "error.json" },
+        { "type": "null" }
+      ],
+      "description": "Required when status != COMPLETE; otherwise null"
+    },
+    "next_action": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": ["definer", "builder", "verifier"]
+        },
+        "phase": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "description": "Suggested next role and phase when status = FAIL"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "retry_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Retry index (0 = first attempt)"
+    }
+  }
+}

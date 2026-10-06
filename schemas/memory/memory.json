@@ -1,0 +1,108 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pi-agent/schemas/memory/memory.json",
+  "title": "Memory Entry",
+  "description": "Single memory entry recording a problem and its solution",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "type",
+    "problem",
+    "solution",
+    "scope",
+    "language",
+    "tags",
+    "verified_count",
+    "failed_count",
+    "source_issues",
+    "applied_by",
+    "failed_by",
+    "created_at",
+    "updated_at",
+    "human_override"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^(sol|anti)_(proj|lang|univ)_[a-z0-9]{4,8}_[a-z0-9]{4,8}_[a-f0-9]{4}(_[0-9]+)?$",
+      "description": "Semantic ID in the format <type>_<scope>_<primary_tag>_<secondary_tag>_<short_hash>[_<n>]. On conflict, append _<n> suffix (n starts at 2)."
+    },
+    "type": {
+      "type": "string",
+      "enum": ["solution", "anti_pattern"]
+    },
+    "problem": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 500
+    },
+    "solution": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 2000
+    },
+    "scope": {
+      "type": "string",
+      "enum": ["project", "language", "universal"]
+    },
+    "language": {
+      "type": ["string", "null"],
+      "enum": ["python", "javascript", "typescript", "go", "rust", "java", null]
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9-]+$",
+        "minLength": 2,
+        "maxLength": 30
+      },
+      "minItems": 1,
+      "maxItems": 10
+    },
+    "verified_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "failed_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "source_issues": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^t[0-9]+$" },
+      "uniqueItems": true
+    },
+    "applied_by": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^t[0-9]+$" },
+      "uniqueItems": true
+    },
+    "failed_by": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^t[0-9]+$" },
+      "uniqueItems": true
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "human_override": {
+      "type": "boolean"
+    },
+    "expires_hint": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pi-agent/schemas/state/retry_subagent.json",
+  "title": "Subagent Retry Counters",
+  "description": "Subagent-level retry counters, keyed by issue and failure type",
+  "type": "object",
+  "required": ["schema_version", "updated_at", "entries"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "entries": {
+      "type": "object",
+      "patternProperties": {
+        "^t[0-9]+$": {
+          "type": "object",
+          "required": [
+            "timeout",
+            "crash",
+            "format_error",
+            "empty_output",
+            "refused"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "timeout": { "type": "integer", "minimum": 0 },
+            "crash": { "type": "integer", "minimum": 0 },
+            "format_error": { "type": "integer", "minimum": 0 },
+            "empty_output": { "type": "integer", "minimum": 0 },
+            "refused": { "type": "integer", "minimum": 0 }
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

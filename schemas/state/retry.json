@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pi-agent/schemas/state/retry.json",
+  "title": "Issue Retry Counters",
+  "description": "Issue-level retry counters",
+  "type": "object",
+  "required": ["schema_version", "updated_at", "issues"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "issues": {
+      "type": "object",
+      "patternProperties": {
+        "^t[0-9]+$": {
+          "type": "object",
+          "required": ["builder", "builder_round", "definer", "definer_round"],
+          "additionalProperties": false,
+          "properties": {
+            "builder": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Total Builder retry count (across rounds)"
+            },
+            "builder_round": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Builder retry count in the current round (reset after Verifier FAIL)"
+            },
+            "definer": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Total Definer retry count"
+            },
+            "definer_round": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Definer retry count in the current round"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

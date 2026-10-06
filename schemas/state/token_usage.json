@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pi-agent/schemas/state/token_usage.json",
+  "title": "Token Usage",
+  "description": "Token usage statistics per issue",
+  "type": "object",
+  "required": ["schema_version", "updated_at", "issues"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "issues": {
+      "type": "object",
+      "patternProperties": {
+        "^t[0-9]+$": {
+          "type": "object",
+          "required": [
+            "total_tokens",
+            "phases",
+            "retry_count"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "total_tokens": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "retry_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "phases": {
+              "type": "object",
+              "patternProperties": {
+                "^[a-z_]+$": {
+                  "type": "object",
+                  "required": ["tokens_in", "tokens_out", "duration_seconds"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "tokens_in": { "type": "integer", "minimum": 0 },
+                    "tokens_out": { "type": "integer", "minimum": 0 },
+                    "duration_seconds": { "type": "integer", "minimum": 0 }
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pi-agent/schemas/definer/review_plan.json",
+  "title": "Definer: Review Plan Output",
+  "description": "Definer review_plan mode output: review the generated plan and issues for correctness",
+  "allOf": [
+    { "$ref": "../common/handoff.json" },
+    {
+      "type": "object",
+      "properties": {
+        "role": { "const": "definer" },
+        "phase": { "const": "review_plan" },
+        "reached_state": { "enum": ["defined", "unchanged"] },
+        "evidence": {
+          "type": "object",
+          "required": [
+            "evidence_type",
+            "review_verdict",
+            "issues_reviewed",
+            "findings"
+          ],
+          "properties": {
+            "evidence_type": { "const": "planning" },
+            "review_verdict": {
+              "type": "string",
+              "enum": ["PASS", "PASS_WITH_WARNINGS", "FAIL"]
+            },
+            "issues_reviewed": {
+              "type": "array",
+              "items": { "type": "string", "pattern": "^t[0-9]+$" }
+            },
+            "findings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["issue_id", "category", "severity", "description"],
+                "additionalProperties": false,
+                "properties": {
+                  "issue_id": { "type": ["string", "null"], "pattern": "^t[0-9]+$" },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "coverage_gap",
+                      "granularity_too_large",
+                      "granularity_too_small",
+                      "dependency_error",
+                      "cycle",
+                      "orphan",
+                      "duplicate_ac",
+                      "contradictory_ac",
+                      "other"
+                    ]
+                  },
+                  "severity": {
+                    "type": "string",
+                    "enum": ["warning", "error"]
+                  },
+                  "description": { "type": "string", "minLength": 10 }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

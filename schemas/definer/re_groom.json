@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pi-agent/schemas/definer/re_groom.json",
+  "title": "Definer: Re-groom Output",
+  "description": "Definer re_groom mode output: correct AC after QA failure",
+  "allOf": [
+    { "$ref": "../common/handoff.json" },
+    {
+      "type": "object",
+      "properties": {
+        "role": { "const": "definer" },
+        "phase": { "const": "re_groom" },
+        "reached_state": { "enum": ["groomed", "unchanged"] },
+        "evidence": {
+          "type": "object",
+          "required": [
+            "evidence_type",
+            "ac_hash",
+            "ac_count",
+            "verification_commands",
+            "sections_filled",
+            "changes_made"
+          ],
+          "properties": {
+            "evidence_type": { "const": "grooming" },
+            "ac_hash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+            "ac_count": { "type": "integer", "minimum": 1, "maximum": 10 },
+            "verification_commands": {
+              "type": "object",
+              "patternProperties": {
+                "^ac[0-9]+$": { "type": "string", "minLength": 5 }
+              },
+              "additionalProperties": false
+            },
+            "sections_filled": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "changes_made": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["ac_id", "change_type", "reason"],
+                "additionalProperties": false,
+                "properties": {
+                  "ac_id": { "type": "string", "pattern": "^ac[0-9]+$" },
+                  "change_type": {
+                    "type": "string",
+                    "enum": ["clarified", "corrected", "removed", "added"]
+                  },
+                  "reason": { "type": "string", "minLength": 10 }
+                }
+              }
+            },
+            "materiality_pct": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Percentage of AC changes"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

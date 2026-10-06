@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pi-agent/schemas/state/launcher_checkpoint.json",
+  "title": "Launcher Checkpoint",
+  "description": "Launcher checkpoint, used to determine FRESH / RESUME start mode",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "timestamp",
+    "last_seq",
+    "completed",
+    "orchestrator_pid"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_seq": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Last successfully processed sequence number"
+    },
+    "completed": {
+      "type": "boolean",
+      "description": "true = project completed; false = in progress"
+    },
+    "orchestrator_pid": {
+      "type": ["integer", "null"],
+      "description": "PID of the last Orchestrator instance, used for double-instance guard"
+    }
+  }
+}

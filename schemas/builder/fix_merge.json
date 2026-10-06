@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pi-agent/schemas/builder/fix_merge.json",
+  "title": "Builder: Fix Merge Output",
+  "description": "Builder fix_merge mode output: resolve merge conflict",
+  "allOf": [
+    { "$ref": "../common/handoff.json" },
+    {
+      "type": "object",
+      "properties": {
+        "role": { "const": "builder" },
+        "phase": { "const": "fix_merge" },
+        "reached_state": { "enum": ["built", "unchanged"] },
+        "evidence": {
+          "type": "object",
+          "required": [
+            "evidence_type",
+            "branch",
+            "branch_sha",
+            "test_summary",
+            "lint_status",
+            "conflicts_resolved"
+          ],
+          "properties": {
+            "evidence_type": { "const": "build" },
+            "branch": {
+              "type": "string",
+              "pattern": "^issue/MERGE-FIX-t[0-9]+-[a-z0-9-]+$"
+            },
+            "branch_sha": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{7,40}$"
+            },
+            "test_summary": {
+              "type": "object",
+              "required": ["total", "passed", "failed"],
+              "additionalProperties": false,
+              "properties": {
+                "total": { "type": "integer", "minimum": 0 },
+                "passed": { "type": "integer", "minimum": 0 },
+                "failed": { "type": "integer", "minimum": 0 }
+              }
+            },
+            "lint_status": {
+              "type": "string",
+              "enum": ["CLEAN", "WARNINGS", "ERRORS"]
+            },
+            "conflicts_resolved": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["file", "resolution", "strategy"],
+                "additionalProperties": false,
+                "properties": {
+                  "file": { "type": "string" },
+                  "resolution": { "type": "string", "minLength": 10 },
+                  "strategy": {
+                    "type": "string",
+                    "enum": ["keep_ours", "keep_theirs", "merge_manual", "ignore_whitespace"]
+                  }
+                }
+              },
+              "minItems": 1
+            },
+            "integration_tests_passed": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  ]
+}

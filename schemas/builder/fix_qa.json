@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pi-agent/schemas/builder/fix_qa.json",
+  "title": "Builder: Fix QA Output",
+  "description": "Builder fix_qa mode output: fix QA failure",
+  "allOf": [
+    { "$ref": "../common/handoff.json" },
+    {
+      "type": "object",
+      "properties": {
+        "role": { "const": "builder" },
+        "phase": { "const": "fix_qa" },
+        "reached_state": { "enum": ["built", "unchanged"] },
+        "evidence": {
+          "type": "object",
+          "required": [
+            "evidence_type",
+            "branch",
+            "branch_sha",
+            "ac_mapping",
+            "test_summary",
+            "lint_status",
+            "failed_acs_addressed",
+            "verification_commands_source"
+          ],
+          "properties": {
+            "evidence_type": { "const": "build" },
+            "branch": {
+              "type": "string",
+              "pattern": "^issue/t[0-9]+-[a-z0-9-]+$"
+            },
+            "branch_sha": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{7,40}$"
+            },
+            "ac_mapping": {
+              "type": "object",
+              "patternProperties": {
+                "^ac[0-9]+$": {
+                  "type": "object",
+                  "required": ["commit", "test", "verdict"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "commit": { "type": "string", "pattern": "^[a-f0-9]{7,40}$" },
+                    "test": {
+                      "type": "string",
+                      "description": "Must come from docs/issues/<id>.md ## Verification commands"
+                    },
+                    "verdict": { "type": "string", "enum": ["PASS", "FAIL", "MANUAL"] }
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "test_summary": {
+              "type": "object",
+              "required": ["total", "passed", "failed"],
+              "additionalProperties": false,
+              "properties": {
+                "total": { "type": "integer", "minimum": 0 },
+                "passed": { "type": "integer", "minimum": 0 },
+                "failed": { "type": "integer", "minimum": 0 }
+              }
+            },
+            "lint_status": {
+              "type": "string",
+              "enum": ["CLEAN", "WARNINGS", "ERRORS"]
+            },
+            "failed_acs_addressed": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["ac_id", "fix_description"],
+                "additionalProperties": false,
+                "properties": {
+                  "ac_id": { "type": "string", "pattern": "^ac[0-9]+$" },
+                  "fix_description": { "type": "string", "minLength": 10 }
+                }
+              },
+              "minItems": 1
+            },
+            "verification_commands_source": {
+              "type": "string",
+              "const": "docs/issues/<id>.md#verification-commands",
+              "description": "Authoritative source of verification commands"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

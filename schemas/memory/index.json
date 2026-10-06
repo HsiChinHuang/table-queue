@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pi-agent/schemas/memory/index.json",
+  "title": "Memory Index",
+  "description": "Memory index listing all memory entries",
+  "type": "object",
+  "required": ["schema_version", "updated_at", "entries"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "scope",
+          "tags",
+          "verified_count",
+          "state",
+          "path",
+          "problem_summary"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^(sol|anti)_(proj|lang|univ)_[a-z0-9]{4,8}_[a-z0-9]{4,8}_[a-f0-9]{4}(_[0-9]+)?$",
+            "description": "Semantic ID matching the memory entry"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["solution", "anti_pattern"]
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["project", "language", "universal"]
+          },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" },
+            "uniqueItems": true
+          },
+          "verified_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "state": {
+            "type": "string",
+            "enum": ["candidate", "verified", "archived"]
+          },
+          "path": {
+            "type": "string",
+            "description": "Path to the memory JSON file, relative to project root"
+          },
+          "problem_summary": {
+            "type": "string",
+            "maxLength": 100
+          }
+        }
+      }
+    }
+  }
+}

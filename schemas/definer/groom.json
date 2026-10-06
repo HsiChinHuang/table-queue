@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pi-agent/schemas/definer/groom.json",
+  "title": "Definer: Groom Output",
+  "description": "Definer groom mode output: refine AC and define verification commands",
+  "allOf": [
+    { "$ref": "../common/handoff.json" },
+    {
+      "type": "object",
+      "properties": {
+        "role": { "const": "definer" },
+        "phase": { "const": "groom" },
+        "reached_state": { "enum": ["groomed", "unchanged"] },
+        "evidence": {
+          "type": "object",
+          "required": [
+            "evidence_type",
+            "ac_hash",
+            "ac_count",
+            "verification_commands",
+            "sections_filled"
+          ],
+          "properties": {
+            "evidence_type": { "const": "grooming" },
+            "ac_hash": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            },
+            "ac_count": { "type": "integer", "minimum": 1, "maximum": 10 },
+            "verification_commands": {
+              "type": "object",
+              "patternProperties": {
+                "^ac[0-9]+$": { "type": "string", "minLength": 5 }
+              },
+              "additionalProperties": false
+            },
+            "sections_filled": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["context", "acceptance_criteria", "out_of_scope", "definition_of_done"]
+              },
+              "minItems": 4
+            },
+            "contract_first_applied": {
+              "type": "boolean",
+              "description": "Whether verification commands were defined for automatable ACs"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

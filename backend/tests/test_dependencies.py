@@ -96,6 +96,9 @@ def _store_under_test():
 
     yield
 
+    # Dispose before unlink: on Windows a still-open SQLite handle blocks the unlink (WinError 32);
+    # on POSIX the unlink of an open file succeeds, so the dispose is a no-op there.
+    engine.dispose()
     database.engine = _PREVIOUS_ENGINE
     database.SessionLocal = _PREVIOUS_SESSION_LOCAL
     if _PREVIOUS_ENV_URL is None:

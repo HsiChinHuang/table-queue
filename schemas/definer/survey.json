@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pi-agent/schemas/definer/survey.json",
+  "title": "Definer: Survey Output",
+  "description": "Definer survey mode output: generate high-level plan and first batch of issues",
+  "allOf": [
+    { "$ref": "../common/handoff.json" },
+    {
+      "type": "object",
+      "properties": {
+        "role": { "const": "definer" },
+        "phase": { "const": "survey" },
+        "reached_state": { "enum": ["defined", "unchanged"] },
+        "evidence": {
+          "type": "object",
+          "required": [
+            "evidence_type",
+            "milestone",
+            "issues_generated",
+            "plan_path",
+            "coverage_check",
+            "granularity_check",
+            "dependency_check"
+          ],
+          "properties": {
+            "evidence_type": { "const": "planning" },
+            "milestone": {
+              "type": "string",
+              "pattern": "^phase_[0-9]+_[a-z_]+$",
+              "description": "Milestone ID, e.g. phase_1_auth"
+            },
+            "issues_generated": {
+              "type": "array",
+              "items": { "type": "string", "pattern": "^t[0-9]+$" },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "plan_path": { "type": "string" },
+            "coverage_check": {
+              "type": "object",
+              "required": ["requirements_covered", "uncovered_requirements"],
+              "additionalProperties": false,
+              "properties": {
+                "requirements_covered": { "type": "boolean" },
+                "uncovered_requirements": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            },
+            "granularity_check": {
+              "type": "object",
+              "required": ["max_acs_per_issue", "max_files_per_issue", "within_limits"],
+              "additionalProperties": false,
+              "properties": {
+                "max_acs_per_issue": { "type": "integer", "minimum": 0 },
+                "max_files_per_issue": { "type": "integer", "minimum": 0 },
+                "within_limits": { "type": "boolean" }
+              }
+            },
+            "dependency_check": {
+              "type": "object",
+              "required": ["cycles_detected", "orphans_detected"],
+              "additionalProperties": false,
+              "properties": {
+                "cycles_detected": {
+                  "type": "array",
+                  "items": { "type": "array", "items": { "type": "string" } }
+                },
+                "orphans_detected": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            },
+            "dag_path": {
+              "type": ["string", "null"],
+              "description": "Path to the DAG visualization file"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

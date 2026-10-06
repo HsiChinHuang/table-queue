@@ -299,6 +299,14 @@ def _boot(extra_env=None, tmp_path=None):
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
         "HOME": os.path.expanduser("~"),
         "PYTHONPATH": str(BACKEND_DIR),
+        # Windows CPython cannot boot its overlapped-I/O layer from a bare environment: the CRT
+        # needs SystemRoot, and without it ``import asyncio`` dies in the child with
+        # OSError [WinError 10106] before ``app.config`` is ever reached. The name is an OS
+        # fact, not application configuration, so carrying it does not widen what the child may
+        # read: none of ENV, DATABASE_URL, STAFF_PIN or the JWT name is among the names kept.
+        "SystemRoot": os.environ.get("SystemRoot", r"C:\Windows"),
+        "WINDIR": os.environ.get("WINDIR", r"C:\Windows"),
+        "TEMP": os.environ.get("TEMP", os.environ.get("TMP", "")),
         "T20DB": str(db),
         # The name the application reads, spelled as two adjacent tokens so this module carries no
         # AC-6-shaped literal (see the note above ``_ENV_KEYS``). T10's AC-6 mirror scans

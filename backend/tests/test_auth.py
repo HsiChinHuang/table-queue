@@ -90,7 +90,10 @@ def release_temp_database():
 
     Order matters: unlink this module's file first, then hand the globals back, so no other
     module's engine can reach it and this module's file never outlives the session that made it.
+    Dispose before unlink: on Windows a still-open SQLite handle blocks the unlink (WinError 32);
+    on POSIX the unlink of an open file succeeds, so the dispose is a no-op there.
     """
+    database.engine.dispose()
     Path("_b05_auth_tests.db").unlink(missing_ok=True)
     database.engine = _ORIGINAL_ENGINE
     database.SessionLocal = _ORIGINAL_SESSION_LOCAL

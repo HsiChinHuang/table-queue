@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pi-agent/schemas/builder/fix_regression.json",
+  "title": "Builder: Fix Regression Output",
+  "description": "Builder fix_regression mode output: fix post-merge regression",
+  "allOf": [
+    { "$ref": "../common/handoff.json" },
+    {
+      "type": "object",
+      "properties": {
+        "role": { "const": "builder" },
+        "phase": { "const": "fix_regression" },
+        "reached_state": { "enum": ["built", "unchanged"] },
+        "evidence": {
+          "type": "object",
+          "required": [
+            "evidence_type",
+            "branch",
+            "branch_sha",
+            "test_summary",
+            "lint_status",
+            "regressions_fixed"
+          ],
+          "properties": {
+            "evidence_type": { "const": "build" },
+            "branch": {
+              "type": "string",
+              "pattern": "^issue/REG-FIX-t[0-9]+-[a-z0-9-]+$"
+            },
+            "branch_sha": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{7,40}$"
+            },
+            "test_summary": {
+              "type": "object",
+              "required": ["total", "passed", "failed"],
+              "additionalProperties": false,
+              "properties": {
+                "total": { "type": "integer", "minimum": 0 },
+                "passed": { "type": "integer", "minimum": 0 },
+                "failed": { "type": "integer", "minimum": 0 }
+              }
+            },
+            "lint_status": {
+              "type": "string",
+              "enum": ["CLEAN", "WARNINGS", "ERRORS"]
+            },
+            "regressions_fixed": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["test", "root_cause", "fix_description"],
+                "additionalProperties": false,
+                "properties": {
+                  "test": { "type": "string" },
+                  "root_cause": { "type": "string", "minLength": 10 },
+                  "fix_description": { "type": "string", "minLength": 10 }
+                }
+              },
+              "minItems": 1
+            },
+            "previously_passing_verified": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  ]
+}

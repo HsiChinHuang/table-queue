@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pi-agent/schemas/verifier/verify_issue.json",
+  "title": "Verifier: Verify Issue Output",
+  "description": "Verifier verify_issue mode output: verify a single issue's AC",
+  "allOf": [
+    { "$ref": "../common/handoff.json" },
+    {
+      "type": "object",
+      "properties": {
+        "role": { "const": "verifier" },
+        "phase": { "const": "verify_issue" },
+        "reached_state": { "enum": ["verified", "unchanged"] },
+        "evidence": {
+          "type": "object",
+          "required": [
+            "evidence_type",
+            "ac_results",
+            "test_summary",
+            "verification_commands_source"
+          ],
+          "properties": {
+            "evidence_type": { "const": "verification" },
+            "ac_results": {
+              "type": "object",
+              "patternProperties": {
+                "^ac[0-9]+$": {
+                  "type": "object",
+                  "required": ["verdict", "command", "exit_code"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "verdict": { "type": "string", "enum": ["PASS", "FAIL", "SKIP"] },
+                    "command": {
+                      "type": "string",
+                      "description": "Must come from docs/issues/<id>.md ## Verification commands"
+                    },
+                    "exit_code": { "type": ["integer", "null"] },
+                    "output_path": { "type": ["string", "null"] },
+                    "note": { "type": ["string", "null"] }
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "test_summary": {
+              "type": "object",
+              "required": ["total", "passed", "failed"],
+              "additionalProperties": false,
+              "properties": {
+                "total": { "type": "integer", "minimum": 0 },
+                "passed": { "type": "integer", "minimum": 0 },
+                "failed": { "type": "integer", "minimum": 0 }
+              }
+            },
+            "failure_type": {
+              "type": ["string", "null"],
+              "enum": [
+                "implementation",
+                "ac_ambiguous",
+                "ac_wrong",
+                "test_env",
+                "test_quality",
+                "merge_conflict",
+                null
+              ]
+            },
+            "lint_report": {
+              "type": ["object", "null"],
+              "additionalProperties": false,
+              "properties": {
+                "errors": { "type": "integer", "minimum": 0 },
+                "warnings": { "type": "integer", "minimum": 0 }
+              }
+            },
+            "test_quality_warnings": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "dod_verified": {
+              "type": "object",
+              "additionalProperties": { "type": "boolean" }
+            },
+            "verification_commands_source": {
+              "type": "string",
+              "const": "docs/issues/<id>.md#verification-commands",
+              "description": "Authoritative source of verification commands"
+            }
+          }
+        }
+      }
+    }
+  ]
+}
