@@ -176,3 +176,9 @@ desktop.ini
 # .eslintrc.json
 # agent worktrees
 .worktrees/
+
+# runtime test artifacts (never track)
+backend/test.db
+backend/_b05_auth_tests.db
+backend/.scratch/
+backend/%SystemDrive%/
