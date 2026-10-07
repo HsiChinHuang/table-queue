@@ -7,14 +7,15 @@
  "active_issues": [
   {
    "id": "t17",
-   "state": "defined",
+   "state": "groomed",
    "mode": "groom",
-   "role": "definer",
-   "run_id": "a4e5e59b-f590-4969-af8e-7f9eeeca86bf",
-   "started_at": "2026-10-07T09:00:00Z",
+   "role": "builder",
+   "run_id": null,
+   "started_at": "2026-10-07T09:55:14Z",
    "worktree": null,
    "branch": null,
-   "note": "frontend-only security fixes (C-4 C-7 C-9, C-3 redirect)"
+   "note": "Gate 1 PASS; builder to spawn",
+   "next_mode": "implement"
   }
  ],
  "completed_issues": []
