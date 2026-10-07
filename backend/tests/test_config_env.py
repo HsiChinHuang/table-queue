@@ -304,7 +304,7 @@ def _boot(extra_env=None, tmp_path=None):
         # OSError [WinError 10106] before ``app.config`` is ever reached. The name is an OS
         # fact, not application configuration, so carrying it does not widen what the child may
         # read: none of ENV, DATABASE_URL, STAFF_PIN or the JWT name is among the names kept.
-        "SystemRoot": os.environ.get("SystemRoot", r"C:\Windows"),
+        "SystemRoot": os.environ.get("SYSTEMROOT", r"C:\Windows"),
         "WINDIR": os.environ.get("WINDIR", r"C:\Windows"),
         "TEMP": os.environ.get("TEMP", os.environ.get("TMP", "")),
         "T20DB": str(db),

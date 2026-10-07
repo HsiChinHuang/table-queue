@@ -1,10 +1,11 @@
 """Staff waitlist transport for TableQueue (issue B-07, Platform #33).
 
-Nine operations and nothing else, all under ``/api/v1/staff/waitlist``:
+Ten operations and nothing else, all under ``/api/v1/staff/waitlist``:
 
 - ``GET  /api/v1/staff/waitlist``                  - the queue list (filter, search, paging).
 - ``PUT  /api/v1/staff/waitlist/{entry_id}``       - the single-entry edit (party size, note).
 - ``POST /api/v1/staff/waitlist/reorder``          - rewrite ``sort_order`` for the active set.
+- ``POST /api/v1/staff/waitlist/close-day``        - close the day (section 4.9, t16).
 - ``POST /api/v1/staff/waitlist/{entry_id}/<action>`` for ``call``, ``seat``, ``no-show``,
   ``restore``, ``revert`` and ``cancel``.
 
@@ -15,9 +16,9 @@ the transition gates, the table release, the reorder set check - lives in
 the section 11 envelope. No ``HTTPException`` appears in this module, because FastAPI's default
 shape is ``{"detail": ...}`` and AC-2/AC-6 read that shape as a failure.
 
-Auth: all nine ride on ``app.dependencies.Staff`` (B-04/B-05's ``get_current_staff``), so a
+Auth: all ten ride on ``app.dependencies.Staff`` (B-04/B-05's ``get_current_staff``), so a
 missing, non-bearer, forged or expired token is 401 ``AUTH_TOKEN_EXPIRED`` before any handler
-runs - which is what AC-2 measures on all nine paths at once.
+runs - which is what AC-2 measures on all ten paths at once.
 
 The edit route is the PUT and nothing else: ``_docs/specs.md`` section 12 and
 ``_docs/openapi.yaml`` name ``PUT /api/v1/staff/waitlist/{id}`` (``operationId editWaitlist``), and
@@ -32,11 +33,19 @@ lookup only, the contract declares no 429 here, and ``app.main`` owns the one pr
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Query, Request
 
 from app.dependencies import DbSession, Staff, get_now
+from app.models import (
+    CancelledReason,
+    Table,
+    TableStatus,
+    WaitlistEntry,
+    WaitlistStatus,
+)
 from app.schemas import (
     ReorderWaitlistRequest,
     SeatWaitlistRequest,
@@ -46,7 +55,7 @@ from app.schemas import (
 from app.services import staff_waitlist as service
 
 router = APIRouter()
-"""The staff waitlist surface: the nine contract operations (AC-1)."""
+"""The staff waitlist surface: the ten contract operations (AC-1, t16)."""
 
 limiter = None
 """The one process limiter; :func:`configure_limiter` injects app.main's instance."""
@@ -203,6 +212,84 @@ def cancel_waitlist(entry_id: str, staff: Staff, db: DbSession) -> Any:
     return service.cancel_entry(db, entry_id, get_now())
 
 
+@router.post("/api/v1/staff/waitlist/close-day")
+def close_waitlist_day(staff: Staff, db: DbSession) -> Any:
+    """POST /api/v1/staff/waitlist/close-day: close the day (section 4.9, t16).
+
+    One transaction closes the branch's whole day queue: every ``WAITING`` and ``CALLED`` entry
+    becomes ``CANCELLED`` with ``cancelled_reason=CLOSED_DAY``, every ``SEATED`` entry becomes
+    ``DONE``, and every active ``OCCUPIED`` table moves to ``CLEANING`` (section 4.9, section
+    14). ``closed_at`` is stamped on every closed entry. The answer is the counts -
+    ``cancelled``, ``done``, ``tables_cleaning`` - so the staff screen can confirm what the
+    close did, and a second call on an already-closed day answers the same shape in zeros.
+    A missing or invalid token is 401 ``AUTH_TOKEN_EXPIRED`` before any of this runs.
+
+    t16's file scope puts the rule in this router module rather than
+    :mod:`app.services.staff_waitlist`; it is written the way the service's rules are - plain
+    queries, no ``HTTPException``, one commit - so the move is mechanical when it happens.
+    """
+    return _close_day(db, get_now())
+
+
+def _close_day(db: DbSession, now: datetime) -> dict[str, int]:
+    """The section 4.9 rule: close the day's queue and the branch's occupied tables, one commit.
+
+    The scope is the branch's current business date - the same day the staff list reads (see
+    ``service._queue_day``), and a branch that cannot name a day answers zeros and writes nothing
+    rather than guessing across every day in the table. Entries keep whatever ``table_id`` they
+    held: a ``DONE`` row on a ``CLEANING`` table reads back as no party, which is the table
+    readback rule B-08 documents. Nothing else moves - an ``AVAILABLE`` or ``CLEANING`` table is
+    not touched, and no other branch's rows exist on this single-branch surface.
+    """
+    clock = service._as_utc(now)
+    branch_id = service._branch_id(db)
+    day = service._queue_day(db)
+    cancelled = 0
+    done = 0
+    tables_cleaning = 0
+    if day is not None:
+        entries = (
+            db.query(WaitlistEntry)
+            .filter(
+                WaitlistEntry.branch_id == branch_id,
+                WaitlistEntry.business_date == day,
+                WaitlistEntry.status.in_(
+                    (
+                        WaitlistStatus.WAITING,
+                        WaitlistStatus.CALLED,
+                        WaitlistStatus.SEATED,
+                    )
+                ),
+            )
+            .all()
+        )
+        for entry in entries:
+            if entry.status is WaitlistStatus.SEATED:
+                entry.status = WaitlistStatus.DONE
+                done += 1
+            else:
+                entry.status = WaitlistStatus.CANCELLED
+                entry.cancelled_reason = CancelledReason.CLOSED_DAY
+                cancelled += 1
+            entry.closed_at = clock
+            entry.updated_at = clock
+        tables = (
+            db.query(Table)
+            .filter(
+                Table.branch_id == branch_id,
+                Table.is_active.is_(True),
+                Table.status == TableStatus.OCCUPIED,
+            )
+            .all()
+        )
+        for table in tables:
+            table.status = TableStatus.CLEANING
+            table.updated_at = clock
+            tables_cleaning += 1
+    db.commit()
+    return {"cancelled": cancelled, "done": done, "tables_cleaning": tables_cleaning}
+
+
 async def _json_body(request: Request) -> Any:
     """Return the request body as a mapping, or ``None`` when there is none to parse.
 
@@ -229,7 +316,7 @@ def configure_limiter(app_limiter: Any) -> None:
     """Adopt ``app.main``'s one process limiter (called from ``app/main.py`` before mounting).
 
     No route on this router declares a limit (section 15 budgets login, join and lookup; the
-    contract declares no 429 for these nine operations), so the hook stores the shared instance and
+    contract declares no 429 for these ten operations), so the hook stores the shared instance and
     registers nothing - ``limiter is app.state.limiter`` stays an identity check on one object, and
     no second ``Limiter`` is built here.
     """

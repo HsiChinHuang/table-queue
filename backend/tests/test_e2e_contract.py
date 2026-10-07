@@ -24,6 +24,13 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.models import (
+    CancelledReason,
+    Table,
+    TableStatus,
+    WaitlistEntry,
+    WaitlistStatus,
+)
 from tests._db_test_support import TEST_CREDENTIAL_HASH
 from tests.public_fixtures import seed_branch
 
@@ -246,3 +253,106 @@ def test_e2e_cancel_endpoint(client, db_session):
         f"Unexpected cancel status: {cancel_response.status_code}"
     )
     assert cancel_response.json()["status"] == "CANCELLED"
+
+
+def test_stopped_legacy_client_paths_answer_404(client: TestClient) -> None:
+    """T16 AC-1: the stopped client-facing legacy paths stay dead, each a bare 404."""
+    assert client.get("/api/v1/public/board/1").status_code == 404
+    assert client.post("/api/v1/staff/login", json={"pin": "1234"}).status_code == 404
+    assert client.post("/api/v1/staff/pin/change", json={}).status_code == 404
+
+
+def _staff_headers(client: TestClient) -> dict:
+    """Log in with the module's test PIN (the settings row holds its hash) and return the header."""
+    login_response = client.post("/api/v1/auth/login", json={"pin": "1234"})
+    assert login_response.status_code == 200, f"Login failed: {login_response.text}"
+    return {"Authorization": f"Bearer {login_response.json()['access_token']}"}
+
+
+def test_seat_without_body_answers_422_validation_error(client, db_session) -> None:
+    """T16 AC-2: a bodiless seat request is 422 VALIDATION_ERROR with the envelope body."""
+    resp = client.post(
+        "/api/v1/staff/waitlist/00000000-0000-4000-8000-000000000000/seat",
+        headers=_staff_headers(client),
+    )
+    assert resp.status_code == 422
+    body = resp.json()
+    assert body["error"]["code"] == "VALIDATION_ERROR"
+    assert body["error"]["message"]
+
+
+def test_close_day_cancels_calls_seats_and_moves_tables(client, db_session) -> None:
+    """T16 AC-3: close-day closes the day's queue per section 4.9, in one answer."""
+    branch = seed_branch(db_session, branch_id=1, is_open=True)
+    table = Table(
+        branch_id=branch.id,
+        label="T1",
+        capacity=2,
+        section="Main Hall",
+        sort_order=1,
+        status=TableStatus.AVAILABLE,
+        is_active=True,
+    )
+    db_session.add(table)
+    db_session.commit()
+
+    headers = _staff_headers(client)
+    first = client.post(
+        f"/api/v1/branches/{branch.id}/waitlist",
+        json={"name": "Close A", "phone": "0912345678", "party_size": 2},
+    )
+    assert first.status_code == 201, f"Join failed: {first.text}"
+    called_id = first.json()["id"]
+    assert (
+        client.post(f"/api/v1/staff/waitlist/{called_id}/call", headers=headers).status_code
+        == 200
+    )
+    second = client.post(
+        f"/api/v1/branches/{branch.id}/waitlist",
+        json={"name": "Close B", "phone": "0912345679", "party_size": 2},
+    )
+    assert second.status_code == 201, f"Join failed: {second.text}"
+    seated_id = second.json()["id"]
+    assert (
+        client.post(
+            f"/api/v1/staff/waitlist/{seated_id}/seat",
+            headers=headers,
+            json={"table_id": str(table.id)},
+        ).status_code
+        == 200
+    )
+
+    resp = client.post("/api/v1/staff/waitlist/close-day", headers=headers)
+    assert resp.status_code == 200, f"Close-day failed: {resp.text}"
+    assert resp.json() == {"cancelled": 1, "done": 1, "tables_cleaning": 1}
+
+    # The already-closed queue answers the same shape in zeros (idempotent close).
+    assert client.post("/api/v1/staff/waitlist/close-day", headers=headers).json() == {
+        "cancelled": 0,
+        "done": 0,
+        "tables_cleaning": 0,
+    }
+
+    # Read the entries back through the fixture session (their rows arrived with the close-day
+    # commit), and the table back through the staff tables endpoint - the fixture session's
+    # identity map still holds the pre-close Table object, and an endpoint read is the contract
+    # surface the staff screen would use anyway.
+    entries = {str(e.id): e for e in db_session.query(WaitlistEntry).all()}
+    cancelled_row = entries[called_id]
+    assert cancelled_row.status is WaitlistStatus.CANCELLED
+    assert cancelled_row.cancelled_reason is CancelledReason.CLOSED_DAY
+    assert cancelled_row.closed_at is not None
+    done_row = entries[seated_id]
+    assert done_row.status is WaitlistStatus.DONE
+    assert done_row.closed_at is not None
+    tables_resp = client.get("/api/v1/staff/tables", headers=headers)
+    assert tables_resp.status_code == 200
+    table_status = {item["label"]: item["status"] for item in tables_resp.json()["items"]}
+    assert table_status["T1"] == "CLEANING"
+
+
+def test_close_day_requires_staff_token(client: TestClient) -> None:
+    """T16 AC-3: the close-day operation rides the staff auth, like its siblings."""
+    resp = client.post("/api/v1/staff/waitlist/close-day")
+    assert resp.status_code == 401
+    assert resp.json()["error"]["code"] == "AUTH_TOKEN_EXPIRED"

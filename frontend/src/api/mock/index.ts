@@ -31,18 +31,9 @@ function initMockHandlers(): void {
     };
   });
 
-  mockHandlers.set('GET:/api/v1/public/board/:id', async () => {
-    await delay(100);
-    const waiting = seedData.waitlist.filter((e) => e.status === 'WAITING');
-    const called = seedData.waitlist.filter((e) => e.status === 'CALLED');
-    return {
-      branch_id: seedData.branch.id,
-      current_call: called.length > 0 ? called[0] : null,
-      next_up: waiting.length > 0 ? waiting[0] : null,
-      recent_calls: seedData.waitlist.filter((e) => e.status === 'SEATED').slice(0, 5),
-      waiting_count: waiting.length,
-    };
-  });
+  // T16: the legacy public-board mock handler is removed - the client calls the contract board
+  // path `GET /api/v1/public/branches/:id/board`, which has no registered mock handler and
+  // answers the mock layer's default fallback in mock mode.
 
   mockHandlers.set('POST:/api/v1/public/waitlist', async (body) => {
     await delay(200);
@@ -73,25 +64,8 @@ function initMockHandlers(): void {
     return { success: true };
   });
 
-  // Auth endpoints
-  mockHandlers.set('POST:/api/v1/staff/login', async (body) => {
-    await delay(200);
-    const data = body as { pin: string };
-    if (data.pin === seedData.restaurant.pin) {
-      return {
-        // T15: the mock bearer is derived from the env-parameterised seed PIN - no literal.
-        token: `mock-jwt-token-${seedData.restaurant.pin}`,
-        staff_id: 'staff-001',
-        expires_at: new Date(Date.now() + 3600000).toISOString(),
-      };
-    }
-    throw { code: 'AUTH_INVALID_PIN', message: 'Invalid PIN' };
-  });
-
-  mockHandlers.set('POST:/api/v1/staff/pin/change', async () => {
-    await delay(200);
-    return { success: true };
-  });
+  // T16: the legacy staff-login and staff pin-change mock handlers are removed - the client
+  // calls the contract auth paths `POST /api/v1/auth/login` and `POST /api/v1/auth/change-pin`.
 
   // Staff waitlist endpoints
   mockHandlers.set('GET:/api/v1/staff/waitlist', async () => {

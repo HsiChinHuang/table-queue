@@ -785,6 +785,30 @@ paths:
         '422':
           $ref: '#/components/responses/ValidationError'
 
+  /api/v1/staff/waitlist/close-day:
+    post:
+      tags: [staff]
+      operationId: closeWaitlistDay
+      summary: Close the day
+      description: >
+        Close day (specs section 4.9): every WAITING and CALLED entry becomes
+        CANCELLED with cancelled_reason=CLOSED_DAY, every SEATED entry becomes
+        DONE, and every active OCCUPIED table moves to CLEANING, in one
+        transaction (section 14). Staff JWT required.
+      responses:
+        '200':
+          description: Day closed - entry and table counts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloseDayResponse'
+              example:
+                cancelled: 2
+                done: 1
+                tables_cleaning: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
 # ============================================================
 # STAFF — TABLES
 # ============================================================
@@ -1521,6 +1545,23 @@ components:
           example:
             - 5f7c1a9e-9a7b-4f1e-8e1a-1b2c3d4e5f60
             - 6a8d2b0f-1b8c-5e2f-9f2b-2c3d4e5f6a71
+
+    CloseDayResponse:
+      type: object
+      required: [cancelled, done, tables_cleaning]
+      properties:
+        cancelled:
+          type: integer
+          description: WAITING and CALLED entries cancelled with CLOSED_DAY
+          example: 2
+        done:
+          type: integer
+          description: SEATED entries set to DONE
+          example: 1
+        tables_cleaning:
+          type: integer
+          description: OCCUPIED tables moved to CLEANING
+          example: 1
 
     # -------------------- Waitlist — Response --------------------
 
