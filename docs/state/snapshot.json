@@ -4,6 +4,18 @@
  "last_seq": 24,
  "slots": [],
  "merge_queue": [],
- "active_issues": [],
+ "active_issues": [
+  {
+   "id": "t17",
+   "state": "defined",
+   "mode": "groom",
+   "role": "definer",
+   "run_id": "a4e5e59b-f590-4969-af8e-7f9eeeca86bf",
+   "started_at": "2026-10-07T09:00:00Z",
+   "worktree": null,
+   "branch": null,
+   "note": "frontend-only security fixes (C-4 C-7 C-9, C-3 redirect)"
+  }
+ ],
  "completed_issues": []
 }
