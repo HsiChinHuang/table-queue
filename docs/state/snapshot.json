@@ -1,17 +1,18 @@
 {
   "schema_version": "2.0",
-  "last_seq": 42,
-  "updated_at": "2026-10-07T12:32:25.759Z",
+  "last_seq": 45,
+  "updated_at": "2026-10-07T15:22:55.334Z",
   "slots": [
     {
       "slot_id": "slot_1",
       "issue_id": "t17",
       "role": "builder",
       "phase": "implement",
-      "run_id": "c301c50f-a8e5-4a37-8afa-242e3980275e",
+      "run_id": "cc745a0e-8be3-4d7e-8b04-8c5d00b86325",
       "spawn_at": "2026-10-07T12:31:34.489Z",
-      "last_activity_at": "2026-10-07T12:32:25.759Z",
-      "worktree_path": "C:/Users/tw097/Desktop/261003_ai_test/table-queue/.worktrees/t17"
+      "last_activity_at": "2026-10-07T15:22:55.334Z",
+      "worktree_path": "C:/Users/tw097/Desktop/261003_ai_test/table-queue/.worktrees/t17",
+      "retry_count": 1
     }
   ],
   "merge_queue": [],
