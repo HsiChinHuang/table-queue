@@ -108,7 +108,7 @@ describe('response handling', () => {
 
   it('omits the body when none is given', async () => {
     stubFetch({ body: {} });
-    await post('/staff/pin/change');
+    await post('/staff/waitlist/reorder');
     expect(sentBody()).toBeUndefined();
   });
 
@@ -219,30 +219,23 @@ describe('mock mode', () => {
     vi.stubEnv('VITE_USE_MOCK', 'false');
   });
 
-  it('reaches a registered mock handler for a staff login', async () => {
+  it('reaches a registered mock handler without calling fetch', async () => {
     const fetchMock = stubFetch({});
     vi.stubEnv('VITE_USE_MOCK', 'true');
-    // T15: the seed PIN is env-driven - the test supplies it (test data, not product code).
-    vi.stubEnv('VITE_MOCK_STAFF_PIN', '1234');
-    const data = await post<{ success?: boolean; token?: string }>('/api/v1/staff/login', {
-      pin: '1234',
-    });
+    const data = await get<unknown[]>('/api/v1/staff/waitlist');
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(data).toBeTruthy();
+    expect(Array.isArray(data)).toBe(true);
     vi.stubEnv('VITE_USE_MOCK', 'false');
   });
 
-  it('reads the seed PIN from VITE_MOCK_STAFF_PIN and derives the mock bearer from it (T15)', async () => {
+  it('answers the default mock payload for a contract path with no handler (T16)', async () => {
+    // T16: the legacy auth mock handlers are gone, so the client's contract auth path
+    // resolves through the mock layer's default fallback instead of a registered handler.
     const fetchMock = stubFetch({});
     vi.stubEnv('VITE_USE_MOCK', 'true');
-    vi.stubEnv('VITE_MOCK_STAFF_PIN', '5678');
-    const data = await post<{ token?: string }>('/api/v1/staff/login', { pin: '5678' });
+    const data = await post<{ success?: boolean; data?: unknown }>('/auth/login', { pin: '1234' });
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(data?.token).toBe('mock-jwt-token-5678');
-    // A PIN that does not match the env-supplied seed PIN is rejected.
-    await expect(post('/api/v1/staff/login', { pin: '9999' })).rejects.toMatchObject({
-      code: 'AUTH_INVALID_PIN',
-    });
+    expect(data).toEqual({ success: true, data: null });
     vi.stubEnv('VITE_USE_MOCK', 'false');
   });
 });

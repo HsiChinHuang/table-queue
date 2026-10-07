@@ -493,6 +493,10 @@ GET /api/v1/public/branches/{branch_id}
 GET /api/v1/public/branches/{branch_id}/board
 
 POST /api/v1/branches/{branch_id}/waitlist
+  - Validation (section 11): a missing or malformed `phone` or `party_size` answers
+    422 `VALIDATION_ERROR` with the section 11 error envelope body,
+    `{ "error": { "code": "VALIDATION_ERROR", "message": "Validation failed" } }` -
+    error.code names the code, error.message the reason.
 
 GET /api/v1/waitlist/{queue_number}
 
@@ -509,6 +513,10 @@ GET /api/v1/staff/waitlist
 POST /api/v1/staff/waitlist/{id}/call
 
 POST /api/v1/staff/waitlist/{id}/seat
+  - Validation (section 11): a missing or non-UUID `table_id` body answers 422
+    `VALIDATION_ERROR` with the same error envelope body -
+    `{ "error": { "code": "VALIDATION_ERROR", "message": "Validation failed" } }`
+    (error.code / error.message).
 
 POST /api/v1/staff/waitlist/{id}/no-show
 
@@ -522,12 +530,18 @@ PUT /api/v1/staff/waitlist/{id}
 
 POST /api/v1/staff/waitlist/reorder
 
-The two staff waitlist operations that are not state transitions carry a body and are
-named by their method rather than by a path suffix, so the surface is nine operations,
-not sixteen: `PUT /api/v1/staff/waitlist/{id}` edits `party_size` and `note`, and `POST /api/v1/staff/waitlist/reorder`
-takes `ordered_ids` - the complete current active set, the entry ids in the order the
-staff user asked for. `ordered_ids` that is not exactly the current `WAITING` plus
-`CALLED` set is 409 `CONFLICT`, per section 11.
+POST /api/v1/staff/waitlist/close-day
+
+The staff waitlist operations that are not state transitions carry a body and are named
+by their method rather than by a path suffix: `PUT /api/v1/staff/waitlist/{id}` edits
+`party_size` and `note`, `POST /api/v1/staff/waitlist/reorder` takes `ordered_ids` - the
+complete current active set, the entry ids in the order the staff user asked for. An
+`ordered_ids` that is not exactly the current `WAITING` plus `CALLED` set is 409 `CONFLICT`,
+per section 11. `POST /api/v1/staff/waitlist/close-day` closes the day (section 4.9):
+every `WAITING` and `CALLED` entry becomes `CANCELLED` with `cancelled_reason=CLOSED_DAY`,
+every `SEATED` entry becomes `DONE`, and every active `OCCUPIED` table moves to
+`CLEANING` - one transaction (section 14). A missing or invalid staff token is 401
+`AUTH_TOKEN_EXPIRED`.
 
 GET /api/v1/staff/tables
 
