@@ -1,12 +1,12 @@
 # Orchestrator Status
 
-Updated: 2026-10-07T03:40Z (seq 22)
+Updated: 2026-10-07T03:59Z (seq 23)
 
 ## Phase
 phase_5_audit review_plan **PASSED** (PASS_WITH_WARNINGS, 0 errors, 17 warnings) → **t16 groom in flight**
 
 ## Slots
-1/1 busy: verifier:verify_issue t16 (run fb8d8b3c, cwd bound to .worktrees/t16; branch_sha 8871c3f; junction .scratch->backend/.scratch pre-verified for AC-4)
+idle (next: verifier verify_pre_merge t16, then transactional merge)
 
 ## Queue
 t16 (implementing) → t17 → t18 → t19 → t22 → t24 → t25 → t26 → t27 → t28 → t29 → t31 → t35 → t36 → **t13 (LAST, final gate)**
