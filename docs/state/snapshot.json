@@ -1,8 +1,21 @@
 {
   "schema_version": "2.0",
   "last_seq": 26,
-  "updated_at": "2026-10-07T10:42:53Z",
-  "slots": [],
+  "updated_at": "2026-10-07T11:49:50.864Z",
+  "slots": [
+    {
+      "slot_id": "slot_1",
+      "issue_id": "t35",
+      "role": "definer",
+      "phase": "review_plan",
+      "run_id": "2f28b81b-a483-4e7b-8853-bccda5fa297f",
+      "spawn_at": "2026-10-07T11:48:51.437Z",
+      "last_activity_at": "2026-10-07T11:49:50.864Z",
+      "worktree_path": null
+    }
+  ],
   "merge_queue": [],
-  "active_issues": []
+  "active_issues": [
+    "t35"
+  ]
 }
