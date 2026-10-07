@@ -6,7 +6,7 @@ Updated: 2026-10-07T03:59Z (seq 23)
 phase_5_audit review_plan **PASSED** (PASS_WITH_WARNINGS, 0 errors, 17 warnings) → **t16 groom in flight**
 
 ## Slots
-idle (next: verifier verify_pre_merge t16, then transactional merge)
+1/1 busy: verifier:verify_pre_merge t16 (run e7260bbd; cumulative index empty; smoke=3 standard commands)
 
 ## Queue
 t16 (implementing) → t17 → t18 → t19 → t22 → t24 → t25 → t26 → t27 → t28 → t29 → t31 → t35 → t36 → **t13 (LAST, final gate)**

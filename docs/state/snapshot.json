@@ -10,11 +10,13 @@
    "state": "verified",
    "mode": "verify_pre_merge",
    "role": "verifier",
-   "run_id": null,
+   "run_id": "e7260bbd-236d-4141-b1ea-1fd78ad4c4e4",
+   "started_at": "2026-10-07T04:04:00Z",
    "worktree": ".worktrees/t16",
    "branch": "issue/t16-contract-completion",
    "branch_sha": "8871c3fc6da9015ba8aabb7c3bbd92de514f37ab",
-   "handoff_sha": "b3cd444"
+   "handoff_sha": "b3cd444",
+   "timeout_ms": 1800000
   }
  ],
  "completed_issues": []
