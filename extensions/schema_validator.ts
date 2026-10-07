@@ -13,6 +13,30 @@ const ajv = new Ajv({ allErrors: true, strict: false });
 addFormats(ajv);
 
 // ============================================================
+// BOM-tolerant JSON reader
+// ============================================================
+
+/**
+ * Strip a UTF-8 BOM (U+FEFF) from the beginning of a string.
+ *
+ * Files written by Windows PowerShell's `Out-File -Encoding utf8`,
+ * Notepad, or some git configurations may carry a BOM. JSON.parse
+ * rejects a leading BOM; this helper neutralises that.
+ */
+export function stripBom(text: string): string {
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+}
+
+/**
+ * Read a file and parse it as JSON, tolerating a leading UTF-8 BOM.
+ * Throws on I/O error or parse error.
+ */
+export function readJsonFile(filePath: string): unknown {
+  const raw = fs.readFileSync(filePath, 'utf-8');
+  return JSON.parse(stripBom(raw));
+}
+
+// ============================================================
 // Schema registration
 // ============================================================
 
@@ -43,8 +67,7 @@ function registerAllSchemas(): void {
   const files = findJsonFiles(SCHEMAS_DIR);
   for (const file of files) {
     try {
-      const content = fs.readFileSync(file, 'utf-8');
-      const schema = JSON.parse(content);
+      const schema = readJsonFile(file) as { $id?: string };
       if (schema.$id && !ajv.getSchema(schema.$id)) {
         ajv.addSchema(schema);
       }
@@ -93,6 +116,7 @@ const STATE_SCHEMA_MAP: Record<string, string> = {
   token_usage: 'schemas/state/token_usage.json',
   misjudgments: 'schemas/state/misjudgments.json',
   status_metrics: 'schemas/state/status_metrics.json',
+  factpack: 'schemas/state/factpack.json',
 };
 
 // ============================================================
@@ -141,8 +165,7 @@ function validateAgainstSchemaPath(
   // Load schema content to get its $id
   let schema: { $id?: string };
   try {
-    const content = fs.readFileSync(schemaPath, 'utf-8');
-    schema = JSON.parse(content);
+    schema = readJsonFile(schemaPath) as { $id?: string };
   } catch (err) {
     return {
       valid: false,
@@ -191,8 +214,7 @@ function validateAgainstSchemaPath(
 
   let data: unknown;
   try {
-    const content = fs.readFileSync(dataPath, 'utf-8');
-    data = JSON.parse(content);
+    data = readJsonFile(dataPath);
   } catch (err) {
     return {
       valid: false,
@@ -288,7 +310,7 @@ export function validateHandoffSchema(
 /**
  * Validate a state file against its schema.
  *
- * @param schemaName - Logical name (e.g. 'snapshot', 'merge_cp')
+ * @param schemaName - Logical name (e.g. 'snapshot', 'merge_cp', 'factpack')
  * @param filePath - Path to the state JSON file
  * @returns Validation result
  */

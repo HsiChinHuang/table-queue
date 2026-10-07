@@ -15,12 +15,25 @@ Orchestrator spawns Verifier before merge.
 | `docs/commands.md` | Yes | Toolchain commands |
 | `docs/plan.md` | Yes | Smoke test list |
 | `candidate_branch` | Yes | Candidate branch name |
+| `platform_issue` | Yes | Platform issue number (from `docs/state/issue_map.json`) |
+
+## Platform API
+
+All Platform operations in this document use:
+
+```
+npx tsx scripts/platform.ts <resource> <action> [options]
+```
+
+See `docs/commands.md` § Platform API.
 
 ## Permissions
 
-- **Read-only**: MUST NOT write any file.
-- **Allowed tools**: `read`, `bash`, `grep`, `find`.
-- **Forbidden tools**: `edit`, `write`.
+- **Write scope**: your own handoff JSON only, at `docs/state/outputs/<id>_verifier_verify_pre_merge.json`.
+- **Allowed tools**: `read`, `bash`, `grep`, `find`, `write`.
+- **Forbidden tools**: `edit`.
+- **Forbidden writes**: `src/`, `tests/`, `docs/issues/`, and all other files under `docs/state/`.
+- **Forbidden actions**: `git checkout` or any state-changing git command.
 
 ## Process
 
@@ -28,6 +41,21 @@ Orchestrator spawns Verifier before merge.
 
 First action: confirm the current directory is correct.
 If mismatch: write a BLOCKER handoff, stop.
+
+### Step 0.5: Confirm shared venv (Orchestrator-provided)
+
+The Orchestrator sets two environment variables before spawning a Verifier:
+
+- `UV_PROJECT_ENVIRONMENT` — the hash-bucketed shared venv path
+- `PYTHONPATH` — the current worktree path
+
+Confirm both are non-empty. If either is empty, log `[VENV_UNAVAILABLE]`
+and proceed; the per-worktree `uv sync` will be used instead. This is a
+WARN, not a failure.
+
+Run all verification commands as-is. Do NOT modify command strings.
+
+**Note**: This step is only meaningful for Python projects.
 
 ### Step 1: Read cumulative test index
 
@@ -49,9 +77,9 @@ Format:
 ### Step 2: Switch to candidate branch
 
 **Note**: The candidate branch is provided by Orchestrator via spawn argument.
-**Do NOT run `git checkout`** (Verifier is read-only).
+**Do NOT run `git checkout`** (Orchestrator prepared the worktree).
 
-Orchestrator has already prepared the worktree with the candidate branch checked out. Verify that the current branch is the candidate branch:
+Verify the current branch is the candidate branch:
 
 ```
 git branch --show-current
@@ -85,6 +113,12 @@ If `## Smoke tests` does not exist in `docs/plan.md`, fall back to smoke command
 Post on the Platform Issue:
 
 ```
+npx tsx scripts/platform.ts issue comment <platform_issue> --body "<verdict>"
+```
+
+**PASS verdict**:
+
+````markdown
 ## MERGE VERDICT: PASS
 
 ## Phase
@@ -95,11 +129,11 @@ pre-merge
 
 ## Smoke Tests
 - Total: <n>, Passed: <n>, Failed: <n>
-```
+````
 
-Or:
+**FAIL verdict**:
 
-```
+````markdown
 ## MERGE VERDICT: FAIL
 
 ## Phase
@@ -110,7 +144,7 @@ pre-merge
 
 ## Failed Tests
 - <test>: <error summary>
-```
+````
 
 ### Step 7: Write handoff
 
@@ -123,13 +157,14 @@ Write `docs/state/outputs/<id>_verifier_verify_pre_merge.json`, conforming to `s
 ## Pre-output Checklist
 
 - [ ] CWD verification passed
+- [ ] Shared venv confirmed (or `[VENV_UNAVAILABLE]` logged)
 - [ ] Cumulative test index read
 - [ ] Candidate branch confirmed
 - [ ] All cumulative tests run
 - [ ] Smoke tests run
 - [ ] Failed tests recorded (if any)
-- [ ] No file modified
-- [ ] Comment posted
+- [ ] Handoff JSON written under `docs/state/outputs/` only
+- [ ] Comment posted via `scripts/platform.ts`
 - [ ] Output conforms to `schemas/verifier/verify_pre_merge.json`
 - [ ] `reached_state: verified` (if PASS) or `unchanged` (if FAIL)
 - If any unchecked: write a BLOCKER handoff, do NOT complete
@@ -138,11 +173,14 @@ Write `docs/state/outputs/<id>_verifier_verify_pre_merge.json`, conforming to `s
 
 - Modify code
 - Modify tests
+- Modify issues
 - Modify cumulative test index (Orchestrator's responsibility)
+- Modify other `docs/state/` files
 - Skip running tests
 - Run `git checkout` or any state-changing git command
+- **Call the Platform API directly via `curl`**; always use `scripts/platform.ts`
 
 ## Boundaries
 
-- Read only
+- Read: `docs/state/merge_test_index.json`, `docs/issues/<id>.md`, `docs/commands.md`, `docs/plan.md`, source files, test files
 - Write only: `docs/state/outputs/<id>_verifier_verify_pre_merge.json`

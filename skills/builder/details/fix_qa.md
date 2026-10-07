@@ -14,6 +14,7 @@ Verifier returns `failure_type` of `implementation`, `test_env`, or `test_qualit
 | `docs/state/outputs/<id>_verifier_verify_issue.json` | Yes | Verifier FAIL report |
 | `docs/coding_standards.md` | Yes | Coding standards |
 | `docs/commands.md` | Yes | Toolchain commands |
+| `docs/state/config_snapshot.json` | Yes | Config snapshot |
 | `failure_history` | Yes | Last 3 FAIL summaries + latest full FAIL |
 | `memory_paths` | No | Relevant memories |
 | `worktree_path` | Yes | Assigned working directory |
@@ -31,7 +32,7 @@ Read the Verifier FAIL report, extract:
 
 - `failure_type`
 - `failed_acs`
-- Each failed AC's `expected` / `actual` / `test_command` / `test_output_path`
+- Each failed AC's `verdict` / `command` / `exit_code` / `output_path` / `note` (from `evidence.ac_results.<ac>`)
 
 Read `failure_history`:
 
@@ -52,8 +53,8 @@ If a `failed_ac` has no corresponding command and is not `manual`:
 ### Step 2: Check memories (if `memory_paths` is non-empty)
 
 Read each memory file.
-If two memories conflict: write `[MEMORY CONFLICT]`.
-List the actually applied memory IDs in the final handoff.
+If two memories conflict: write `[MEMORY CONFLICT]` in `evidence.notes`.
+List the actually applied memory IDs in the final handoff (`evidence.memory_applied`).
 
 ### Step 3: Analyze failure
 
@@ -73,17 +74,18 @@ Based on the analysis:
 
 If the failure cannot be reproduced:
 
-- Write `[VERIFIER_MISJUDGMENT] <reason>`.
+- Write `[VERIFIER_MISJUDGMENT] <reason>` in `evidence.notes`, and set `evidence.reported_issue: "VERIFIER_MISJUDGMENT"`.
 - Continue implementing the reasonable scope.
+- The Orchestrator will route this to Definer for a third-party check (see `failures.md` § Verifier misjudgment routing).
 
 If the AC is impossible to implement:
 
-- Write `[AC_IMPOSSIBLE] <reason>`.
+- Write `[AC_IMPOSSIBLE] <reason>` in `evidence.notes`, and set `evidence.reported_issue: "AC_IMPOSSIBLE"`.
 - Continue implementing the reasonable scope.
 
 If an upstream issue is the root cause:
 
-- Write `[UPSTREAM_BUG] <id>`.
+- Write `[UPSTREAM_BUG] <id>` in `evidence.notes`, and set `evidence.upstream_bug_id: "<id>"`.
 - Continue implementing the reasonable scope.
 
 ### Step 5: Run tests
@@ -93,6 +95,8 @@ Run:
 - **Each command in `## Verification commands`.**
 - Full test suite (because this is a fix).
 - Linter.
+
+If any command fails after fixing, apply the same 3-attempt + self-diagnosis cascade as `implement.md` Step 5.
 
 MUST have no regressions.
 

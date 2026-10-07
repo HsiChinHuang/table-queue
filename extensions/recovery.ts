@@ -3,7 +3,8 @@
 
 import * as fs from 'fs';
 import { execSync } from 'child_process';
-import { validateStateFile } from './schema_validator.js';
+import { validateStateFile, readJsonFile } from './schema_validator.js';
+import { migrate } from './schema_migrations.js';
 
 // ============================================================
 // Paths
@@ -15,6 +16,8 @@ const PATH_MERGE_CP = 'docs/state/merge_cp.json';
 const PATH_IDEMPOTENCY = 'docs/state/idempotency.json';
 const PATH_LAUNCHER_CP = 'docs/state/launcher_checkpoint.json';
 const PATH_CONFIG_SNAPSHOT = 'docs/state/config_snapshot.json';
+
+const CURRENT_SNAPSHOT_VERSION = '2.0';
 
 // ============================================================
 // Type definitions
@@ -34,8 +37,9 @@ export interface Slot {
   issue_id: string;
   role: string;
   phase: string;
+  run_id: string | null;
   spawn_at: string;
-  last_heartbeat: string;
+  last_activity_at: string;
   worktree_path: string | null;
 }
 
@@ -61,12 +65,12 @@ export interface MergeCheckpoint {
   } | null;
 }
 
-export interface HeartbeatConfig {
+export interface LivenessConfig {
   stale_minutes: number;
   force_release_multiplier: number;
 }
 
-export const DEFAULT_HEARTBEAT: HeartbeatConfig = {
+export const DEFAULT_LIVENESS: LivenessConfig = {
   stale_minutes: 10,
   force_release_multiplier: 2,
 };
@@ -89,41 +93,99 @@ export interface RecoveryAction {
 }
 
 // ============================================================
-// Heartbeat config loading
+// Schema migration
+// ============================================================
+
+interface MigrationTarget {
+  path: string;
+  name: string;
+  expected: string;
+}
+
+const MIGRATION_TARGETS: MigrationTarget[] = [
+  { path: PATH_SNAPSHOT, name: 'snapshot', expected: CURRENT_SNAPSHOT_VERSION },
+  { path: PATH_MERGE_CP, name: 'merge_cp', expected: '1.0' },
+  { path: PATH_IDEMPOTENCY, name: 'idempotency', expected: '1.0' },
+];
+
+/**
+ * Attempt lossless schema migration on every state file that carries a
+ * schema_version. Runs before validation, so older data files are upgraded
+ * in place rather than failing validation.
+ *
+ * Reads tolerate a leading UTF-8 BOM. Writes are UTF-8 without BOM.
+ */
+function tryMigrateStateFiles(): RecoveryAction[] {
+  const results: RecoveryAction[] = [];
+  for (const target of MIGRATION_TARGETS) {
+    if (!fs.existsSync(target.path)) continue;
+    try {
+      const raw = readJsonFile(target.path) as { schema_version?: string };
+      if (!raw.schema_version) continue;
+      if (raw.schema_version === target.expected) continue;
+      const migrated = migrate(raw, raw.schema_version, target.expected);
+      writeJsonAtomic(target.path, migrated);
+      results.push({
+        type: 'SCHEMA_MIGRATION',
+        target: target.name,
+        reason: `${raw.schema_version} -> ${target.expected}`,
+      });
+    } catch (err) {
+      results.push({
+        type: 'SCHEMA_MIGRATION_FAIL',
+        target: target.name,
+        reason: (err as Error).message,
+      });
+    }
+  }
+  return results;
+}
+
+/**
+ * Write a JSON file atomically. UTF-8 without BOM.
+ */
+function writeJsonAtomic(filePath: string, data: unknown): void {
+  const tmp = `${filePath}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2), { encoding: 'utf-8' });
+  fs.renameSync(tmp, filePath);
+}
+
+// ============================================================
+// Liveness config loading
 // ============================================================
 
 /**
- * Load heartbeat configuration from config_snapshot.json.
+ * Load Orchestrator liveness configuration from config_snapshot.json.
  *
- * Falls back to DEFAULT_HEARTBEAT if:
+ * Falls back to DEFAULT_LIVENESS if:
  * - File does not exist
  * - File is not valid JSON
  * - `values` is missing or invalid
- * - `heartbeat.stale_minutes` or `heartbeat.force_release_multiplier` is missing or wrong type
+ * - `orchestrator.liveness.*` is missing or wrong type
  */
-export function loadHeartbeatConfig(): HeartbeatConfig {
+export function loadLivenessConfig(): LivenessConfig {
   try {
-    const content = fs.readFileSync(PATH_CONFIG_SNAPSHOT, 'utf-8');
-    const snapshot = JSON.parse(content) as {
+    const snapshot = readJsonFile(PATH_CONFIG_SNAPSHOT) as {
       values?: Record<string, unknown>;
     };
     const values = snapshot.values || {};
 
-    const stale = values['heartbeat.stale_minutes'];
-    const forceMultiplier = values['heartbeat.force_release_multiplier'];
+    const stale = values['orchestrator.liveness.stale_minutes'];
+    const forceMultiplier =
+      values['orchestrator.liveness.force_release_multiplier'];
 
     return {
       stale_minutes:
         typeof stale === 'number' && stale > 0
           ? stale
-          : DEFAULT_HEARTBEAT.stale_minutes,
+          : DEFAULT_LIVENESS.stale_minutes,
       force_release_multiplier:
         typeof forceMultiplier === 'number' && forceMultiplier > 0
           ? forceMultiplier
-          : DEFAULT_HEARTBEAT.force_release_multiplier,
+          : DEFAULT_LIVENESS.force_release_multiplier,
     };
   } catch {
-    return { ...DEFAULT_HEARTBEAT };
+    return { ...DEFAULT_LIVENESS };
   }
 }
 
@@ -138,8 +200,13 @@ export async function recoverState(): Promise<RecoveryResult> {
   const actions: RecoveryAction[] = [];
   const errors: string[] = [];
 
-  // Load heartbeat config first
-  const heartbeat = loadHeartbeatConfig();
+  // Step 0: Attempt schema migration on all state files.
+  // This runs first so that older data files are upgraded before validation.
+  const migrationActions = tryMigrateStateFiles();
+  actions.push(...migrationActions);
+
+  // Load liveness config
+  const liveness = loadLivenessConfig();
 
   // Step 1: Read launcher checkpoint
   const checkpoint = readLauncherCheckpoint();
@@ -147,7 +214,10 @@ export async function recoverState(): Promise<RecoveryResult> {
     return {
       success: true,
       start_mode: 'FRESH',
-      actions: [{ type: 'FRESH_START', target: '', reason: 'no checkpoint' }],
+      actions: [
+        ...actions,
+        { type: 'FRESH_START', target: '', reason: 'no checkpoint' },
+      ],
       errors: [],
     };
   }
@@ -156,6 +226,7 @@ export async function recoverState(): Promise<RecoveryResult> {
       success: true,
       start_mode: 'FRESH',
       actions: [
+        ...actions,
         { type: 'FRESH_START', target: '', reason: 'project completed' },
       ],
       errors: [],
@@ -169,6 +240,7 @@ export async function recoverState(): Promise<RecoveryResult> {
       success: true,
       start_mode: 'FRESH',
       actions: [
+        ...actions,
         { type: 'FRESH_START', target: '', reason: 'no snapshot' },
       ],
       errors: [],
@@ -254,10 +326,13 @@ export async function recoverState(): Promise<RecoveryResult> {
   }
 
   // Step 8: Recover slots
+  // Liveness is determined by pi-subagents status.json. If a slot's
+  // last_activity_at is stale beyond the Orchestrator liveness threshold,
+  // the slot is released. Force-release uses the multiplier.
   const validSlots: Slot[] = [];
   const now = Date.now();
-  const staleMs = heartbeat.stale_minutes * 60 * 1000;
-  const forceMs = staleMs * heartbeat.force_release_multiplier;
+  const staleMs = liveness.stale_minutes * 60 * 1000;
+  const forceMs = staleMs * liveness.force_release_multiplier;
 
   for (const slot of snapshot.slots) {
     // Check worktree
@@ -270,15 +345,15 @@ export async function recoverState(): Promise<RecoveryResult> {
       continue;
     }
 
-    // Check heartbeat
-    const lastHeartbeat = new Date(slot.last_heartbeat).getTime();
-    const elapsed = now - lastHeartbeat;
+    // Check activity timestamp (synced from status.json)
+    const lastActivity = new Date(slot.last_activity_at).getTime();
+    const elapsed = now - lastActivity;
 
     if (elapsed > forceMs) {
       actions.push({
         type: 'SLOT_FORCE_RELEASED',
         target: slot.issue_id,
-        reason: `heartbeat stale beyond force threshold (${heartbeat.stale_minutes}min * ${heartbeat.force_release_multiplier})`,
+        reason: `activity stale beyond force threshold (${liveness.stale_minutes}min * ${liveness.force_release_multiplier})`,
       });
       continue;
     }
@@ -287,7 +362,7 @@ export async function recoverState(): Promise<RecoveryResult> {
       actions.push({
         type: 'SLOT_RELEASED',
         target: slot.issue_id,
-        reason: `heartbeat stale (> ${heartbeat.stale_minutes}min)`,
+        reason: `activity stale (> ${liveness.stale_minutes}min)`,
       });
       continue;
     }
@@ -413,8 +488,7 @@ function recoverMerge(cp: MergeCheckpoint): RecoveryAction | null {
 
 function readLauncherCheckpoint(): { completed: boolean } | null {
   try {
-    const content = fs.readFileSync(PATH_LAUNCHER_CP, 'utf-8');
-    return JSON.parse(content);
+    return readJsonFile(PATH_LAUNCHER_CP) as { completed: boolean };
   } catch {
     return null;
   }
@@ -422,21 +496,18 @@ function readLauncherCheckpoint(): { completed: boolean } | null {
 
 function readSnapshot(): Snapshot | null {
   try {
-    const content = fs.readFileSync(PATH_SNAPSHOT, 'utf-8');
-    const parsed = JSON.parse(content);
+    const parsed = readJsonFile(PATH_SNAPSHOT) as Snapshot;
     if (!parsed.slots || parsed.slots.length === 0) {
       return null;
     }
-    return parsed as Snapshot;
+    return parsed;
   } catch {
     return null;
   }
 }
 
 function writeSnapshot(snapshot: Snapshot): void {
-  const tmp = `${PATH_SNAPSHOT}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(snapshot, null, 2));
-  fs.renameSync(tmp, PATH_SNAPSHOT);
+  writeJsonAtomic(PATH_SNAPSHOT, snapshot);
 }
 
 function readSeq(): number {
@@ -448,13 +519,12 @@ function readSeq(): number {
 }
 
 function writeSeq(seq: number): void {
-  fs.writeFileSync(PATH_SEQ, String(seq));
+  fs.writeFileSync(PATH_SEQ, String(seq), { encoding: 'utf-8' });
 }
 
 function readMergeCheckpoint(): MergeCheckpoint | null {
   try {
-    const content = fs.readFileSync(PATH_MERGE_CP, 'utf-8');
-    return JSON.parse(content);
+    return readJsonFile(PATH_MERGE_CP) as MergeCheckpoint;
   } catch {
     return null;
   }

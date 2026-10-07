@@ -35,7 +35,7 @@ Each line is a standalone JSON:
 - `COMPLETE` — role completed
 - `FAIL` — role failed
 - `SLOT_RELEASED` — slot released
-- `SLOT_STALE` — slot heartbeat stale
+- `SLOT_STALE` — slot activity stale
 - `SLOT_FORCE_RELEASED` — slot force-released
 
 ### Anomaly events
@@ -43,8 +43,12 @@ Each line is a standalone JSON:
 - `BOUNDARY` — role boundary violation
 - `SECRET_LEAK` — secret leaked
 - `DRIFT` — state drift
-- `RECOVER` — recovery
+- `RECOVER` — recovery started
+- `RECOVER_AUTO` — auto-repair of a corrupt state file succeeded
+- `RECOVER_FAIL` — auto-repair failed; scope isolated or HALT
 - `RECOVERY_OK` — recovery completed
+- `INTERRUPTED` — subagent interrupted before completion (scheduled restart or force-terminate)
+- `ISOLATED` — issue isolated (`blocker` + `isolated` labels); other work continues
 - `ROLLBACK` — rollback
 - `PAUSED` / `RESUMED` — pause / resume
 - `CONFIG_CHANGED` — config changed

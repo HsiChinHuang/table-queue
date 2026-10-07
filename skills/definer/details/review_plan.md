@@ -88,7 +88,7 @@ Write `docs/state/outputs/<milestone>_definer_review_plan.json`.
 
 ## Boundaries
 
-- Read only
+- Read-only for all files except the two listed below
 - Write only: `docs/state/milestones/<milestone>.json`, `docs/state/outputs/<milestone>_definer_review_plan.json`
 
 ## FAIL Routing

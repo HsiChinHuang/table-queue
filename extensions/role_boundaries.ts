@@ -90,7 +90,7 @@ const ROLE_PERMISSIONS: Record<Role, RolePermissions> = {
       'docs/state/retry.json',
       'docs/state/retry_subagent.json',
     ],
-    allowed_tools: ['read', 'bash', 'grep', 'find'],
+    allowed_tools: ['read', 'bash', 'grep', 'find', 'write'],
     forbidden_commands: [
       'sudo', 'su',
       'rm -rf /', 'rm -rf ~', 'rm -rf /*',

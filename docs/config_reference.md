@@ -40,8 +40,38 @@ Complete reference for every key in `docs/config.yaml`.
 | `orchestrator.scheduled_restart_hours` | Implemented | `lifecycle.md` Step 14, `recovery.md`, `config_loader.ts` |
 | `orchestrator.context.refresh_interval_iterations` | Referenced | `lifecycle.md` Step 15, `logging.md` |
 | `orchestrator.context.refresh_files` | **Reserved** | Not yet read by code (list used in `lifecycle.md` Step 15 is hardcoded) |
+| `orchestrator.liveness.stale_minutes` | Implemented | `preflight.md` Stage 7, `recovery.ts` (`loadLivenessConfig`) |
+| `orchestrator.liveness.force_release_multiplier` | Implemented | `recovery.ts` (`loadLivenessConfig`) |
 
-**Note**: `orchestrator.context.refresh_files` is currently reserved. `lifecycle.md` Step 15 hardcodes the list (`AGENTS.md`, `skills/orchestrator/SKILL.md`). Future implementation should read this key.
+**Note**: `orchestrator.context.refresh_files` is reserved. `lifecycle.md` Step 15 hardcodes the list (`AGENTS.md`, `skills/orchestrator/SKILL.md`). Future implementation should read this key.
+
+**Note**: `orchestrator.liveness.*` governs the **Orchestrator's own** log-stall detection. It is distinct from `subagent.watchdog.*`, which governs subagent liveness.
+
+## Subagent
+
+| Key | Status | Used by |
+|---|---|---|
+| `subagent.watchdog.needs_attention_after_minutes` | Implemented | `slots.md` (spawn parameter), passed to pi-subagents as `needsAttentionAfterMs` |
+
+**Note**: pi-subagents runs the watchdog. This config only supplies the threshold; the actual liveness tracking is inside pi-subagents.
+
+## venv
+
+| Key | Status | Used by |
+|---|---|---|
+| `venv.enabled` | Implemented | `lifecycle.md` Step 7 (Verifier spawn) |
+| `venv.cleanup_after_days` | Implemented | `scripts/venv_cleanup.py` (default stale threshold) |
+
+**Note**: When `venv.enabled: false`, the Orchestrator spawns Verifiers
+without `UV_PROJECT_ENVIRONMENT` / `PYTHONPATH`; the Verifier falls back
+to per-worktree `uv sync`. This is useful for debug or for environments
+where the shared venv approach is problematic.
+
+**Note on `venv.cleanup_after_days`**: This value is read by
+`scripts/venv_cleanup.py` when the script is run without an explicit
+`--days` argument. The script prints the effective threshold and its
+source (`cli | config | default`) at startup. If the config key is
+missing or invalid, the script falls back to 30 days.
 
 ## Slots
 
@@ -61,18 +91,24 @@ Complete reference for every key in `docs/config.yaml`.
 | `roles.<role>.timeout_minutes` | Implemented | `failures.md` |
 | `roles.<role>.phases.<phase>.thinking` | Referenced | `config.yaml`; spawn code should pass to Pi Agent |
 | `roles.<role>.phases.<phase>.max_retries` | Implemented | `gates.md`, `failures.md` |
+| `roles.definer.phases.survey.timeout_base_minutes` | Implemented | `lifecycle.md` Step 7 (dynamic timeout for survey) |
+| `roles.definer.phases.survey.timeout_per_issue_minutes` | Implemented | `lifecycle.md` Step 7 (dynamic timeout for survey) |
 
 **Note**: `<role>` in `{definer, builder, verifier}`. `<phase>` in `{survey, review_plan, groom, re_groom, implement, fix_qa, fix_merge, fix_regression, verify_issue, verify_pre_merge, verify_post_merge}`.
 
 **Note**: `roles.<role>.default_thinking` is the fallback when a phase-specific `thinking` is not set.
 
-## Heartbeat
+**Note on survey timeout**: `survey` uses a dynamic timeout:
 
-| Key | Status | Used by |
-|---|---|---|
-| `heartbeat.interval_seconds` | Referenced | `slots.md` |
-| `heartbeat.stale_minutes` | Implemented | `slots.md`, `recovery.md`, `preflight.md`, `recovery.ts` (`loadHeartbeatConfig`) |
-| `heartbeat.force_release_multiplier` | Implemented | `slots.md`, `slot_manager.ts` (`checkHeartbeats`), `recovery.ts` (`loadHeartbeatConfig`) |
+```
+timeout = timeout_base_minutes + timeout_per_issue_minutes × N
+```
+
+where `N` is the number of issues in the current milestone. If `N` is unknown (e.g. regeneration), the Orchestrator falls back to `roles.definer.timeout_minutes` (60).
+
+Example: N = 15 → timeout = 15 + 2 × 15 = 45 minutes.
+
+All other phases use the fixed `roles.<role>.timeout_minutes`.
 
 ## Schema Validation
 
@@ -179,7 +215,6 @@ Complete reference for every key in `docs/config.yaml`.
 | `retention.monthly_summary_days` | Referenced | `logging.md` |
 | `retention.quarterly_archive_days` | Referenced | `logging.md` |
 | `retention.config_history_keep` | Implemented | `preflight.md` Stage 0 Step 9 |
-| `retention.approval_keep_days` | Referenced | `recovery.md` |
 | `retention.merge_history_days` | Referenced | `logging.md` |
 | `retention.failure_audit_days` | Referenced | `logging.md` |
 | `retention.metrics_days` | Referenced | `logging.md` |
@@ -198,8 +233,6 @@ Complete reference for every key in `docs/config.yaml`.
 | `limits.pending_stale_days` | Referenced | `failures.md` |
 | `limits.stale_block_days` | Referenced | `failures.md` |
 | `limits.blocker_fatigue_count` | Referenced | `failures.md` |
-| `limits.approval_delete_files` | Referenced | `gates.md` (approval detection) |
-| `limits.approval_issue_count` | Referenced | `gates.md` (approval detection) |
 | `limits.similarity_threshold` | Referenced | `failures.md` |
 | `limits.ac_change_blocker_pct` | Implemented | `gates.md`, `human_review.md`, `lifecycle.md` |
 | `limits.analysis_max_per_day` | Referenced | `failures.md` |
@@ -225,15 +258,6 @@ Complete reference for every key in `docs/config.yaml`.
 | `human_review.poll_interval_iterations` | **Reserved** | Not yet read by code |
 | `human_review.auto_close_after_days` | Implemented | `human_review.md` |
 
-## Approval
-
-| Key | Status | Used by |
-|---|---|---|
-| `approval.mode` | Implemented | `preflight.md`, `recovery.md` |
-| `approval.warn_hours` | Referenced | `recovery.md` |
-| `approval.max_hours` | Referenced | `recovery.md` |
-| `approval.pre_authorized` | **Reserved** | Not yet implemented |
-
 ## Automation
 
 | Key | Status | Used by |
@@ -241,13 +265,19 @@ Complete reference for every key in `docs/config.yaml`.
 | `automation.auto_recovery.enabled` | Referenced | `failures.md` |
 | `automation.auto_recovery.level` | Implemented | `failures.md` (Level 1-4 routing) |
 | `automation.auto_recovery.max_consecutive_failures` | Referenced | `failures.md` |
-| `automation.auto_skip_blocked` | Implemented | `failures.md` |
+| `automation.auto_skip_blocked` | Implemented | `failures.md`, `preflight.md` Stage 0 Step 4 (immutable check) |
 | `automation.auto_learn` | Referenced | `failures.md` |
 | `automation.stall_detection.enabled` | Referenced | `failures.md` |
 | `automation.stall_detection.iterations_threshold` | Implemented | `failures.md` |
 | `automation.stall_detection.action` | **Reserved** | Not yet implemented (always `write_report`) |
 | `automation.infinite_loop_detection.enabled` | Referenced | `failures.md` |
 | `automation.infinite_loop_detection.max_same_failure` | Implemented | `failures.md` |
+
+**Note on `automation.auto_skip_blocked`**: This key is **immutable** in
+the current design. The system always isolates blocked issues and
+continues; setting it to `false` is rejected by Preflight Stage 0 Step 4
+(HALT). The key exists as documentation of the system's behaviour, not as
+a toggle.
 
 ## Disk
 
@@ -272,9 +302,9 @@ Complete reference for every key in `docs/config.yaml`.
 
 | Status | Count |
 |---|---|
-| **Implemented** | ~62 |
-| **Referenced** | ~53 |
-| **Reserved** | 8 |
+| **Implemented** | ~69 |
+| **Referenced** | ~50 |
+| **Reserved** | 9 |
 
 ### Reserved Keys (not yet implemented)
 
@@ -288,7 +318,6 @@ Complete reference for every key in `docs/config.yaml`.
 | `git.main_history_track` | Main history tracking not implemented |
 | `limits.issue_granularity.warn_only` | Granularity checks not yet enforced |
 | `human_review.poll_interval_iterations` | Polling not yet implemented |
-| `approval.pre_authorized` | Pre-authorization not yet implemented |
 | `automation.stall_detection.action` | Only `write_report` implemented |
 
 **Note**: Reserved keys are tracked for future implementation. When implementing, update both this file and the relevant skill/code.

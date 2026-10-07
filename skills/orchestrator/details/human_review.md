@@ -17,10 +17,16 @@ Create a human_review issue when:
 
 ### Step 1: Create Platform Issue
 
-1. Create Platform Issue
-2. Label: `human_review`
-3. Title: `[REVIEW] <issue>: <question summary>`
-4. Body:
+Run:
+
+```
+npx tsx scripts/platform.ts issue create \
+  --title "[REVIEW] <issue>: <question summary>" \
+  --body "<body>" \
+  --labels "human_review"
+```
+
+Where `<body>` is:
 
 ```
 ## Question
@@ -44,6 +50,8 @@ Create a human_review issue when:
 Post a comment on this issue with format:
     [RESPONSE] <option> <extra note>
 ```
+
+The returned JSON contains the Platform issue `number`.
 
 ### Step 2: Write local mirror
 
@@ -98,19 +106,26 @@ After creating a human_review:
 Flow:
 
 ```
-Query Platform for all issues labeled human_review
-For each issue:
-  Read latest comment
-  If human posted a new comment:
-    1. Parse comment, run corresponding action
-    2. In questions.md, update the corresponding Q<n>:
-       - Move from "Open questions" to "Resolved questions"
-       - Status: resolved
-       - Human Response: <comment content>
-       - Resolved at: <UTC>
-    3. Mark Platform Issue as resolved
-    4. Close Platform Issue
-    5. Record [HUMAN_REVIEW_RESOLVED] <issue>
+npx tsx scripts/platform.ts issue list --labels human_review --state open
+-> For each returned issue:
+     - number = issue.number
+     - Read the latest comment:
+         npx tsx scripts/platform.ts issue latest-comment <number>
+     - If the latest comment's `body` starts with "[RESPONSE]" and has not
+       been processed yet:
+         1. Parse the response.
+         2. Run the corresponding action (see `Orchestrator Read` below).
+         3. Update docs/state/questions.md:
+              - Move the corresponding Q<n> from "Open questions"
+                to "Resolved questions"
+              - Status: resolved
+              - Human Response: <comment body>
+              - Resolved at: <UTC>
+         4. Remove the human_review label:
+              npx tsx scripts/platform.ts label remove <number> --label human_review
+         5. Close the Platform Issue:
+              npx tsx scripts/platform.ts issue close <number>
+         6. Record [HUMAN_REVIEW_RESOLVED] <issue>
 ```
 
 ### questions.md -> Platform
@@ -145,32 +160,42 @@ Or:
 
 Every iteration:
 
-1. Query issues labeled `human_review`
-2. For each issue:
-   - Read latest comment
+1. `npx tsx scripts/platform.ts issue list --labels human_review --state open`
+2. For each returned issue:
+   - `npx tsx scripts/platform.ts issue latest-comment <number>`
    - If `[RESPONSE]` present and not yet processed:
      - Parse response
      - Run corresponding action
      - Update questions.md
-     - Mark issue as `resolved`
-     - Remove `human_review` label
-     - Close issue
+     - `npx tsx scripts/platform.ts label remove <number> --label human_review`
+     - `npx tsx scripts/platform.ts issue close <number>`
      - Record `[HUMAN_REVIEW_RESOLVED] <issue>`
 
 ## Stale Handling
 
 **`stale` and `auto_closed` are Platform labels**, not local-only states.
 
-If a human_review issue exists > `human_review.stale_days`:
+If a human_review issue exists > `human_review.stale_days` (compare
+`issue.updated_at` in the list output to now):
 
-- Orchestrator adds `stale` label to the Platform Issue
+- Add the `stale` label:
+  ```
+  npx tsx scripts/platform.ts label add <number> --label stale
+  ```
 - Record `[HUMAN_REVIEW_STALE] <issue>`
 - In questions.md, set `Status: stale`
 
 If it exists > `human_review.auto_close_after_days`:
 
-- Orchestrator adds `auto_closed` label, removes `human_review` label
-- Orchestrator closes the Platform Issue
+- Add `auto_closed`, remove `human_review`:
+  ```
+  npx tsx scripts/platform.ts label remove <number> --label human_review
+  npx tsx scripts/platform.ts label add <number> --label auto_closed
+  ```
+- Close the Platform Issue:
+  ```
+  npx tsx scripts/platform.ts issue close <number>
+  ```
 - Record `[HUMAN_REVIEW_AUTO_CLOSED] <issue>`
 - In questions.md, set `Status: auto_closed`
 
@@ -178,9 +203,16 @@ If it exists > `human_review.auto_close_after_days`:
 
 | Type | Priority |
 |---|---|
-| Blocker | Highest (blocking) |
+| Blocker | Highest (isolated issue only) |
 | Human Review | Medium (non-blocking) |
 | Normal Issue | Low |
+
+**Note**: `blocker` and `human_review` are both non-blocking for the project. The difference is:
+
+- `blocker` (typically with `isolated`) freezes a specific issue until a human resolves it; the rest of the project continues.
+- `human_review` raises a question without freezing any issue; the related issue continues normally while the question is open.
+
+Neither label pauses the whole project. Only Preflight failure (missing `requirements.md`, unrecoverable state) triggers a full HALT.
 
 ## questions.md Format
 

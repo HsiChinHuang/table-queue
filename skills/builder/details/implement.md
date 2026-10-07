@@ -17,6 +17,17 @@ Orchestrator spawns Builder for an issue in state `groomed`.
 | `failure_history` | No | Last 3 FAIL summaries + latest full FAIL |
 | `memory_paths` | No | Relevant memories (if retry >= 2) |
 | `worktree_path` | Yes | Assigned working directory |
+| `platform_issue` | Yes | Platform issue number (from `docs/state/issue_map.json`) |
+
+## Platform API
+
+All Platform operations in this document use:
+
+```
+npx tsx scripts/platform.ts <resource> <action> [options]
+```
+
+See `docs/commands.md` § Platform API.
 
 ## Process
 
@@ -33,7 +44,7 @@ Read `docs/issues/<id>.md`, extract:
 - Constraints
 - **`## Verification commands` section** (authoritative verification commands)
 
-If an AC has issues (wrong, impossible, vague): write an `[AC SUGGESTION]` note, continue implementing the reasonable scope.
+If an AC has issues (wrong, impossible, vague): write an `[AC SUGGESTION]` note in the handoff's `evidence.ac_suggestions`, continue implementing the reasonable scope.
 
 ### Step 1.5: Confirm verification commands
 
@@ -49,8 +60,8 @@ If an AC has no corresponding command and is not `manual`:
 ### Step 2: Check memories (if `memory_paths` is non-empty)
 
 Read each memory file.
-If two memories conflict: write `[MEMORY CONFLICT]`, skip the conflicting ones.
-List the actually applied memory IDs in the final handoff.
+If two memories conflict: write `[MEMORY CONFLICT]` in `evidence.notes`, skip the conflicting ones.
+List the actually applied memory IDs in the final handoff (`evidence.memory_applied`).
 
 ### Step 3: Implement AC
 
@@ -63,9 +74,9 @@ For each AC:
 
 If Constraints are insufficient (need to modify files outside Constraints):
 
-- Write `[CONSTRAINT VIOLATION REQUEST] <files> <reason>`.
-- Continue in-scope work.
-- Wait for Definer's decision.
+- Write a BLOCKER handoff with `error.error_code: CONSTRAINT_VIOLATION_REQUEST` and `error.context.requested_files: [...]`, `error.context.reason: "..."`.
+- Stop. The Orchestrator will create a BLOCKER Platform Issue and route it to Definer for review of the constraints.
+- The issue is not marked complete; it will be re-spawned after the Definer's decision.
 
 ### Step 4: Write tests
 
@@ -92,10 +103,13 @@ Run:
 
 If any command fails:
 
-- Fix the code.
-- Re-run until all commands pass.
+- Fix the code and re-run, up to **3 attempts**.
+- If still failing after 3 attempts, apply self-diagnosis (see `failures.md`):
+  - Level 2: try a different approach, up to 2 attempts.
+  - Level 3: mark un-implementable ACs as `degraded_acs` and continue.
+  - Level 4: write a BLOCKER handoff (`error.error_code: IMPLEMENTATION_STUCK`).
 
-(Orchestrator handles spawn-level retries via `failures.md`.)
+The Orchestrator also handles spawn-level retries via `failures.md`; do NOT loop forever inside one spawn.
 
 ### Step 6: Commit
 
@@ -126,7 +140,13 @@ Retry 3 times with backoff 5/15/45 seconds.
 
 ### Step 8: Post comment
 
-Post on Platform Issue:
+Post on the Platform Issue:
+
+```
+npx tsx scripts/platform.ts issue comment <platform_issue> --body "<comment>"
+```
+
+Where `<comment>` follows this format:
 
 ````markdown
 ## Builder: implement — COMPLETE
@@ -148,11 +168,10 @@ Post on Platform Issue:
 - ac1: `uv run pytest tests/test_auth.py::test_signup_valid`
 - ac2: `uv run pytest tests/test_auth.py::test_signup_duplicate`
 - ac3: manual
-
-<!-- HANDOFF_JSON
-{ ... }
--->
 ````
+
+The `<!-- HANDOFF_JSON ... -->` block is written to the handoff file, NOT
+posted as a Platform comment. See Step 9.
 
 ### Step 9: Write handoff
 
@@ -162,8 +181,14 @@ Write `docs/state/outputs/<id>_builder_implement.json`, conforming to `schemas/b
 
 On the Platform Issue:
 
-- Remove label `groomed`
-- Add label `built`
+- Remove state label `groomed`:
+  ```
+  npx tsx scripts/platform.ts label remove <platform_issue> --label groomed
+  ```
+- Add state label `built`:
+  ```
+  npx tsx scripts/platform.ts label add <platform_issue> --label built
+  ```
 
 ## Output
 
@@ -200,10 +225,10 @@ Each AC mapping MUST use the command from `## Verification commands`:
 - [ ] Linter passes
 - [ ] All changes committed
 - [ ] Branch pushed
-- [ ] Comment posted
+- [ ] Comment posted via `scripts/platform.ts`
 - [ ] Memory IDs listed (if used)
 - [ ] No blacklisted command executed
-- [ ] Labels transitioned (`groomed` -> `built`)
+- [ ] Labels transitioned (`groomed` removed, `built` added)
 - [ ] Output conforms to `schemas/builder/implement.json`
 - [ ] `reached_state: built`
 - If any unchecked: write a BLOCKER handoff, do NOT complete
@@ -219,6 +244,7 @@ Each AC mapping MUST use the command from `## Verification commands`:
 - Read or execute files outside the allowed list
 - Leak secrets to comments or output
 - **Substitute commands in `## Verification commands`**
+- **Call the Platform API directly via `curl`**; always use `scripts/platform.ts`
 
 ## Blacklisted commands
 
@@ -228,9 +254,9 @@ Each AC mapping MUST use the command from `## Verification commands`:
 - `git push` to main/master
 - Read `~/.ssh/*`, `.env`, `~/.aws/*`, system files
 - `env`, `printenv`
-- `curl` / `wget` any URL except Platform API
+- `curl` / `wget` any URL except Platform API via `scripts/platform.ts`
 - `dd`, `mkfs`, `fdisk`, `chmod 777 /`
-- Access `docs/state/` (except your own output)
+- Access `docs/state/` except `docs/state/config_snapshot.json` and your own output
 
 ## Boundaries
 

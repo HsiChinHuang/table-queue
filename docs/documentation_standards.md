@@ -11,7 +11,7 @@ Two tiers:
 | **Agent I/O** | `docs/issues/*.md`, `docs/plan.md`, `docs/backlog.md`, `schemas/*.json`, `skills/**/*.md`, `AGENTS.md` | English only |
 | **Human Setup** | `docs/coding_standards.md`, `docs/documentation_standards.md`, `docs/memory/readme.md`, `docs/memory/rules.md`, `docs/log/api_failures_rules.md` | English only |
 | **User Input** | `docs/requirements.md` | Any language |
-| **Runtime Status** | `docs/state/status.md`, `docs/state/questions.md`, `docs/state/approvals.md`, `docs/log/*.md`, `docs/memory/index.md` | English only |
+| **Runtime Status** | `docs/state/status.md`, `docs/state/questions.md`, `docs/log/*.md`, `docs/memory/index.md` | English only |
 
 **Rule**: All files in this project use English, except `docs/requirements.md` which is provided by the user.
 

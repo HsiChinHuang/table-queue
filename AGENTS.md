@@ -14,7 +14,7 @@
 - Role skills: `skills/<role>/SKILL.md`
 - Schemas: `schemas/<role>/<phase>.json`
 - Config: `docs/config.yaml`
-- Commands: `docs/coding_standards.md`
+- Commands: `docs/commands.md`
 
 Note: `skills/orchestrator/` is for Orchestrator only.
 Note: `details/` subdirectories are loaded on demand.

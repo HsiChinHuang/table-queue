@@ -13,7 +13,6 @@ docs/config.yaml
 # ============================================================
 docs/cache/
 docs/state/orchestrator.lock
-docs/state/heartbeat_*.txt
 docs/state/pause
 docs/state/restart
 docs/state/reset
@@ -37,6 +36,8 @@ docs/state/pending_blockers/
 docs/state/metrics/status_metrics.json
 docs/state/outputs/*.tmp
 docs/state/outputs/*.invalid.json
+docs/state/factpack/
+.pi-agent/
 
 # ============================================================
 # Runtime logs (gitignored after week 1)
@@ -138,7 +139,6 @@ desktop.ini
 # docs/state/issue_map.json
 # docs/state/status.md
 # docs/state/questions.md
-# docs/state/approvals.md
 # docs/state/merge_history.json
 # docs/state/merge_test_index.json
 # docs/state/idempotency.json
@@ -174,11 +174,3 @@ desktop.ini
 # package.json
 # tsconfig.json
 # .eslintrc.json
-# agent worktrees
-.worktrees/
-
-# runtime test artifacts (never track)
-backend/test.db
-backend/_b05_auth_tests.db
-backend/.scratch/
-backend/%SystemDrive%/

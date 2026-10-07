@@ -123,6 +123,16 @@ export interface ValidationResult {
 // Core validation logic
 // ============================================================
 
+const BUSINESS_FAILURE_TYPES = [
+  'implementation',
+  'ac_ambiguous',
+  'ac_wrong',
+  'test_env',
+  'test_quality',
+  'merge_conflict',
+  'regression',
+] as const;
+
 /**
  * Validate the handoff state transition.
  * The `survey` phase is special: it creates a new issue, not a state
@@ -187,8 +197,40 @@ export function validateTransition(
   if (handoff.status === 'FAIL' && !handoff.next_action) {
     errors.push(`status is FAIL but next_action is null`);
   }
-  if (handoff.status === 'COMPLETE' && handoff.next_action) {
-    errors.push(`status is COMPLETE but next_action is not null`);
+  if (handoff.status !== 'FAIL' && handoff.next_action) {
+    errors.push(`status is ${handoff.status} but next_action is not null`);
+  }
+
+  // 6. Cross-validate failure_type consistency (verifier: verify_issue, status FAIL)
+  if (
+    handoff.role === 'verifier' &&
+    handoff.phase === 'verify_issue' &&
+    handoff.status === 'FAIL'
+  ) {
+    const ev = handoff.evidence;
+    const evFailureType = ev['failure_type'];
+    const ctx = handoff.error?.context ?? {};
+    const ctxFailureType = ctx['failure_type'];
+
+    if (typeof evFailureType !== 'string') {
+      errors.push('evidence.failure_type is required on verifier FAIL');
+    } else if (!BUSINESS_FAILURE_TYPES.includes(evFailureType as typeof BUSINESS_FAILURE_TYPES[number])) {
+      errors.push(`evidence.failure_type is not a legal business failure type: ${evFailureType}`);
+    }
+
+    if (typeof ctxFailureType !== 'string') {
+      errors.push('error.context.failure_type is required on verifier FAIL');
+    } else if (ctxFailureType !== evFailureType) {
+      errors.push(
+        `failure_type mismatch: evidence="${String(evFailureType)}", error.context="${ctxFailureType}"`
+      );
+    }
+
+    if (handoff.error && handoff.error.error_type !== 'business_failure') {
+      errors.push(
+        `verifier FAIL requires error.error_type=business_failure, got "${handoff.error.error_type}"`
+      );
+    }
   }
 
   return { valid: errors.length === 0, errors };

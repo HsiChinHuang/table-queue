@@ -15,12 +15,25 @@ Orchestrator spawns Verifier for an issue with state label `built` (no modifier 
 | `docs/commands.md` | Yes | Toolchain commands |
 | `docs/state/config_snapshot.json` | Yes | Config snapshot |
 | `branch_sha` | Yes | Branch SHA to verify |
+| `platform_issue` | Yes | Platform issue number (from `docs/state/issue_map.json`) |
+
+## Platform API
+
+All Platform operations in this document use:
+
+```
+npx tsx scripts/platform.ts <resource> <action> [options]
+```
+
+See `docs/commands.md` § Platform API.
 
 ## Permissions
 
-- **Read-only**: MUST NOT write any file.
-- **Allowed tools**: `read`, `bash`, `grep`, `find`.
-- **Forbidden tools**: `edit`, `write`.
+- **Write scope**: your own handoff JSON only, at `docs/state/outputs/<id>_verifier_verify_issue.json`.
+- **Allowed tools**: `read`, `bash`, `grep`, `find`, `write`.
+- **Forbidden tools**: `edit`.
+- **Forbidden writes**: `src/`, `tests/`, `docs/issues/`, and all other files under `docs/state/`.
+- **Forbidden actions**: `git checkout` or any state-changing git command.
 
 ## Process
 
@@ -28,6 +41,26 @@ Orchestrator spawns Verifier for an issue with state label `built` (no modifier 
 
 First action: confirm the current directory is correct.
 If mismatch: write a BLOCKER handoff, stop.
+
+### Step 0.5: Confirm shared venv (Orchestrator-provided)
+
+The Orchestrator sets two environment variables before spawning a Verifier:
+
+- `UV_PROJECT_ENVIRONMENT` — the hash-bucketed shared venv path
+- `PYTHONPATH` — the current worktree path
+
+Confirm both are non-empty. If either is empty, log `[VENV_UNAVAILABLE]`
+and proceed; the per-worktree `uv sync` will be used instead. This is a
+WARN, not a failure.
+
+Run all verification commands as-is. Do NOT modify command strings.
+`UV_PROJECT_ENVIRONMENT` redirects `uv run` to the shared venv, and
+`PYTHONPATH` makes the worktree's own code take precedence over any
+stale editable install.
+
+**Note**: This step is only meaningful for Python projects. For other
+tech stacks (e.g. Node.js), the environment variables are simply absent
+and the step is a no-op.
 
 ### Step 1: Read inputs
 
@@ -103,22 +136,26 @@ If any AC fails, determine `failure_type`:
 | AC contradicts plan.md | `ac_wrong` |
 | Passes locally but fails in Verifier | `test_env` |
 | Test quality insufficient | `test_quality` |
-| Merge failed | `merge_conflict` (determined by Orchestrator) |
 
 Priority (when multiple match):
 
-1. `merge_conflict`
-2. `ac_wrong`
-3. `ac_ambiguous`
-4. `test_env`
-5. `test_quality`
-6. `implementation` (default)
+1. `ac_wrong`
+2. `ac_ambiguous`
+3. `test_env`
+4. `test_quality`
+5. `implementation` (default)
+
+**Note**: `merge_conflict` and `regression` are NOT set by Verifier. They are determined by Orchestrator during the merge phase.
 
 ### Step 7: Post comment
 
 Post a verdict comment on the Platform Issue:
 
-**PASS format**:
+```
+npx tsx scripts/platform.ts issue comment <platform_issue> --body "<verdict>"
+```
+
+**PASS verdict**:
 
 ````markdown
 ## VERIFIER VERDICT: PASS
@@ -140,7 +177,7 @@ Post a verdict comment on the Platform Issue:
 Tests: <command>, <passed>/<total> PASS
 ````
 
-**FAIL format**:
+**FAIL verdict**:
 
 ````markdown
 ## VERIFIER VERDICT: FAIL
@@ -173,8 +210,15 @@ Write `docs/state/outputs/<id>_verifier_verify_issue.json`, conforming to `schem
 
 On the Platform Issue:
 
-- PASS: remove state label `built`, add state label `verified`
-- FAIL: keep state label `built`, add modifier label `verifier_failed`
+- PASS: swap state label `built` → `verified`:
+  ```
+  npx tsx scripts/platform.ts label remove <platform_issue> --label built
+  npx tsx scripts/platform.ts label add <platform_issue> --label verified
+  ```
+- FAIL: keep state label `built` unchanged; add modifier label `verifier_failed`:
+  ```
+  npx tsx scripts/platform.ts label add <platform_issue> --label verifier_failed
+  ```
 
 **Note**: On FAIL, the issue remains in `built` state. The `verifier_failed` label routes the issue to Builder: fix_qa.
 
@@ -185,6 +229,7 @@ Write `docs/state/outputs/<id>_verifier_verify_issue.json`, conforming to `schem
 ## Pre-output Checklist
 
 - [ ] CWD verification passed
+- [ ] Shared venv confirmed (or `[VENV_UNAVAILABLE]` logged)
 - [ ] All inputs read
 - [ ] `## Verification commands` read
 - [ ] `branch_sha` matches assignment
@@ -194,11 +239,11 @@ Write `docs/state/outputs/<id>_verifier_verify_issue.json`, conforming to `schem
 - [ ] Lint Report included
 - [ ] DoD Verification included
 - [ ] Test Quality Warnings included (if any)
-- [ ] No file modified
-- [ ] Comment posted
+- [ ] Handoff JSON written under `docs/state/outputs/` only
+- [ ] Comment posted via `scripts/platform.ts`
 - [ ] Labels transitioned:
-  - PASS: `built` -> `verified`
-  - FAIL: keep `built`, add `verifier_failed`
+  - PASS: `built` removed, `verified` added
+  - FAIL: `built` unchanged, `verifier_failed` added
 - [ ] Output conforms to `schemas/verifier/verify_issue.json`
 - [ ] `reached_state: verified` (if PASS) or `unchanged` (if FAIL)
 - If any unchecked: write a BLOCKER handoff, do NOT complete
@@ -207,14 +252,18 @@ Write `docs/state/outputs/<id>_verifier_verify_issue.json`, conforming to `schem
 
 - Modify code
 - Modify tests
+- Modify issues
+- Modify other `docs/state/` files
 - Close issue
 - Skip running tests
 - Modify AC
 - FAIL solely due to lint (lint is non-blocking)
 - FAIL solely due to test quality warnings
+- Run `git checkout` or any state-changing git command
 - **Substitute commands in `## Verification commands`**
+- **Call the Platform API directly via `curl`**; always use `scripts/platform.ts`
 
 ## Boundaries
 
-- Read only
+- Read: `docs/issues/<id>.md`, `docs/state/outputs/<id>_builder_implement.json`, `docs/commands.md`, `docs/state/config_snapshot.json`, source files, test files
 - Write only: `docs/state/outputs/<id>_verifier_verify_issue.json`

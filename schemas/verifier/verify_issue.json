@@ -60,9 +60,9 @@
                 "ac_wrong",
                 "test_env",
                 "test_quality",
-                "merge_conflict",
                 null
-              ]
+              ],
+              "description": "Business-level failure classification. merge_conflict and regression are NOT set by Verifier; they are determined by Orchestrator during the merge phase."
             },
             "lint_report": {
               "type": ["object", "null"],

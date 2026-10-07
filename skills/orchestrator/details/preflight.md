@@ -34,6 +34,13 @@ Only keys listed in `config.md` may be overridden by env.
 - Unknown key: WARN + log `[CONFIG_UNKNOWN_KEY]`.
 - Near-miss key (edit distance <= 2): HALT.
 - Out of range: HALT.
+- Immutable key that disagrees with the system design: HALT.
+
+**Immutable keys** (must have the documented value; any other value HALT):
+
+| Key | Required value | Reason |
+|---|---|---|
+| `automation.auto_skip_blocked` | `true` | The system is designed to always isolate blocked issues and continue. Setting it to `false` would make blocked issues pause the whole project, contradicting the no-halt policy. |
 
 Failure -> write `docs/state/PREFLIGHT_FAIL.md`, HALT.
 
@@ -75,7 +82,7 @@ Format:
   "schema_version": "1.0",
   "timestamp": "...",
   "config_version": 2,
-  "values": {...},
+  "values": {},
   "sources": {"key": "env|yaml|default"}
 }
 ```
@@ -177,15 +184,15 @@ Write `docs/state/orchestrator.lock`:
 
 ## Stage 5: Recovery
 
-See `recovery.md`.
+See `recovery.md` for the full flow and the auto-repair procedure.
 
-**Failure handling**: If recovery fails (e.g. schema mismatch, state file corrupt):
+**Failure handling**: If recovery fails:
 
-1. Write `docs/state/PREFLIGHT_FAIL.md` with the failure reason.
-2. Log `[PREFLIGHT_FAIL]`.
-3. HALT.
+1. Attempt auto-repair (see `recovery.md` § Auto-Repair).
+2. If auto-repair succeeds -> log `[RECOVER_AUTO]`, continue.
+3. If auto-repair fails -> write `docs/state/PREFLIGHT_FAIL.md`, create BLOCKER, HALT.
 
-**Do NOT** attempt to auto-repair. Human must intervene.
+The Launcher will restart the Orchestrator up to `launcher.max_restart_attempts` times. If the failure is persistent, the Launcher eventually gives up.
 
 ## Stage 6: Scan pending
 
@@ -194,11 +201,13 @@ Scan `docs/issues/pending/*.md`:
 - If Platform has an issue with the same title -> delete pending, log `[RECOVERED]`.
 - Otherwise -> normal ID assignment (deferred to Lifecycle).
 
-## Stage 7: Heartbeat baseline
+## Stage 7: Orchestrator liveness baseline
 
 - Verify lock exists.
-- Heartbeat = UTC timestamp of last log line.
-- If log stale > `heartbeat.stale_minutes` -> treat as crashed.
+- Orchestrator liveness = UTC timestamp of the last log line.
+- If log stale > `orchestrator.liveness.stale_minutes` -> treat as crashed.
+
+**Note**: This is the **Orchestrator's own** liveness check. It is distinct from subagent watchdog, which is provided by pi-subagents (see `slots.md`).
 
 ## Stage 8: Update launcher_checkpoint
 
@@ -222,14 +231,15 @@ All Stages passed -> log `[PREFLIGHT_OK]`, delete `docs/state/PREFLIGHT_FAIL.md`
 
 After Preflight passes, **before entering the main Lifecycle**:
 
-- If `docs/state/initialized` does NOT exist:
-  - Lifecycle **Step 0** handles initialization.
-  - This includes:
-    - Checking `docs/requirements.md` exists
-    - Triggering the initial `Definer: survey` if `docs/plan.md` does not exist
-    - Waiting for human to create `docs/state/initialized` after all `review_plan` passes
-- If `docs/state/initialized` DOES exist:
+- If `docs/state/initialized` exists:
   - Proceed directly to Lifecycle Step 1.
+
+- If `docs/state/initialized` does NOT exist:
+  - Lifecycle **Step 0** handles initialization. This includes:
+    - Checking `docs/requirements.md` exists.
+    - Triggering the initial `Definer: survey` if `docs/plan.md` does not exist.
+    - After all `review_plan` runs pass, the Orchestrator automatically
+      creates `docs/state/initialized` and proceeds.
 
 ## Degradable Features (WARN only, no HALT)
 

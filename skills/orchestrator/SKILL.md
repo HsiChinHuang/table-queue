@@ -41,3 +41,4 @@ Read `details/<topic>.md` for full instructions:
 - Do NOT write code.
 - Output MUST be structured WAL entries (see `details/logging.md`).
 - Orchestrator output is NOT validated by `extensions/schema_validator.ts`; it is validated against `schemas/log/wal_entry.json`.
+- On wake (completion / attention / user message), run the slot liveness protocol from `details/slots.md` (Tool API `subagent({action:"status"})`). Liveness is provided by pi-subagents; the Orchestrator does not maintain its own subagent liveness files.

@@ -249,31 +249,38 @@ export function detectStarvation(
 }
 
 // ============================================================
-// Heartbeat check
+// Slot liveness check
 // ============================================================
 
-export interface HeartbeatCheck {
+export interface SlotLivenessCheck {
   slot_id: string;
   issue_id: string;
   is_stale: boolean;
   should_force_release: boolean;
 }
 
-export function checkHeartbeats(
+/**
+ * Compute slot liveness from last_activity_at timestamps.
+ *
+ * The timestamps are synced from pi-subagents status.json by the
+ * Orchestrator on each liveness check; this function is a pure
+ * computation over the provided snapshot values.
+ */
+export function checkSlotLiveness(
   slots: Array<{
     slot_id: string;
     issue_id: string;
-    last_heartbeat: string;
+    last_activity_at: string;
   }>,
   staleMinutes: number,
   forceReleaseMultiplier: number
-): HeartbeatCheck[] {
+): SlotLivenessCheck[] {
   const now = Date.now();
   const staleMs = staleMinutes * 60 * 1000;
   const forceMs = staleMs * forceReleaseMultiplier;
 
   return slots.map((slot) => {
-    const last = new Date(slot.last_heartbeat).getTime();
+    const last = new Date(slot.last_activity_at).getTime();
     const elapsed = now - last;
 
     return {

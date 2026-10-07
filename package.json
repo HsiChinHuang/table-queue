@@ -15,6 +15,7 @@
     "lint:check": "eslint launcher extensions scripts --ext .ts",
     "validate-schemas": "tsx scripts/validate_schemas.ts",
     "validate-handoff": "tsx scripts/validate_handoff.ts",
+    "gate-check": "tsx scripts/gate_check.ts",
     "test": "tsx --test"
   },
   "dependencies": {

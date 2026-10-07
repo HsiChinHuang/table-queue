@@ -3,6 +3,7 @@
 
 import * as fs from 'fs';
 import { execSync } from 'child_process';
+import { readJsonFile } from './schema_validator.js';
 
 // ============================================================
 // Type definitions
@@ -186,7 +187,7 @@ function closure(ctx: MergeContext, cp: MergeCheckpoint): void {
   if (fs.existsSync(src)) {
     const content = fs.readFileSync(src, 'utf-8');
     const closedContent = addClosedAt(content, new Date().toISOString());
-    fs.writeFileSync(dst, closedContent);
+    fs.writeFileSync(dst, closedContent, { encoding: 'utf-8' });
     fs.unlinkSync(src);
   }
 
@@ -231,7 +232,7 @@ function updateMergeTestIndex(issueId: string): void {
   };
 
   if (fs.existsSync(indexPath)) {
-    index = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
+    index = readJsonFile(indexPath) as MergeTestIndex;
   }
 
   const issuePath = `docs/issues/closed/${issueId}.md`;
@@ -302,14 +303,14 @@ function updateClosedIndex(
       'Runtime-maintained by Orchestrator.\n\n' +
       '| ID | Title | Closed At | Retries | Merge Commit |\n' +
       '|---|---|---|---|---|\n';
-    fs.writeFileSync(indexPath, header);
+    fs.writeFileSync(indexPath, header, { encoding: 'utf-8' });
   }
 
   const content = fs.readFileSync(indexPath, 'utf-8');
   const shortSha = mergeSha ? mergeSha.slice(0, 7) : '—';
   const newRow = `| ${issueId} | ${title} | ${timestamp} | 0 | ${shortSha} |\n`;
 
-  fs.writeFileSync(indexPath, content + newRow);
+  fs.writeFileSync(indexPath, content + newRow, { encoding: 'utf-8' });
 }
 
 // ============================================================
@@ -322,13 +323,17 @@ function updateMergeHistory(
   mergeType: 'clean' | 'merge-fix'
 ): void {
   const historyPath = 'docs/state/merge_history.json';
-  let history = {
+  let history: {
+    schema_version: string;
+    updated_at: string;
+    entries: unknown[];
+  } = {
     schema_version: '1.0',
     updated_at: new Date().toISOString(),
-    entries: [] as unknown[],
+    entries: [],
   };
   if (fs.existsSync(historyPath)) {
-    history = JSON.parse(fs.readFileSync(historyPath, 'utf-8'));
+    history = readJsonFile(historyPath) as typeof history;
   }
   history.entries.push({
     issue_id: ctx.issue_id,
@@ -348,7 +353,12 @@ function removeFromSnapshot(issueId: string): void {
   const snapshotPath = 'docs/state/snapshot.json';
   if (!fs.existsSync(snapshotPath)) return;
 
-  const snapshot = JSON.parse(fs.readFileSync(snapshotPath, 'utf-8'));
+  const snapshot = readJsonFile(snapshotPath) as {
+    active_issues?: string[];
+    slots?: Array<{ issue_id: string }>;
+    merge_queue?: Array<{ issue_id: string }>;
+    updated_at?: string;
+  };
   snapshot.active_issues = (snapshot.active_issues || []).filter(
     (id: string) => id !== issueId
   );
@@ -383,9 +393,12 @@ function writeCheckpoint(cp: MergeCheckpoint): void {
   writeJsonAtomic('docs/state/merge_cp.json', cp);
 }
 
+/**
+ * Write a JSON file atomically. UTF-8 without BOM.
+ */
 function writeJsonAtomic(path: string, data: unknown): void {
   const tmp = `${path}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2), { encoding: 'utf-8' });
   fs.renameSync(tmp, path);
 }
 

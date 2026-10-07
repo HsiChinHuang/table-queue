@@ -30,6 +30,25 @@ orchestrator:
     refresh_files:
       - AGENTS.md
       - skills/orchestrator/SKILL.md
+  liveness:
+    stale_minutes: 10
+    force_release_multiplier: 2
+
+
+# ============================================================
+# Subagent watchdog (pi-subagents)
+# ============================================================
+subagent:
+  watchdog:
+    needs_attention_after_minutes: 15
+
+
+# ============================================================
+# Shared venv (Python read-only phases)
+# ============================================================
+venv:
+  enabled: true
+  cleanup_after_days: 30
 
 
 # ============================================================
@@ -49,11 +68,13 @@ roles:
   definer:
     default_thinking: high
     max_retries: 3
-    timeout_minutes: 30
+    timeout_minutes: 60
     phases:
       survey:
         thinking: high
         max_retries: 2
+        timeout_base_minutes: 15
+        timeout_per_issue_minutes: 2
       review_plan:
         thinking: high
         max_retries: 2
@@ -67,7 +88,7 @@ roles:
   builder:
     default_thinking: high
     max_retries: 5
-    timeout_minutes: 60
+    timeout_minutes: 120
     phases:
       implement:
         thinking: high
@@ -85,7 +106,7 @@ roles:
   verifier:
     default_thinking: low
     max_retries: 3
-    timeout_minutes: 30
+    timeout_minutes: 60
     phases:
       verify_issue:
         thinking: low
@@ -96,15 +117,6 @@ roles:
       verify_post_merge:
         thinking: low
         max_retries: 2
-
-
-# ============================================================
-# Heartbeat / Timeouts
-# ============================================================
-heartbeat:
-  interval_seconds: 120
-  stale_minutes: 10
-  force_release_multiplier: 2
 
 
 # ============================================================
@@ -214,12 +226,12 @@ retention:
   monthly_summary_days: 90
   quarterly_archive_days: 365
   config_history_keep: 10
-  approval_keep_days: 30
   merge_history_days: 0
   failure_audit_days: 0
   metrics_days: 180
   status_metrics_days: 30
   idempotency_days: 7
+  lint_cache_days: 7
 
 
 # ============================================================
@@ -233,15 +245,13 @@ limits:
   pending_stale_days: 7
   stale_block_days: 7
   blocker_fatigue_count: 5
-  approval_delete_files: 1
-  approval_issue_count: 10
   similarity_threshold: 0.8
   ac_change_blocker_pct: 50
   analysis_max_per_day: 5
   issue_granularity:
-    max_acs: 4
-    max_files: 2
-    max_diff_lines: 200
+    max_acs: 6
+    max_files: 4
+    max_diff_lines: 300
     warn_only: true
 
 
@@ -262,16 +272,6 @@ human_review:
   stale_days: 7
   poll_interval_iterations: 1
   auto_close_after_days: 30
-
-
-# ============================================================
-# Approval
-# ============================================================
-approval:
-  mode: full-auto
-  warn_hours: 24
-  max_hours: 72
-  pre_authorized: []
 
 
 # ============================================================
@@ -317,6 +317,18 @@ api:
 # ============================================================
 # Change log (append below)
 # ============================================================
-# 2026-10-05: v2 — 新架構重新設計
-# 2026-10-06: 新增 orchestrator.context, retention.metrics_days,
+# 2026-10-05: v2 — new architecture redesign
+# 2026-10-06: added orchestrator.context, retention.metrics_days,
 #             retention.status_metrics_days, retention.idempotency_days
+# 2026-10-07: schema 2.0 — orchestrator.liveness replaces heartbeat.*;
+#             added subagent.watchdog.needs_attention_after_minutes;
+#             added retention.lint_cache_days;
+#             limits.issue_granularity bumped (max_acs 4->6, max_files 2->4,
+#             max_diff_lines 200->300);
+#             roles.*.timeout_minutes bumped (definer 30->60, builder 60->120,
+#             verifier 30->60)
+# 2026-10-07: batch B2+B3 — survey timeout formula:
+#             roles.definer.phases.survey.timeout_base_minutes: 15
+#             roles.definer.phases.survey.timeout_per_issue_minutes: 2
+# 2026-10-07: batch C1 — added venv.enabled and venv.cleanup_after_days
+# 2026-10-07: removed approval.* mechanism (always full-auto)

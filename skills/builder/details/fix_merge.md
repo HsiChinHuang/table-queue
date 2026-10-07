@@ -10,10 +10,13 @@ Orchestrator detects a conflict during merge, **creates the fix branch and workt
 
 Before spawning Builder, Orchestrator MUST:
 
-1. Call `createFixBranch({ fix_type: 'merge', ... })`.
-2. Create branch `issue/MERGE-FIX-<id>-<slug>`.
-3. Create worktree `../worktrees/MERGE-FIX-<id>` based on `origin/main`.
-4. Pass `worktree_path` to Builder.
+1. Create branch `issue/MERGE-FIX-<id>-<slug>` and worktree `../worktrees/MERGE-FIX-<id>` based on `origin/main`:
+   ```
+   git worktree add ../worktrees/MERGE-FIX-<id> -b issue/MERGE-FIX-<id>-<slug> origin/main
+   ```
+   (The reference implementation is `createFixBranch()` in
+   `extensions/merge_orchestrator.ts`.)
+2. Pass `worktree_path` to Builder.
 
 **If Orchestrator has not created the branch, Builder's first action will fail.**
 
@@ -25,6 +28,17 @@ Before spawning Builder, Orchestrator MUST:
 | `docs/state/merge_cp.json` | Yes | Merge checkpoint |
 | `docs/state/outputs/<id>_builder_implement.json` | Yes | Original implementation output |
 | `worktree_path` | Yes | Assigned working directory (fix worktree) |
+| `platform_issue` | Yes | Platform issue number (from `docs/state/issue_map.json`) |
+
+## Platform API
+
+All Platform operations in this document use:
+
+```
+npx tsx scripts/platform.ts <resource> <action> [options]
+```
+
+See `docs/commands.md` § Platform API.
 
 ## Process
 
@@ -56,8 +70,11 @@ Read both sides' issue definitions to understand their change intents.
 
 If binary conflict:
 
-- Write a BLOCKER handoff, noting "binary conflict".
-- Stop, wait for human.
+- Write a BLOCKER handoff with `error.error_code: BINARY_CONFLICT`.
+- Stop. The Orchestrator will isolate this issue (see `failures.md`
+  § Builder BLOCKER routing) and continue merging other verified issues.
+  The isolated issue remains queued for eventual human review; it does
+  NOT block the merge queue.
 
 If pure whitespace conflict:
 
@@ -103,6 +120,14 @@ git push -u origin issue/MERGE-FIX-<id>-<slug>
 
 ### Step 8: Post comment
 
+Post on the Platform Issue:
+
+```
+npx tsx scripts/platform.ts issue comment <platform_issue> --body "<comment>"
+```
+
+Where `<comment>` follows this format:
+
 ````markdown
 ## Builder: fix_merge — COMPLETE
 
@@ -117,10 +142,6 @@ git push -u origin issue/MERGE-FIX-<id>-<slug>
 
 ### Resolved Conflicts
 - <file>: <strategy> — <resolution>
-
-<!-- HANDOFF_JSON
-{ ... }
--->
 ````
 
 ### Step 9: Write handoff
@@ -131,8 +152,11 @@ Write `docs/state/outputs/<id>_builder_fix_merge.json`, conforming to `schemas/b
 
 On the Platform Issue:
 
-- Remove label `merge_conflict`
-- Add label `built`
+- Remove modifier label `merge_conflict`:
+  ```
+  npx tsx scripts/platform.ts label remove <platform_issue> --label merge_conflict
+  ```
+- **Keep state label `built` unchanged**.
 
 ## Output
 
@@ -150,8 +174,8 @@ Write `docs/state/outputs/<id>_builder_fix_merge.json`, conforming to `schemas/b
 - [ ] Linter passes
 - [ ] All changes committed
 - [ ] Fix branch pushed
-- [ ] Comment posted
-- [ ] Labels transitioned (`merge_conflict` -> `built`)
+- [ ] Comment posted via `scripts/platform.ts`
+- [ ] Labels transitioned (`merge_conflict` removed; `built` unchanged)
 - [ ] Output conforms to `schemas/builder/fix_merge.json`
 - [ ] `reached_state: built`
 - If any unchecked: write a BLOCKER handoff, do NOT complete
@@ -163,6 +187,7 @@ Write `docs/state/outputs/<id>_builder_fix_merge.json`, conforming to `schemas/b
 - Merge directly to main
 - Modify the original branch
 - Switch to other branches
+- **Call the Platform API directly via `curl`**; always use `scripts/platform.ts`
 
 ## Blacklisted commands
 

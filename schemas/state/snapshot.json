@@ -16,7 +16,7 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "pattern": "^[0-9]+\\.[0-9]+$"
+      "const": "2.0"
     },
     "updated_at": {
       "type": "string",
@@ -37,8 +37,9 @@
           "issue_id",
           "role",
           "phase",
+          "run_id",
           "spawn_at",
-          "last_heartbeat",
+          "last_activity_at",
           "worktree_path"
         ],
         "additionalProperties": false,
@@ -63,13 +64,18 @@
               "verify_issue", "verify_pre_merge", "verify_post_merge"
             ]
           },
+          "run_id": {
+            "type": ["string", "null"],
+            "description": "pi-subagents run ID. Must be updated on every revive or re-spawn. Null only before first spawn or after release."
+          },
           "spawn_at": {
             "type": "string",
             "format": "date-time"
           },
-          "last_heartbeat": {
+          "last_activity_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "Synced from pi-subagents status.json lastActivityAt on each liveness check. NOT written by subagents."
           },
           "worktree_path": {
             "type": ["string", "null"],
@@ -96,8 +102,7 @@
           },
           "priority": {
             "type": "integer",
-            "minimum": 0,
-            "description": "Dependency priority; higher is more urgent"
+            "description": "Dependency priority; higher is more urgent. May be negative due to penalties."
           },
           "depends_merged": {
             "type": "boolean",

@@ -42,14 +42,14 @@ Stored in `extensions/schema_migrations.ts`:
 
 ```typescript
 export const migrations: Record<string, (data: unknown) => unknown> = {
-  '1.0->1.1': migrate_1_0_to_1_1,
-  '1.1->2.0': migrate_1_1_to_2_0,
+  '1.0->2.0': migrate_1_0_to_2_0,
 };
 
-function migrate_1_0_to_1_1(data: unknown): unknown {
-  // Add new field
-  if (typeof data !== 'object' || data === null) return data;
-  return { ...data, new_field: null, schema_version: '1.1' };
+function migrate_1_0_to_2_0(data: unknown): unknown {
+  // Dispatches by shape: snapshot vs handoff envelope.
+  // snapshot: rename slot.last_heartbeat -> last_activity_at; add slot.run_id.
+  // handoff: map legacy error_type values to business_failure + context.failure_type;
+  //          ensure next_action and retry_count exist.
 }
 ```
 
@@ -57,37 +57,40 @@ function migrate_1_0_to_1_1(data: unknown): unknown {
 
 | Schema | Current version | Notes |
 |---|---|---|
-| `common/handoff.json` | 1.0 | Base envelope for all role outputs |
-| `common/error.json` | 1.0 | Structured error |
-| `common/evidence.json` | 1.0 | Evidence base |
-| `definer/survey.json` | 1.0 | Initial plan generation |
-| `definer/review_plan.json` | 1.0 | Plan review |
-| `definer/groom.json` | 1.0 | AC refinement |
-| `definer/re_groom.json` | 1.0 | AC correction after QA FAIL |
-| `builder/implement.json` | 1.0 | AC implementation |
-| `builder/fix_qa.json` | 1.0 | QA failure fix |
-| `builder/fix_merge.json` | 1.0 | Merge conflict resolution |
-| `builder/fix_regression.json` | 1.0 | Post-merge regression fix |
-| `verifier/verify_issue.json` | 1.0 | Single-issue verification |
-| `verifier/verify_pre_merge.json` | 1.0 | Pre-merge cumulative tests |
-| `verifier/verify_post_merge.json` | 1.0 | Post-merge smoke tests |
-| `state/snapshot.json` | 1.0 | Slot and merge queue state |
-| `state/retry.json` | 1.0 | Issue-level retry counters |
-| `state/retry_subagent.json` | 1.0 | Subagent-level retry counters |
-| `state/config_snapshot.json` | 1.0 | Effective config snapshot |
-| `state/issue_map.json` | 1.0 | Local ID to platform number mapping |
-| `state/merge_cp.json` | 1.0 | Merge checkpoint |
-| `state/idempotency.json` | 1.0 | Idempotency records |
-| `state/launcher_checkpoint.json` | 1.0 | Launcher checkpoint |
-| `state/merge_test_index.json` | 1.0 | Cumulative test index |
-| `state/merge_history.json` | 1.0 | Merge history |
-| `state/token_usage.json` | 1.0 | Token usage per issue |
-| `state/misjudgments.json` | 1.0 | QA misjudgment records |
-| `state/milestone.json` | 1.0 | Milestone tracking |
-| `state/status_metrics.json` | 1.0 | Per-iteration fairness metrics |
-| `memory/memory.json` | 1.0 | Single memory entry |
-| `memory/index.json` | 1.0 | Memory index |
-| `log/wal_entry.json` | 1.0 | WAL entry |
+| `common/handoff.json` | 2.0 | Base envelope for all role outputs. v2: added error/next_action/retry_count to required; next_action.phase enum; if/then constraints (status vs error/next_action); verifier FAIL cross-checks. |
+| `common/error.json` | 2.0 | Structured error. v2: error_type reduced to mechanism layer; added business_failure; if/then requires context.failure_type when error_type == business_failure; if/then requires suggested_role/phase when suggested_action == rerun_with_role. |
+| `common/evidence.json` | 1.0 | Evidence base (unchanged). |
+| `definer/survey.json` | 2.0 | Extends handoff 2.0. |
+| `definer/review_plan.json` | 2.0 | Extends handoff 2.0. |
+| `definer/groom.json` | 2.0 | Extends handoff 2.0. |
+| `definer/re_groom.json` | 2.0 | Extends handoff 2.0. |
+| `builder/implement.json` | 2.0 | Extends handoff 2.0. |
+| `builder/fix_qa.json` | 2.0 | Extends handoff 2.0. |
+| `builder/fix_merge.json` | 2.0 | Extends handoff 2.0. |
+| `builder/fix_regression.json` | 2.0 | Extends handoff 2.0. |
+| `verifier/verify_issue.json` | 2.0 | Extends handoff 2.0. v2: failure_type enum no longer includes merge_conflict (Orchestrator-owned). |
+| `verifier/verify_pre_merge.json` | 2.0 | Extends handoff 2.0. |
+| `verifier/verify_post_merge.json` | 2.0 | Extends handoff 2.0. |
+| `state/snapshot.json` | 2.0 | v2: slot.last_heartbeat renamed to last_activity_at; slot.run_id added; merge_queue.priority no longer minimum 0. |
+| `state/retry.json` | 1.0 | Unchanged. |
+| `state/retry_subagent.json` | 1.0 | Unchanged. |
+| `state/config_snapshot.json` | 1.0 | Unchanged. |
+| `state/issue_map.json` | 1.0 | Unchanged. |
+| `state/merge_cp.json` | 1.0 | Unchanged. |
+| `state/idempotency.json` | 1.0 | Unchanged. |
+| `state/launcher_checkpoint.json` | 1.0 | Unchanged. |
+| `state/merge_test_index.json` | 1.0 | Unchanged. |
+| `state/merge_history.json` | 1.0 | Unchanged. |
+| `state/token_usage.json` | 1.0 | Unchanged. |
+| `state/misjudgments.json` | 1.0 | Unchanged. |
+| `state/milestone.json` | 1.0 | Unchanged. |
+| `state/status_metrics.json` | 1.0 | Unchanged. |
+| `state/factpack.json` | 1.0 | New: snapshot of facts injected into Definer prompts. Generated by Orchestrator before each Definer spawn. |
+| `memory/memory.json` | 1.0 | Unchanged. |
+| `memory/index.json` | 1.0 | Unchanged. |
+| `log/wal_entry.json` | 1.0 | Unchanged schema_version field; event enum v1.1 addition: INTERRUPTED. |
+
+**Note**: Role schemas (`definer/*`, `builder/*`, `verifier/*`) extend `common/handoff.json` via `allOf` + `$ref`. Their data's `schema_version` is governed by `handoff.json`. When handoff bumps a major version, every role schema's data must be migrated together.
 
 ## Example Files
 

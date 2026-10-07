@@ -20,6 +20,28 @@ Orchestrator Boot when `snapshot.json` is non-empty.
 
 ## Recovery Steps
 
+### Step 0: Attempt schema migration
+
+Before reading or validating any state file, the Orchestrator runs a
+**lossless schema migration** on every state file that carries a
+`schema_version`:
+
+```
+For each of (snapshot, merge_cp, idempotency):
+  If file exists:
+    Read raw JSON.
+    If schema_version == current: skip.
+    Else:
+      migrated = migrate(raw, from, to)
+      Write migrated back (atomic).
+      Log [SCHEMA_MIGRATION] <file> <from> -> <to>
+On failure:
+  Log [SCHEMA_MIGRATION_FAIL] <file> reason=<message>
+  Continue (the later validation step will catch the problem)
+```
+
+`migrate` is defined in `extensions/schema_migrations.ts`.
+
 ### Step 1: Read state files
 
 ```
@@ -35,9 +57,9 @@ Read docs/state/launcher_checkpoint.json
 ```
 Validate snapshot.json against schemas/state/snapshot.json
 Validate merge_cp.json against schemas/state/merge_cp.json (if exists)
-Validate idempotency.json against schemas/state/idempotency.json
+Validate idempotency.json against schemas/state/idempotency.json (if exists)
 
-On failure -> write PREFLIGHT_FAIL.md, HALT
+On failure -> see Failure Handling below.
 ```
 
 ### Step 3: Verify consistency
@@ -52,17 +74,36 @@ If seq.txt != snapshot.last_seq:
 ### Step 4: Reconcile with Platform State
 
 ```
-Query Platform for all open issues
+# Fetch the set of open Platform issues once:
+npx tsx scripts/platform.ts issue list --state open
+-> Let OPEN_PLATFORM = { issue.number for each returned issue }
 
-For each issue in snapshot.active_issues:
-  If Platform says closed -> remove from snapshot
-  If not found on Platform -> remove from snapshot
-  Log [DRIFT] <issue> platform=<state> snapshot=active
+# Read docs/state/issue_map.json to map t<n> -> <number>.
+# For each t<n> tracked locally:
+For each issue_id (t<n>) in snapshot.active_issues:
+  number = issue_map[issue_id]
+  If number not in OPEN_PLATFORM:
+    -> the Platform considers this issue closed (or it is missing)
+    -> remove issue_id from snapshot.active_issues
+    -> remove any slot with this issue_id from snapshot.slots
+    -> Log [DRIFT] <issue_id> platform=closed snapshot=active
 
+# For each slot whose issue is not on Platform at all (no mapping):
 For each slot in snapshot.slots:
-  If the issue is not on Platform -> release the slot
-  Log [DRIFT] <issue> not_on_platform
+  If issue_map[slot.issue_id] is undefined:
+    -> release the slot
+    -> Log [DRIFT] <issue_id> not_on_platform
 ```
+
+**Note**: Reconciliation uses Platform `state` (open/closed), NOT labels.
+Labels are local routing hints; Platform `state` is authoritative. An
+issue may carry a `closed` label while remaining `open` on the Platform
+(historical inconsistency); recovery trusts the Platform.
+
+**Note**: `scripts/platform.ts issue list --state open` returns ALL open
+issues in the repo. Filter to those whose `number` appears in
+`docs/state/issue_map.json` values before comparing with
+`snapshot.active_issues`.
 
 ### Step 5: Recover merge checkpoint
 
@@ -88,9 +129,14 @@ For each slot in snapshot.slots:
   Log [SLOT_RELEASED] <issue> reason=worktree_missing
 
 For each slot:
-  If heartbeat > heartbeat.stale_minutes -> release slot
-  Log [SLOT_RELEASED] <issue> reason=heartbeat_stale
+  If last_activity_at is stale beyond orchestrator.liveness.stale_minutes
+     -> release slot
+  Log [SLOT_RELEASED] <issue> reason=activity_stale
 ```
+
+**Note**: `last_activity_at` is synced from pi-subagents `status.json`
+(`lastActivityAt`). It is the authoritative liveness signal; there is no
+subagent-side heartbeat file.
 
 ### Step 7: Write recovery-complete marker
 
@@ -99,6 +145,36 @@ Write snapshot.json (atomic)
 Write seq.txt
 Log [RECOVERY_OK] slots=<n> queue=<m>
 ```
+
+## Failure Handling
+
+If a state file fails schema validation **after** the migration attempt
+(Step 2), the Orchestrator does **not** attempt a lossy rebuild. A state
+file that cannot be migrated or validated is a signal that a human must
+inspect the file; guessing at its contents risks corrupting the project's
+authoritative state.
+
+1. Log `[RECOVER_FAIL] <file>`.
+2. Write `docs/state/PREFLIGHT_FAIL.md` with the failure reason.
+3. Create a BLOCKER Platform Issue:
+   ```
+   npx tsx scripts/platform.ts issue create \
+     --title "BLOCKER: state file corrupted" \
+     --body "<file>: <reason>" \
+     --labels "blocker"
+   ```
+4. HALT this boot. The Launcher will retry up to
+   `launcher.max_restart_attempts` times.
+
+**Why no lossy rebuild**: The Orchestrator has no way to determine whether
+a partially corrupted state file represents "empty project" or "mid-flight
+project with data lost". A wrong guess could either (a) re-spawn subagents
+whose slots are actually live, or (b) drop active issues silently. Both
+are worse than a HALT.
+
+**Migration is different from rebuild**: Migration (Step 0) transforms
+**known** schema versions into the current version, preserving all data.
+Rebuild would discard data. Only migration is attempted automatically.
 
 ## Scheduled Restart Recovery
 
@@ -109,7 +185,7 @@ Scheduled restart (`orchestrator.scheduled_restart_enabled`) is **mostly the sam
 Before `exit(42)`, Orchestrator MUST:
 
 1. Stop spawning new subagents.
-2. Wait for active slots to complete (timeout `heartbeat.stale_minutes` minutes).
+2. Wait for active slots to complete (timeout `orchestrator.liveness.stale_minutes` minutes).
 3. On timeout -> mark `[INTERRUPTED]`, write orphan outputs.
 4. Write `snapshot.json` (with current slot state).
 5. Write `seq.txt`.
@@ -163,7 +239,7 @@ If orchestrator.scheduled_restart_enabled:
 
 ### If wait times out
 
-If waiting for active slots exceeds `heartbeat.stale_minutes`:
+If waiting for active slots exceeds `orchestrator.liveness.stale_minutes`:
 
 1. Force-terminate all subagents.
 2. Mark in-progress issues as `[INTERRUPTED]`.

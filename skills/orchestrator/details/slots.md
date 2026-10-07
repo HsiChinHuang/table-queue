@@ -107,15 +107,69 @@ Dynamic adjustment:
 - 3 consecutive iterations of growing merge_queue -> use `pause_threshold_min`
 - 5 consecutive iterations of empty merge_queue -> use `pause_threshold_max`
 
-## Slot Crash Detection
+## Slot Liveness Detection
 
-Subagents write `docs/state/heartbeat_<session_id>.txt` every `heartbeat.interval_seconds` seconds.
+Liveness detection is provided natively by pi-subagents. The runner tracks
+`lastActivityAt` per run and raises a "needs attention" signal when a run
+has been idle longer than `needsAttentionAfterMs`.
 
-Orchestrator checks each iteration:
+**No subagent-side heartbeat file is required.** The runner's `status.json`
+is the single source of truth.
 
-- Read heartbeat file
-- If `now - ts > heartbeat.stale_minutes` -> `[SLOT_STALE] <issue> <role>`
-- If > `heartbeat.stale_minutes * heartbeat.force_release_multiplier` -> force release
+### Spawn-time configuration
+
+When spawning a subagent, pass:
+
+```
+subagent({
+  action: "spawn",
+  agent: "<role>",
+  prompt: "...",
+  control: {
+    needsAttentionAfterMs: <from config: subagent.watchdog.needs_attention_after_minutes * 60000>
+  }
+})
+```
+
+Default: 900000 ms (15 minutes). Qwen3.8-27B needs 600–900s because its
+thinking blocks run 1–5 minutes per turn; the 300s default is too tight.
+
+### In-loop decision protocol
+
+When the Orchestrator session wakes up (completion notification, attention
+signal, or user message), it MUST run this protocol for each active slot:
+
+1. Call `subagent({action: "status", id: "<run_id>"})`.
+2. Read the returned `state` and `activity` fields.
+3. Decide:
+   - `state == "complete"` -> consume handoff, proceed.
+   - `state == "failed"` -> route per `failures.md` Sec. 3.2.
+   - `state == "running"` and `activity` recent -> continue waiting.
+   - `state == "running"` and `activity` stale -> revive or interrupt
+     (see `failures.md` Sec. 1.3).
+   - `state == "paused"` -> user intervention; wait for steer.
+
+The `run_id` is stored in `docs/state/snapshot.json` at spawn time
+(`slots[].run_id`) and updated immediately on every revive or re-spawn.
+
+### Out-of-process recovery
+
+When no LLM session is available (e.g. after Orchestrator restart or crash),
+use filesystem enumeration. See `scripts/recover_orphans.py`.
+
+This is the fallback for the corner case where the watchdog lived in the
+parent process and died with it.
+
+### Threshold tuning
+
+The threshold is a configuration concern, not an implementation concern:
+
+| Model class | Recommended |
+|---|---|
+| Fast cloud models (Claude, GPT-4) | 300s |
+| Local slow models (Qwen3.8-27B Q4) | 600–900s |
+
+Adjust in `docs/config.yaml` (`subagent.watchdog.needs_attention_after_minutes`).
 
 ## Slot State
 
@@ -123,20 +177,27 @@ Written to `docs/state/snapshot.json`:
 
 ```json
 {
+  "schema_version": "2.0",
   "slots": [
     {
       "slot_id": "slot_1",
       "issue_id": "t42",
       "role": "builder",
       "phase": "implement",
+      "run_id": "b0c73a06",
       "spawn_at": "...",
-      "last_heartbeat": "...",
+      "last_activity_at": "...",
       "worktree_path": "../worktrees/t42"
     }
   ],
   "max_slots": 3
 }
 ```
+
+**Note**: `last_activity_at` is synced from `status.json`'s `lastActivityAt`
+when the Orchestrator checks liveness. It is NOT written by subagents.
+`run_id` is the pi-subagents run identifier and MUST be updated on every
+revive or re-spawn.
 
 ## Starvation Detection
 

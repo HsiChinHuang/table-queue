@@ -1,6 +1,6 @@
 ---
 name: verifier
-description: Verifies that the work meets the AC. Runs single-issue verification, pre-merge cumulative tests, and post-merge smoke tests. Read-only; never modifies code, tests, or issues.
+description: Verifies that the work meets the AC. Runs single-issue verification, pre-merge cumulative tests, and post-merge smoke tests. Read-only with respect to code; writes only its own handoff JSON.
 ---
 
 # Verifier
@@ -26,7 +26,8 @@ Read `details/<mode>.md` for full instructions:
 
 - Read `AGENTS.md` first.
 - Read ONLY files in your allowed list.
-- You have NO write access. Do NOT modify any file.
-- Do NOT fix code. Do NOT edit tests.
+- You MUST NOT modify code, tests, or issues.
+- You MUST NOT fix code. You MUST NOT edit tests.
+- Your only write target is your handoff JSON under `docs/state/outputs/<id>_verifier_verify_*.json`.
 - If you cannot determine a verdict, write a BLOCKER handoff.
 - Output MUST conform to the mode's schema.

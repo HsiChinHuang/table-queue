@@ -13,13 +13,16 @@
     "reached_state",
     "evidence",
     "artifacts",
-    "timestamp"
+    "error",
+    "next_action",
+    "timestamp",
+    "retry_count"
   ],
   "additionalProperties": false,
   "properties": {
     "schema_version": {
       "type": "string",
-      "pattern": "^[0-9]+\\.[0-9]+$"
+      "const": "2.0"
     },
     "issue_id": {
       "type": "string",
@@ -83,24 +86,36 @@
         { "$ref": "error.json" },
         { "type": "null" }
       ],
-      "description": "Required when status != COMPLETE; otherwise null"
+      "description": "Required (non-null) when status != COMPLETE; must be null when status == COMPLETE"
     },
     "next_action": {
-      "type": ["object", "null"],
-      "additionalProperties": false,
-      "properties": {
-        "role": {
-          "type": "string",
-          "enum": ["definer", "builder", "verifier"]
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["role", "phase", "reason"],
+          "additionalProperties": false,
+          "properties": {
+            "role": {
+              "type": "string",
+              "enum": ["definer", "builder", "verifier"]
+            },
+            "phase": {
+              "type": "string",
+              "enum": [
+                "survey", "review_plan", "groom", "re_groom",
+                "implement", "fix_qa", "fix_merge", "fix_regression",
+                "verify_issue", "verify_pre_merge", "verify_post_merge"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 10
+            }
+          }
         },
-        "phase": {
-          "type": "string"
-        },
-        "reason": {
-          "type": "string"
-        }
-      },
-      "description": "Suggested next role and phase when status = FAIL"
+        { "type": "null" }
+      ],
+      "description": "Required (non-null) when status == FAIL; must be null otherwise"
     },
     "timestamp": {
       "type": "string",
@@ -111,5 +126,92 @@
       "minimum": 0,
       "description": "Retry index (0 = first attempt)"
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "const": "COMPLETE" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "error": { "type": "null" },
+          "next_action": { "type": "null" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "status": { "const": "FAIL" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "error": { "type": "object" },
+          "next_action": { "type": "object" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "status": { "const": "BLOCKER" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "error": { "type": "object" },
+          "next_action": { "type": "null" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "role": { "const": "verifier" },
+          "phase": { "const": "verify_issue" },
+          "status": { "const": "FAIL" }
+        },
+        "required": ["role", "phase", "status"]
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "properties": {
+              "error_type": { "const": "business_failure" },
+              "context": {
+                "required": ["failure_type"],
+                "properties": {
+                  "failure_type": {
+                    "type": "string",
+                    "enum": [
+                      "implementation",
+                      "ac_ambiguous",
+                      "ac_wrong",
+                      "test_env",
+                      "test_quality"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "evidence": {
+            "required": ["failure_type"],
+            "properties": {
+              "failure_type": {
+                "type": "string",
+                "enum": [
+                  "implementation",
+                  "ac_ambiguous",
+                  "ac_wrong",
+                  "test_env",
+                  "test_quality"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

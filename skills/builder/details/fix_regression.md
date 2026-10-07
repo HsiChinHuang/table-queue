@@ -10,10 +10,13 @@ Verifier detects a regression during `verify_post_merge`, **Orchestrator creates
 
 Before spawning Builder, Orchestrator MUST:
 
-1. Call `createFixBranch({ fix_type: 'regression', ... })`.
-2. Create branch `issue/REG-FIX-<id>-<slug>`.
-3. Create worktree `../worktrees/REG-FIX-<id>` based on `origin/main`.
-4. Pass `worktree_path` to Builder.
+1. Create branch `issue/REG-FIX-<id>-<slug>` and worktree `../worktrees/REG-FIX-<id>` based on `origin/main`:
+   ```
+   git worktree add ../worktrees/REG-FIX-<id> -b issue/REG-FIX-<id>-<slug> origin/main
+   ```
+   (The reference implementation is `createFixBranch({ fix_type: 'regression', ... })` in
+   `extensions/merge_orchestrator.ts`.)
+2. Pass `worktree_path` to Builder.
 
 ## Inputs
 
@@ -23,6 +26,17 @@ Before spawning Builder, Orchestrator MUST:
 | `docs/state/merge_history.json` | Yes | Recent merge history |
 | `docs/commands.md` | Yes | Toolchain commands |
 | `worktree_path` | Yes | Assigned working directory (fix worktree) |
+| `platform_issue` | Yes | Platform issue number (from `docs/state/issue_map.json`) |
+
+## Platform API
+
+All Platform operations in this document use:
+
+```
+npx tsx scripts/platform.ts <resource> <action> [options]
+```
+
+See `docs/commands.md` § Platform API.
 
 ## Process
 
@@ -96,6 +110,14 @@ git push -u origin issue/REG-FIX-<id>-<slug>
 
 ### Step 8: Post comment
 
+Post on the Platform Issue:
+
+```
+npx tsx scripts/platform.ts issue comment <platform_issue> --body "<comment>"
+```
+
+Where `<comment>` follows this format:
+
 ````markdown
 ## Builder: fix_regression — COMPLETE
 
@@ -108,10 +130,6 @@ git push -u origin issue/REG-FIX-<id>-<slug>
 
 ### Regressions Fixed
 - <test>: <root cause> — <fix description>
-
-<!-- HANDOFF_JSON
-{ ... }
--->
 ````
 
 ### Step 9: Write handoff
@@ -122,8 +140,11 @@ Write `docs/state/outputs/<id>_builder_fix_regression.json`, conforming to `sche
 
 On the Platform Issue:
 
-- Remove label `regression`
-- Add label `built`
+- Remove modifier label `regression`:
+  ```
+  npx tsx scripts/platform.ts label remove <platform_issue> --label regression
+  ```
+- **Keep state label `built` unchanged**.
 
 ## Output
 
@@ -142,8 +163,8 @@ Write `docs/state/outputs/<id>_builder_fix_regression.json`, conforming to `sche
 - [ ] Linter passes
 - [ ] All changes committed
 - [ ] Fix branch pushed
-- [ ] Comment posted
-- [ ] Labels transitioned (`regression` -> `built`)
+- [ ] Comment posted via `scripts/platform.ts`
+- [ ] Labels transitioned (`regression` removed; `built` unchanged)
 - [ ] Output conforms to `schemas/builder/fix_regression.json`
 - [ ] `reached_state: built`
 - If any unchecked: write a BLOCKER handoff, do NOT complete
@@ -154,6 +175,7 @@ Write `docs/state/outputs/<id>_builder_fix_regression.json`, conforming to `sche
 - Modify issues
 - Merge directly to main
 - Switch to other branches
+- **Call the Platform API directly via `curl`**; always use `scripts/platform.ts`
 
 ## Blacklisted commands
 

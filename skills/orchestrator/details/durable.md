@@ -32,7 +32,7 @@ Read docs/state/launcher_checkpoint.json
   '- completed: false -> RESUME
   |
   v
-spawn('pi', ['run', '--skill', 'skills/orchestrator/SKILL.md', '--config', 'docs/state/config_snapshot.json'])
+spawn('pi', ['run', '--skill', 'skills/orchestrator/SKILL.md'])
   |
   v
 Orchestrator Boot
@@ -42,6 +42,8 @@ Orchestrator Boot
   |   '- Non-empty -> run recovery
   '- Enter Lifecycle
 ```
+
+**Note**: The config snapshot path is resolved by the Orchestrator itself during Preflight Stage 0, not passed on the CLI. Launcher does NOT pass `--config`.
 
 **Note**: Orchestrator determines the start mode by reading `launcher_checkpoint.json` itself. Launcher does NOT pass `--mode`.
 

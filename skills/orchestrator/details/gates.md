@@ -2,6 +2,13 @@
 
 Gate checks. Run before each state transition.
 
+## Platform API Convention
+
+Every "Platform query" or "Platform operation" in this document means a
+call to `npx tsx scripts/platform.ts`. See `docs/commands.md` § Platform
+API. `<number>` is the Platform issue number (see `docs/state/issue_map.json`
+for the `t<n>` → `<number>` mapping).
+
 ## Two Independent Retry Mechanisms
 
 Orchestrator uses **two independent** retry counters:
@@ -70,13 +77,28 @@ Attempt 3:
 
 Before spawning Builder: implement, check:
 
-- [ ] Issue has label `groomed`
-- [ ] Issue has complete definition (Context, AC, Out of scope, DoD specific)
-- [ ] AC count within `limits.issue_granularity.max_acs`
-- [ ] File count within `limits.issue_granularity.max_files`
-- [ ] All automatable AC have verification commands
-- [ ] `verification_commands` written to `docs/issues/<id>.md`
-- [ ] Platform Issue body matches local
+- [ ] Issue has label `groomed`:
+      ```
+      npx tsx scripts/platform.ts issue get <number>
+      ```
+      The returned `labels` array MUST contain `groomed` and MUST NOT contain `defined`.
+- [ ] Issue has complete definition:
+      `docs/issues/<id>.md` contains non-empty `## Context`,
+      `## Acceptance criteria`, `## Out of scope`, `## Definition of Done`.
+- [ ] AC count within `limits.issue_granularity.max_acs`:
+      read `evidence.ac_count` from the groom handoff.
+- [ ] File count within `limits.issue_granularity.max_files`:
+      count the `Files:` entries in the issue's `## Constraints` section.
+- [ ] All automatable AC have verification commands:
+      each `ac<N>` in `evidence.verification_commands` is either a runnable
+      command or the literal string `manual`.
+- [ ] `verification_commands` written to `docs/issues/<id>.md`:
+      the `## Verification commands` section exists and lists one entry per AC.
+- [ ] Platform Issue body was synced in groom Step 6:
+      groom's handoff `status == "COMPLETE"` and `error == null`. This confirms
+      the `issue update --body` call in groom Step 6 succeeded. The Gate does
+      NOT re-fetch the Platform body; the sync is guaranteed by groom's own
+      successful completion (see `groom.md` Step 6).
 
 Failure -> re-run Definer: groom (`retry_count += 1`)
 
@@ -84,11 +106,25 @@ Failure -> re-run Definer: groom (`retry_count += 1`)
 
 Before spawning Verifier: verify_issue, check:
 
-- [ ] Issue has label `built`
-- [ ] Branch pushed
-- [ ] Builder reports tests pass
-- [ ] `branch_sha` recorded
-- [ ] `branch_sha` matches `git rev-parse`
+- [ ] Issue has label `built`:
+      ```
+      npx tsx scripts/platform.ts issue get <number>
+      ```
+      The returned `labels` array MUST contain `built` and MUST NOT contain `groomed`.
+- [ ] Branch pushed: verify the branch exists on origin:
+      ```
+      git ls-remote --heads origin issue/<id>-<slug>
+      ```
+      MUST return a non-empty SHA.
+- [ ] Builder reports tests pass:
+      `evidence.test_summary.failed == 0`.
+- [ ] `branch_sha` recorded in the handoff:
+      `evidence.branch_sha` is a 7–40 hex string.
+- [ ] `branch_sha` matches `git rev-parse`:
+      ```
+      git rev-parse origin/issue/<id>-<slug>
+      ```
+      MUST equal `evidence.branch_sha`.
 
 Failure -> re-run Builder (`retry_count += 1`)
 
@@ -96,10 +132,10 @@ Failure -> re-run Builder (`retry_count += 1`)
 
 Before spawning Verifier: verify_pre_merge, check:
 
-- [ ] Verifier verdict is PASS
-- [ ] `ac_results` all PASS or SKIP
-- [ ] `verification_commands_source` present
-- [ ] No `regressions_detected`
+- [ ] Verifier verdict is PASS.
+- [ ] `ac_results` all `PASS` or `SKIP`.
+- [ ] `verification_commands_source` present in evidence.
+- [ ] No `regressions_detected`.
 
 Failure -> re-run Verifier (`retry_count += 1`)
 
@@ -107,9 +143,9 @@ Failure -> re-run Verifier (`retry_count += 1`)
 
 After merge, check:
 
-- [ ] `verify_post_merge` PASS
-- [ ] No `regressions_detected`
-- [ ] main SHA recorded
+- [ ] `verify_post_merge` PASS.
+- [ ] No `regressions_detected`.
+- [ ] main SHA recorded in `evidence.merge_sha`.
 
 Failure -> rollback + Builder: fix_regression
 
@@ -118,47 +154,81 @@ Failure -> rollback + Builder: fix_regression
 1. Record reason.
 2. Re-run same role (with rejection reason).
 3. `retry_count += 1`.
-4. If `retry_count >= roles.<role>.max_retries` -> BLOCKER.
+4. If `retry_count >= roles.<role>.max_retries` -> create a BLOCKER Platform Issue:
+   ```
+   npx tsx scripts/platform.ts issue create \
+     --title "BLOCKER: gate failure on <issue>" \
+     --body "<gate name>: <errors>" \
+     --labels "blocker"
+   ```
 
 ## Branch SHA Verification
 
-Each Gate check:
+Each Gate check that involves a branch:
 
-- Read `branch_sha` from `docs/state/snapshot.json`
-- Verify `git rev-parse <branch>` matches
-- If mismatch -> `[BRANCH_TAMPER]`, BLOCKER
+- Read `branch_sha` from the role's handoff `evidence.branch_sha`
+- Run:
+  ```
+  git rev-parse origin/<branch>
+  ```
+- If mismatch -> `[BRANCH_TAMPER]` WAL + create a BLOCKER Platform Issue:
+  ```
+  npx tsx scripts/platform.ts issue create \
+    --title "BLOCKER: branch SHA mismatch on <issue>" \
+    --body "expected=<branch_sha> actual=<git sha>" \
+    --labels "blocker"
+  ```
 
 ## Drift Check
 
 Run before every spawn:
 
-- [ ] Platform labels match local
-- [ ] Platform issue state (open/closed) matches local
-- [ ] AC hash matches
+```
+For each candidate issue (local id t<n>, platform number <number>):
+  npx tsx scripts/platform.ts issue get <number>
+  Compare:
+    - Platform `state`     vs local issue state (from docs/state/snapshot.json)
+    - Platform `labels`    vs local labels
+    - Platform `updated_at` vs local issue file mtime
+```
 
-If drift:
+If drift is detected:
 
-- Record `[DRIFT] <issue> <layer>`
-- Auto-sync local (if AC change < `ac_change_blocker_pct`)
-- Create human_review (if AC change >= `ac_change_blocker_pct`)
+- Record `[DRIFT] <issue> <layer>` WAL.
+- If drift is limited to non-authoritative metadata (labels, timestamps)
+  and the AC hash is unchanged -> auto-sync local.
+- If the AC hash differs by >= `ac_change_blocker_pct` -> create a
+  human_review Platform Issue (see `human_review.md`); skip this issue
+  for the current iteration.
+
+**Platform `state` is authoritative for `open`/`closed`.** If the Platform
+says an issue is `closed` while local says active -> Platform wins;
+remove from local active set. The reverse (Platform `open`, local
+`closed`) -> log `[DRIFT]` and route to reconcile (see `recovery.md`).
 
 ## API Query Policy
 
-Default queries only:
+Default query:
 
-- `state` (open/closed)
-- `labels` (array)
-- `updated_at`
+- `npx tsx scripts/platform.ts issue get <number>` (single issue)
+- `npx tsx scripts/platform.ts issue list --labels <l> --state <s>` (set)
+
+The `issue get` response includes: `number`, `title`, `state`, `labels`,
+`updated_at`. It does NOT include the issue body or comments (see
+`docs/commands.md` § Platform API for the full output shape).
 
 Do NOT query:
 
-- Issue body (AC is local-authoritative)
-- Comment history (only latest 1 if needed)
+- Issue body (AC is local-authoritative; body sync is guaranteed by
+  groom Step 6, see Gate 1).
+- Comment history (only the latest comment when needed, via
+  `issue latest-comment <number>`).
 
 Full body or comments:
 
-- Only when explicitly needed
-- Result externalized immediately
+- Only when explicitly needed.
+- Result externalized immediately (write to a file, do not embed in
+  context).
 
 ## Label Categories
 
@@ -212,4 +282,43 @@ Two categories of labels:
 | Orchestrator: Level 3 | — | — | `known_limitation` | — |
 | Orchestrator: Level 4 | — | — | `blocker`, `isolated` | — |
 
-**Note**: `Builder: fix_qa` keeps the state label `built` (unchanged). The issue remains in `built` state, with the `verifier_failed` modifier removed after a successful fix.
+**Note**: `Builder: fix_qa` keeps the state label `built` (unchanged). The
+issue remains in `built` state, with the `verifier_failed` modifier
+removed after a successful fix.
+
+### Transition Commands
+
+Each transition is executed with `scripts/platform.ts`. The current state
+label is removed and the next one is added; modifier labels are added or
+removed independently.
+
+**State label transitions** (mutually exclusive):
+
+| From | To | Command |
+|---|---|---|
+| (none) | `defined` | `npx tsx scripts/platform.ts label add <number> --label defined` |
+| `defined` | `groomed` | `npx tsx scripts/platform.ts label remove <number> --label defined` then `npx tsx scripts/platform.ts label add <number> --label groomed` |
+| `groomed` | `built` | `npx tsx scripts/platform.ts label remove <number> --label groomed` then `npx tsx scripts/platform.ts label add <number> --label built` |
+| `built` | `verified` | `npx tsx scripts/platform.ts label remove <number> --label built` then `npx tsx scripts/platform.ts label add <number> --label verified` |
+| `verified` | `closed` | `npx tsx scripts/platform.ts label remove <number> --label verified` then `npx tsx scripts/platform.ts label add <number> --label closed` |
+| `built` | `groomed` (via re_groom) | `npx tsx scripts/platform.ts label remove <number> --label built` then `npx tsx scripts/platform.ts label add <number> --label groomed` |
+
+The order matters only for the Platform UI; the API accepts both label
+operations in any order. The safe pattern is remove-then-add (avoids a
+transient state where both old and new labels exist).
+
+**Modifier label add/remove**:
+
+| Action | Command |
+|---|---|
+| Add modifier | `npx tsx scripts/platform.ts label add <number> --label <mod>` |
+| Add two modifiers | `npx tsx scripts/platform.ts label add <number> --labels "<mod1>,<mod2>"` |
+| Remove modifier | `npx tsx scripts/platform.ts label remove <number> --label <mod>` |
+
+### Execution
+
+Run the gate via:
+
+    npx tsx scripts/gate_check.ts <role> <phase> <handoff_path> <current_state>
+
+Parse the JSON output. If `passed: false`, follow "Gate Failure Handling".
