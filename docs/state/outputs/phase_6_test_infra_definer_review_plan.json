@@ -1,0 +1,56 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t35",
+  "role": "definer",
+  "phase": "review_plan",
+  "status": "COMPLETE",
+  "reached_state": "defined",
+  "evidence": {
+    "evidence_type": "planning",
+    "milestone": "phase_6_test_infra",
+    "review_verdict": "PASS_WITH_WARNINGS",
+    "issues_reviewed": [
+      "t35",
+      "t36"
+    ],
+    "findings": [
+      {
+        "issue_id": "t35",
+        "category": "orphan",
+        "severity": "warning",
+        "description": "No depends and no dependents in the DAG (no edges touch t35); the ordering 't35 lands before t13' exists only in plan.md Processing order, and t13's depends list (22 refs, all verified to exist) omits t35/t36, so a DAG-only scheduler could run the t13 final regression gate before this flake fix. By design per adoption semantics (independent test-infra issue); recorded as warning, not error, consistent with the phase_5_audit review precedent."
+      },
+      {
+        "issue_id": "t36",
+        "category": "orphan",
+        "severity": "warning",
+        "description": "No depends and no dependents in the DAG (no edges touch t36); the ordering 't36 lands before t13' exists only in plan.md Processing order, and t13's depends list omits t35/t36, so a DAG-only scheduler could run the t13 final regression gate before this flake fix. By design per adoption semantics (independent test-infra issue); recorded as warning, not error, consistent with the phase_5_audit review precedent."
+      },
+      {
+        "issue_id": "t35",
+        "category": "other",
+        "severity": "warning",
+        "description": "AC platform mismatch: acceptance says 'The full backend suite is stable on WSL' and the root-cause hypothesis is WSL /mnt/c drvfs-specific, but this host has no WSL (Windows git-bash, uv-managed CPython 3.12; plan.md Commands section states WSL is NOT available for the toolchain). Verifier must interpret the AC as full-suite stability on this host; pin the AC wording and an explicit host run command (e.g. `cd backend && uv run --frozen --python 3.12 pytest tests -q -p no:randomly`, 10 consecutive runs) at groom, and have the builder confirm the flake reproduces (or document it does not) on native Windows before fixing."
+      },
+      {
+        "issue_id": "t36",
+        "category": "other",
+        "severity": "warning",
+        "description": "docs/issues/t36.md has no Files section (0 files counted); plan.md pins backend/tests/test_rate_limit_t23.py with 'Files section to be pinned at groom' (file verified to exist). Does not trigger granularity_too_small (that requires AC count 1 AND 0 files; t36 has 3 ACs). Groom must populate the Files section before implementation; AC count (3) and implied scope are within current limits (max_acs 6, max_files 4, warn_only true)."
+      }
+    ],
+    "coverage_note": "requirements.md is an unfilled template; per plan.md adoption provenance the phase_6_test_infra requirements are platform issue bodies #91/#92: #91 -> t35 (drvfs SQLite flake), #92 -> t36 (XFF rate-limiter state flake). Both are covered by local issue files (docs/issues/t35.md, t36.md), the plan.md phase_6_test_infra section, and DAG nodes tagged milestone phase_6_test_infra. No coverage gap. Granularity under current limits (max_acs 6, max_files 4): t35 = 2 ACs / 4 files (at, not over, max_files); t36 = 3 ACs / 0 files (see finding). No duplicate or contradictory ACs between t35 and t36 (different flake, different test files, complementary full-suite-stability goals). No cycles; all depends refs exist."
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/state/milestones/phase_6_test_infra.json",
+      "docs/state/outputs/phase_6_test_infra_definer_review_plan.json"
+    ],
+    "platform_issue": null,
+    "output_path": "docs/state/outputs/phase_6_test_infra_definer_review_plan.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-07T12:08:23Z",
+  "retry_count": 0
+}

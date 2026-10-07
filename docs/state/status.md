@@ -1,20 +1,20 @@
 # Orchestrator Status
 
-Updated: 2026-10-07T11:00:00Z (seq 37)
+Updated: 2026-10-07T12:12:45Z (seq 41)
 
 ## Phase
-RECOVERY COMPLETE → phase_6_test_infra review_plan **IN_PROGRESS** (Definer spawned)
+phase_6_test_infra review_plan **PASSED** (PASS_WITH_WARNINGS, 0 errors, 4 warnings) → t35,t36 now eligible. Next: t17 implement.
 
 ## Slots
-1/1 busy: definer:review_plan phase_6_test_infra (issues t35,t36; milestone gate before t35 groom)
+0/1 busy (slot_1 released after definer:review_plan complete). Next ready: t17 → builder:implement.
 
 ## Queue
-t17 (groomed, next) → t18 → t19 → t22 → t24 → t25 → t26 → t27 → t28 → t29 → t31 → t35 → t36 → **t13 (LAST, final regression gate)**
+t17 (groomed, NEXT → builder:implement) → t18 → t19 → t22 → t24 → t25 → t26 → t27 → t28 → t29 → t31 → t35 → t36 → **t13 (LAST, final regression gate)**
 (serial, 1 slot; t13 after t9-t31 all closed)
 
 ## Milestones
 - phase_5_audit: review_plan PASSED 2026-10-06T18:04:35Z (PASS_WITH_WARNINGS, 0 errors, 17 warnings)
-- phase_6_test_infra: survey done 2026-10-06T17:39:56Z (t35,t36) — review_plan IN_PROGRESS (2026-10-07T11:00Z)
+- phase_6_test_infra: survey done 2026-10-06T17:39:56Z (t35,t36) — review_plan **PASSED** 2026-10-07T12:08:23Z (PASS_WITH_WARNINGS, 0 errors, 4 warnings: t35/t36 orphan, t35 WSL/host mismatch, t36 missing Files)
 
 ## Recovery log (2026-10-07)
 - State files reset to empty 2.0 templates found at boot (10:01Z); restored from git HEAD c64377f (authoritative)
