@@ -1,6 +1,6 @@
 # Orchestrator Status
 
-Updated: 2026-10-07T12:12:45Z (seq 41)
+Updated: 2026-10-07T16:01:00Z (seq 49)
 
 ## Phase
 phase_6_test_infra review_plan **PASSED** (PASS_WITH_WARNINGS, 0 errors, 4 warnings) → t35,t36 now eligible. Next: t17 implement.
@@ -34,4 +34,5 @@ t17 (groomed, NEXT → builder:implement) → t18 → t19 → t22 → t24 → t2
 - 15 open issue files adopted (t13,t17-t19,t22,t24-t29,t31,t35,t36); 30 closed archived in docs/issues/closed/ + index.md (real merge SHAs)
 - Known framework flaw: no backend/.python-version pin → bare uv picks Python 3.13.14, auth-test teardown WinError 32; workarounds: worktree venvs pre-built with `--python 3.12`; verifier uses worktree venv (shared-venv path unavailable due to backend/ nesting)
 - 2.0 inconsistencies found (logged, not fixed manually): slots.md example uses `max_slots` (absent from snapshot schema); recovery.md references schemas/state/merge_cp.json + idempotency.json (do not exist)
+- Credential path (WAL 48/49, operator directive): GCM BANNED. Repo-local fill helper `.git_credential_fill.sh` (git-excluded, reads `.orchestrator_token`) is the `credential.helper` in main + t17 worktree; plain `git push/fetch` works in every process with zero env vars, no browser popups. New worktrees must set the same local helper at creation. Platform ops: `scripts/platform.ts` only (WAL 43)
 - WAL: docs/log/2026_10_07.md (seq 27-37, gitignored runtime artifact); prior day docs/log/2026_10_06.md (seq 1-26)
