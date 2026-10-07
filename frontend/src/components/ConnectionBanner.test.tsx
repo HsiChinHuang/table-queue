@@ -121,6 +121,25 @@ describe('useConnection', () => {
     recover();
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
+
+  it('T17 AC-6: the 3s recovered-timer is tracked - one pending at a time, cleared on unmount', () => {
+    let last!: Probe;
+    const { unmount } = render(React.createElement(Harness, { probe: (p: Probe) => (last = p) }));
+    fail();
+    recover(); // schedules the one pending 3000 ms timer
+    expect(vi.getTimerCount()).toBe(1);
+    // A repeated resetFailure while the first timer is still pending must not stack a second one.
+    act(() => void vi.advanceTimersByTime(1_000));
+    fail();
+    recover();
+    expect(vi.getTimerCount()).toBe(1);
+    // Unmount: no hook-owned pending timers remain...
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
+    // ...and advancing the clock afterwards is inert (no state update or error).
+    expect(() => act(() => void vi.advanceTimersByTime(10_000))).not.toThrow();
+    expect(last.isRecovered).toBe(true);
+  });
 });
 
 describe('ConnectionProvider', () => {

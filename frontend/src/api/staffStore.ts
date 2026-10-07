@@ -29,7 +29,13 @@ export const staffStoreCompat = {
   get token(): string | null {
     return staffStore.getState().token;
   },
+  /** T17: the token's known expiry (epoch ms) - null when unknown. */
+  get expiresAt(): number | null {
+    return staffStore.getState().expiresAt;
+  },
   setToken: (token: string | null) => staffStore.getState().setToken(token),
+  /** T17: record the token's expiry alongside the token. */
+  setExpiresAt: (expiresAt: number | null) => staffStore.getState().setExpiresAt(expiresAt),
   clearToken: () => staffStore.getState().logout(),
 };
 

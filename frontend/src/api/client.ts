@@ -1,6 +1,7 @@
 import { staffStore } from './staffStore';
-import { destroySession } from '@/stores/staffStore';
+import { destroySession, isSessionExpired } from '@/stores/staffStore';
 import { ApiError, getErrorMessage } from './errors';
+import { ROUTES } from '@/routes';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 const TIMEOUT_MS = 30000;
@@ -38,6 +39,16 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
   const url = `${API_BASE_URL}${path}`;
   const token = staffStore.token;
+  const expiresAt = staffStore.expiresAt;
+
+  // T17 AC-2: never send a bearer we already know is expired. A known-expired
+  // token short-circuits to a rejected ApiError BEFORE fetch is invoked (no
+  // outbound request may ever carry it); a live token or a token with an UNKNOWN
+  // expiry (null) goes out exactly as before.
+  if (token && isSessionExpired({ token, expiresAt })) {
+    destroySession();
+    throw new ApiError('AUTH_TOKEN_EXPIRED', 401, 'Session expired. Please login again.');
+  }
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -70,10 +81,15 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
     // AC-3: Handle 401 - a real logout: sweep every storage slot + in-memory token,
     // then redirect to login (T30: an expired session must leave no live JWT behind).
+    // T17 AC-3: the redirect is router-driven - the ROUTES constant through
+    // location.assign (no hardcoded path, no location.href assignment) - and is
+    // guarded so a 401 surfaced on the login page itself does not re-navigate.
     if (response.status === 401) {
       destroySession();
       // Clear query cache would be handled by calling code
-      window.location.href = '/staff/login';
+      if (window.location.pathname !== ROUTES.STAFF_LOGIN) {
+        window.location.assign(ROUTES.STAFF_LOGIN);
+      }
       throw new ApiError('AUTH_TOKEN_EXPIRED', 401, 'Session expired. Please login again.');
     }
 

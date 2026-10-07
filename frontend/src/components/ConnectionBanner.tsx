@@ -6,7 +6,7 @@
  * @param onRetry - Callback to retry connection
  * @param className - Additional CSS classes
  */
-import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
 import { Wifi, WifiOff } from 'lucide-react';
 
 interface ConnectionBannerProps {
@@ -44,6 +44,11 @@ export function useConnection(onRetry?: () => void): {
   const [failureCount, setFailureCount] = useState(0);
   const [isRecovered, setIsRecovered] = useState(false);
 
+  // T17 AC-6: the 3 s "recovered" timeout is tracked in a ref so it can be
+  // cleared - at most one such timer exists at any time, and none survives the
+  // consumer's unmount.
+  const recoveredTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const incrementFailure = useCallback(() => {
     setFailureCount((prev) => prev + 1);
     setIsRecovered(false);
@@ -52,11 +57,27 @@ export function useConnection(onRetry?: () => void): {
   const resetFailure = useCallback(() => {
     if (failureCount > 0) {
       setIsRecovered(true);
-      setTimeout(() => setIsRecovered(false), 3000);
+      if (recoveredTimerRef.current) {
+        clearTimeout(recoveredTimerRef.current);
+      }
+      recoveredTimerRef.current = setTimeout(() => {
+        recoveredTimerRef.current = null;
+        setIsRecovered(false);
+      }, 3000);
       if (onRetry) onRetry();
     }
     setFailureCount(0);
   }, [failureCount, onRetry]);
+
+  // T17 AC-6: on unmount, no hook-owned pending timers may remain.
+  useEffect(() => {
+    return () => {
+      if (recoveredTimerRef.current) {
+        clearTimeout(recoveredTimerRef.current);
+        recoveredTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const isDisconnected = failureCount >= FAILURE_THRESHOLD;
 

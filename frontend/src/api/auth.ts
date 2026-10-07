@@ -21,6 +21,13 @@ export async function login(request: LoginRequest): Promise<LoginResponse> {
   const response = await post<LoginResponse>('/auth/login', request);
   if (response?.access_token) {
     staffStore.setToken(response.access_token);
+    // T17 AC-1: the login response's expires_in (seconds) becomes the store's
+    // expiresAt (epoch ms), so no code path can store a login token without an
+    // expiry. A missing/non-positive expires_in leaves the expiry unknown (null)
+    // rather than fabricating one.
+    if (typeof response.expires_in === 'number' && Number.isFinite(response.expires_in) && response.expires_in > 0) {
+      staffStore.setExpiresAt(Date.now() + response.expires_in * 1000);
+    }
   }
   return response!;
 }
