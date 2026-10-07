@@ -6,7 +6,7 @@ Updated: 2026-10-07T05:28:47Z (seq 24)
 phase_5_audit review_plan **PASSED** (PASS_WITH_WARNINGS, 0 errors, 17 warnings) → **t16 groom in flight**
 
 ## Slots
-idle (verify_pre_merge FAIL=env 3.13-venv; venv rebuilt to 3.12, suite green; retry 1/2 pending spawn)
+1/1 busy: verifier:verify_pre_merge t16 RETRY 1/2 (run 3678ac26; venv now 3.12; smoke=3 standard commands)
 
 ## Queue
 t16 (implementing) → t17 → t18 → t19 → t22 → t24 → t25 → t26 → t27 → t28 → t29 → t31 → t35 → t36 → **t13 (LAST, final gate)**

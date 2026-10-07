@@ -10,13 +10,14 @@
    "state": "verified",
    "mode": "verify_pre_merge",
    "role": "verifier",
-   "run_id": null,
+   "run_id": "3678ac26-3bc4-4587-9aba-2289724b322e",
+   "started_at": "2026-10-07T05:31:00Z",
    "retry": 1,
    "worktree": ".worktrees/t16",
    "branch": "issue/t16-contract-completion",
    "branch_sha": "8871c3fc6da9015ba8aabb7c3bbd92de514f37ab",
    "handoff_sha": "b3cd444",
-   "note": "worktree venv rebuilt 3.13->3.12 (flaw #10); suite green"
+   "note": "venv rebuilt 3.13->3.12; attempt-1 handoff archived as .attempt-1.json"
   }
  ],
  "completed_issues": []
