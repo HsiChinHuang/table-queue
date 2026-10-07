@@ -1,15 +1,15 @@
 # Orchestrator Status
 
-Updated: 2026-10-06T18:52Z (seq 14)
+Updated: 2026-10-07T03:40Z (seq 22)
 
 ## Phase
 phase_5_audit review_plan **PASSED** (PASS_WITH_WARNINGS, 0 errors, 17 warnings) → **t16 groom in flight**
 
 ## Slots
-1/1 busy: definer:groom t16 attempt 2 (revived run 308b9daa; attempt 1 114414cb TIMED OUT 18:41Z — 27.5min thinking, 11s I/O; framework timeout fix awaiting user approval)
+1/1 busy: verifier:verify_issue t16 (run fb8d8b3c, cwd bound to .worktrees/t16; branch_sha 8871c3f; junction .scratch->backend/.scratch pre-verified for AC-4)
 
 ## Queue
-t16 (grooming, economy-finish brief) → t17 → t18 → t19 → t22 → t24 → t25 → t26 → t27 → t28 → t29 → t31 → t35 → t36 → **t13 (LAST, final gate)**
+t16 (implementing) → t17 → t18 → t19 → t22 → t24 → t25 → t26 → t27 → t28 → t29 → t31 → t35 → t36 → **t13 (LAST, final gate)**
 (serial, MAX_SLOTS=1; t13 after phase_6_test_infra lands)
 
 ## Milestones
