@@ -1,0 +1,83 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t17",
+  "role": "builder",
+  "phase": "implement",
+  "status": "COMPLETE",
+  "reached_state": "built",
+  "evidence": {
+    "evidence_type": "build",
+    "branch": "issue/t17-client-lifecycle",
+    "branch_sha": "288bfa2218d6454cf9ffdaa70f52941bb92b3b53",
+    "ac_mapping": {
+      "ac1": {
+        "commit": "288bfa2218d6454cf9ffdaa70f52941bb92b3b53",
+        "test": "npx vitest run src/stores/staffStore.test.ts src/layouts/StaffLayout.test.tsx (+ grep expiresAt in stores/staffStore.ts)",
+        "verdict": "PASS"
+      },
+      "ac2": {
+        "commit": "288bfa2218d6454cf9ffdaa70f52941bb92b3b53",
+        "test": "npx vitest run src/api/client.test.ts (+ grep expiresAt in api/client.ts)",
+        "verdict": "PASS"
+      },
+      "ac3": {
+        "commit": "288bfa2218d6454cf9ffdaa70f52941bb92b3b53",
+        "test": "npx vitest run src/api/client.test.ts (+ grep location.assign/ROUTES present, window.location.href absent)",
+        "verdict": "PASS"
+      },
+      "ac4": {
+        "commit": "288bfa2218d6454cf9ffdaa70f52941bb92b3b53",
+        "test": "npx vitest run src/hooks/useCountdown.test.ts src/components/Countdown.test.tsx src/components/WaitlistCard.test.tsx (+ grep setInterval count in hooks/useCountdown.ts <= 1)",
+        "verdict": "PASS"
+      },
+      "ac5": {
+        "commit": "288bfa2218d6454cf9ffdaa70f52941bb92b3b53",
+        "test": "npx vitest run src/components/SoundToggle.test.tsx (+ grep .close( in SoundToggle.tsx)",
+        "verdict": "PASS"
+      },
+      "ac6": {
+        "commit": "288bfa2218d6454cf9ffdaa70f52941bb92b3b53",
+        "test": "npx vitest run src/components/ConnectionBanner.test.tsx",
+        "verdict": "PASS"
+      },
+      "ac7": {
+        "commit": "288bfa2218d6454cf9ffdaa70f52941bb92b3b53",
+        "test": "npx vitest run (full suite) + npx tsc --noEmit + skip/only/x-it/x-describe grep over frontend/src",
+        "verdict": "PASS"
+      }
+    },
+    "test_summary": {
+      "total": 267,
+      "passed": 267,
+      "failed": 0
+    },
+    "lint_status": "CLEAN",
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands"
+  },
+  "artifacts": {
+    "files_written": [
+      "frontend/src/api/auth.ts",
+      "frontend/src/api/client.ts",
+      "frontend/src/api/client.test.ts",
+      "frontend/src/api/staffStore.ts",
+      "frontend/src/components/ConnectionBanner.tsx",
+      "frontend/src/components/ConnectionBanner.test.tsx",
+      "frontend/src/components/Countdown.test.tsx",
+      "frontend/src/components/SoundToggle.tsx",
+      "frontend/src/components/SoundToggle.test.tsx",
+      "frontend/src/components/WaitlistCard.test.tsx",
+      "frontend/src/hooks/useCountdown.ts",
+      "frontend/src/hooks/useCountdown.test.ts",
+      "frontend/src/layouts/StaffLayout.tsx",
+      "frontend/src/layouts/StaffLayout.test.tsx",
+      "frontend/src/stores/staffStore.ts",
+      "frontend/src/stores/staffStore.test.ts"
+    ],
+    "platform_issue": 72,
+    "output_path": "docs/state/outputs/t17_builder_implement.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-07T16:45:38Z",
+  "retry_count": 2
+}
