@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "issue_id": "t16",
+  "role": "verifier",
+  "phase": "verify_pre_merge",
+  "status": "COMPLETE",
+  "reached_state": "unchanged",
+  "evidence": {
+    "evidence_type": "merge_verification",
+    "cumulative_tests": { "total": 0, "passed": 0, "failed": 0 },
+    "smoke_tests": { "total": 3, "passed": 2, "failed": 1 },
+    "failed_tests": [
+      {
+        "test": "cd backend && uv run pytest tests -q -p no:randomly",
+        "error_summary": "pytest exit 1: 335 passed, 2 xfailed, 0 failed, 1 error (pre-existing Windows-only test_auth teardown WinError 32, identical at base c50d331, not a regression; suite green)"
+      }
+    ]
+  },
+  "artifacts": {
+    "files_written": ["docs/state/outputs/t16_verifier_verify_pre_merge.json"],
+    "platform_issue": 71,
+    "output_path": "docs/state/outputs/t16_verifier_verify_pre_merge.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-07T04:22:56Z"
+}

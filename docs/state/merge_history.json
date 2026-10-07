@@ -1,1 +1,25 @@
-{"schema_version":"1.0","updated_at":"2026-10-06T00:00:00Z","entries":[]}
+{
+ "schema_version": "1.0",
+ "merges": [
+  {
+   "issue_id": "t16",
+   "platform_issue": 71,
+   "branch": "issue/t16-contract-completion",
+   "branch_tip": "b3cd444",
+   "pre_merge_sha": "a90ff8d",
+   "merge_sha": "52766eae973e97a1b6b19b6333660f6688f3c1a2",
+   "merged_at": "2026-10-07T08:54:11Z",
+   "verification": {
+    "verify_issue": "PASS (comment 6030592458)",
+    "verify_pre_merge": "PASS retry 1/2 (comment 6032148384; attempt-1 FAIL was environmental: worktree venv Python 3.13 vs baseline 3.12, WinError 32 teardown)",
+    "verify_post_merge": "PASS (comment 6034264509)"
+   },
+   "post_merge_suite": {
+    "backend": "335 passed, 2 xfailed, exit 0",
+    "frontend": "244 passed / 30 files, exit 0",
+    "ruff": "0 errors"
+   },
+   "ac_hash": "sha256:74ba59e0a366f3296a4a5f1b519a10e7072848a7b24c26109598b957c00069ee"
+  }
+ ]
+}
