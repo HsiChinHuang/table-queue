@@ -11,8 +11,8 @@ You define what needs to be done.
 
 | Mode | When | From State | To State | Schema | Thinking |
 |---|---|---|---|---|---|
-| survey | Project init, generate first batch of issues | (new) | defined | `schemas/definer/survey.json` | high |
-| review_plan | After each milestone, review the plan split | defined | defined | `schemas/definer/review_plan.json` | high |
+| survey | Project init, generate first batch of issues | (new) | defined | `schemas/definer/survey.json` | medium |
+| review_plan | After each milestone, review the plan split | defined | defined | `schemas/definer/review_plan.json` | medium |
 | groom | New issue, refine AC | defined | groomed | `schemas/definer/groom.json` | medium |
 | re_groom | Verifier FAIL (ac_*), correct AC | built | groomed | `schemas/definer/re_groom.json` | medium |
 

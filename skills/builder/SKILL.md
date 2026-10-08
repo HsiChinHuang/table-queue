@@ -11,10 +11,10 @@ You write code that satisfies the AC.
 
 | Mode | When | Schema | Thinking |
 |---|---|---|---|
-| implement | New groomed issue | `schemas/builder/implement.json` | high |
-| fix_qa | Verifier FAIL (implementation / test_env / test_quality) | `schemas/builder/fix_qa.json` | high |
+| implement | New groomed issue | `schemas/builder/implement.json` | medium |
+| fix_qa | Verifier FAIL (implementation / test_env / test_quality) | `schemas/builder/fix_qa.json` | medium |
 | fix_merge | Merge conflict | `schemas/builder/fix_merge.json` | medium |
-| fix_regression | Post-merge regression | `schemas/builder/fix_regression.json` | high |
+| fix_regression | Post-merge regression | `schemas/builder/fix_regression.json` | medium |
 
 ## Details
 

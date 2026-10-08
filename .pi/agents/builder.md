@@ -2,7 +2,7 @@
 name: builder
 description: Implements AC, fixes QA failures, resolves merge conflicts, and fixes regressions
 tools: read, bash, grep, find, edit, write
-thinking: high
+thinking: medium
 systemPromptMode: replace
 inheritProjectContext: true
 inheritSkills: true

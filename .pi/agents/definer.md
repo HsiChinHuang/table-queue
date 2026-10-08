@@ -2,7 +2,7 @@
 name: definer
 description: Initializes projects, reviews plans, grooms issues, and re-grooms after QA failures
 tools: read, bash, grep, find, edit, write
-thinking: high
+thinking: medium
 systemPromptMode: replace
 inheritProjectContext: true
 inheritSkills: true
