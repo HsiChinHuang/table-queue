@@ -8,7 +8,7 @@
       "issue_id": "t17",
       "role": "verifier",
       "phase": "verify_pre_merge",
-      "run_id": "066bc6ed-72f0-4583-99dd-dc6803e1414a",
+      "run_id": "dd58f033-67dd-46e2-834b-69d060633406",
       "spawn_at": "2026-10-08T00:52:00Z",
       "last_activity_at": "2026-10-08T02:35:48Z",
       "worktree_path": "C:/Users/tw097/Desktop/261003_ai_test/table-queue/.worktrees/verify-t17",
