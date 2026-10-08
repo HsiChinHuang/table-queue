@@ -1,0 +1,36 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t24",
+  "role": "verifier",
+  "phase": "verify_post_merge",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "merge_verification",
+    "smoke_tests": {
+      "total": 3,
+      "passed": 3,
+      "failed": 0
+    },
+    "merge_sha": "fb3c4c5d0249c1d802f9911fdaf70da6ec351888",
+    "regressions_detected": [],
+    "notes": [
+      "smoke 3 first attempt used a 30-char JWT_SECRET (spawn-param defect); re-run with 34-char secret per orchestrator decision B; config guard (JWT_SECRET_MIN_LENGTH=32) behaved correctly - not a regression",
+      "per-smoke exit codes: smoke 1 frontend tsc --noEmit rc=0; smoke 2 frontend npm run lint rc=0; smoke 3 backend app import rc=0 (re-run with corrected 34-char JWT_SECRET, printed 'backend app import OK')",
+      "extra evidence (t22 precedent, not in smoke count): backend pytest tests/test_database.py -q -> 3 passed (new SQLite-only guard tests)",
+      "[VENV_UNAVAILABLE] UV_PROJECT_ENVIRONMENT + PYTHONPATH both empty; used junctioned backend/.venv + frontend/node_modules directly (no uv sync / npm install)",
+      "platform comment posted to issue 79 (rc=0) from main root (worktree .env not found); clean skill format Total:3 Passed:3 Failed:0"
+    ]
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/state/outputs/t24_verifier_verify_post_merge.json"
+    ],
+    "platform_issue": 79,
+    "output_path": "docs/state/outputs/t24_verifier_verify_post_merge.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-08T23:16:59Z",
+  "retry_count": 0
+}

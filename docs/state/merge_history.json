@@ -1,108 +1,130 @@
 {
- "schema_version": "1.0",
- "merges": [
-  {
-   "issue_id": "t16",
-   "platform_issue": 71,
-   "branch": "issue/t16-contract-completion",
-   "branch_tip": "b3cd444",
-   "pre_merge_sha": "a90ff8d",
-   "merge_sha": "52766eae973e97a1b6b19b6333660f6688f3c1a2",
-   "merged_at": "2026-10-07T08:54:11Z",
-   "verification": {
-    "verify_issue": "PASS (comment 6030592458)",
-    "verify_pre_merge": "PASS retry 1/2 (comment 6032148384; attempt-1 FAIL was environmental: worktree venv Python 3.13 vs baseline 3.12, WinError 32 teardown)",
-    "verify_post_merge": "PASS (comment 6034264509)"
-   },
-   "post_merge_suite": {
-    "backend": "335 passed, 2 xfailed, exit 0",
-    "frontend": "244 passed / 30 files, exit 0",
-    "ruff": "0 errors"
-   },
-   "ac_hash": "sha256:74ba59e0a366f3296a4a5f1b519a10e7072848a7b24c26109598b957c00069ee"
-  },
-  {
-   "issue_id": "t17",
-   "platform_issue": 72,
-   "branch": "issue/t17-client-lifecycle",
-   "branch_tip": "660b133",
-   "pre_merge_sha": "769a5a6",
-   "merge_sha": "0748f27717139ccd282845a96fc6370e8dfeb658",
-   "merged_at": "2026-10-08T03:11:43Z",
-   "verification": {
-    "verify_issue": "PASS (run 31622934)",
-    "verify_pre_merge": "PASS retry 2/3 (run dd58f033; attempt-1 timeout and early termination were environmental: GitHub GCM interactive-auth dialog, then stale worktree index holding the un-repaired t16/ac4; orchestrator repaired index in 562f038 and synced it into the worktree)",
-    "verify_post_merge": "PASS (run 965a071d, comment posted on #72)"
-   },
-   "post_merge_suite": {
-    "backend": "335 passed, 2 xfailed, exit 0",
-    "frontend": "267 passed / 30 files, exit 0",
-    "tsc": "exit 0"
-   },
-   "ac_hash": "sha256:f48c1b826af6fbdc7e9a89b7dd36902b99401cd42f143732183291d29be93061"
-  },
-  {
-   "issue_id": "t18",
-   "platform_issue": 73,
-   "branch": "issue/t18-response-envelope",
-   "branch_tip": "cae82a1",
-   "pre_merge_sha": "461ffc6",
-   "merge_sha": "df1b5fa48ee77440240c60c1a88de96c8d2a15a1",
-   "merged_at": "2026-10-08T07:41:07Z",
-   "verification": {
-    "verify_issue": "PASS (run 6d5f615f; WARN-1 sentinel intent preserved; comment on #73 2026-10-08T06:36:50Z)",
-    "verify_pre_merge": "PASS (run 05b4e23a; cumulative 11/11 + smoke 3/3; orchestrator posted comment 2026-10-08T07:40:38Z after worktree .env miss)",
-    "verify_post_merge": "PASS (run 975e766a; cumulative 11/11 + smoke 3/3; no regressions; HEAD==merge_sha)"
-   },
-   "post_merge_suite": {
-    "backend": "340 passed, 2 xfailed, exit 0",
-    "frontend": "30 files / 267 tests, exit 0",
-    "tsc": "exit 0"
-   },
-   "ac_hash": "sha256:a0663c652260247a517aed7819e6606018c49b7e7f16baec6e54a1df075fa835"
-  },
-  {
-   "issue_id": "t19",
-   "platform_issue": 74,
-   "branch": "issue/t19-sqlite-contention",
-   "branch_tip": "33ed2a7",
-   "pre_merge_sha": "959cf13",
-   "merge_sha": "441a521fe117ac42703f3963d823a075cffad2fb",
-   "merged_at": "2026-10-08T15:19:45Z",
-   "verification": {
-    "verify_issue": "PASS (run cf5dcb03, first attempt; run timed out AFTER COMPLETE handoff written - orchestrator re-validated exit 0 and posted PASS comment from main)",
-    "verify_pre_merge": "PASS (run 4aaffee8, first attempt; 21/21 cumulative+current, merge-tree rc=0; run timed out AFTER COMPLETE handoff - orchestrator re-validated; PASS comment 14:45:11Z)",
-    "verify_post_merge": "PASS (run 31b153a1, first attempt, clean completion; 21/21; MERGE VERDICT comment posted by verifier)"
-   },
-   "post_merge_suite": {
-    "backend": "344 passed, 2 xfailed, exit 0",
-    "frontend": "267 passed / 30 files, exit 0",
-    "ruff": "0 errors",
-    "tsc": "clean"
-   },
-   "ac_hash": "sha256:6403035f221dd72276ce8f2923fd15d424fe3007145ffa55a97bf1d612b32935"
-  },
-  {
-   "issue_id": "t22",
-   "platform_issue": 77,
-   "branch": "issue/t22-eslint-flat-config",
-   "branch_tip": "fab23e7",
-   "pre_merge_sha": "1a684e5",
-   "merge_sha": "3cbfb9f372e49a00b871a061870c6c86f80120dc",
-   "merged_at": "2026-10-08T18:49:00Z",
-   "verification": {
-    "verify_issue": "PASS (run ffce5646, clean completion; 6/6 AC blocks verbatim incl. 2 orchestrator-fixed definer blocks bcb0280/7b1fc54, floors green, scope CLEAN; env gap: shared node_modules lacked typescript-eslint toolchain - verifier file-copied from builder worktree)",
-    "verify_pre_merge": "PASS (run 43249a1c, clean completion; 21/21 cumulative + 3/3 smoke on local merge 9213827, merge-tree dry-run rc=0 0 conflicts; MERGE VERDICT comment posted)",
-    "verify_post_merge": "PASS (run ed7b7fb4, clean completion; tsc + backend import rc=0 at run time, lint rc=1 at run time due to env gap - orchestrator diagnosed (shared node_modules missing ts-api-utils 2.5.0, shadowed by repo-root ts-api-utils 1.4.3) + fixed by file-copy, rerun 3/3 smoke green on merged tree; MERGE VERDICT comment posted)"
-   },
-   "post_merge_suite": {
-    "backend": "344 passed, 2 xfailed, exit 0",
-    "frontend": "267 passed / 30 files, exit 0",
-    "ruff": "0 errors",
-    "tsc": "clean",
-    "lint": "0 violations (eslint 9.39.5 flat config, after ts-api-utils env fix)"
-   },
-   "ac_hash": "sha256:c5530576aa9e73713bcb458c12e0748afaf61a9167a290005ab9778359f21ca7"
-  }
- ]
+  "schema_version": "1.0",
+  "merges": [
+    {
+      "issue_id": "t16",
+      "platform_issue": 71,
+      "branch": "issue/t16-contract-completion",
+      "branch_tip": "b3cd444",
+      "pre_merge_sha": "a90ff8d",
+      "merge_sha": "52766eae973e97a1b6b19b6333660f6688f3c1a2",
+      "merged_at": "2026-10-07T08:54:11Z",
+      "verification": {
+        "verify_issue": "PASS (comment 6030592458)",
+        "verify_pre_merge": "PASS retry 1/2 (comment 6032148384; attempt-1 FAIL was environmental: worktree venv Python 3.13 vs baseline 3.12, WinError 32 teardown)",
+        "verify_post_merge": "PASS (comment 6034264509)"
+      },
+      "post_merge_suite": {
+        "backend": "335 passed, 2 xfailed, exit 0",
+        "frontend": "244 passed / 30 files, exit 0",
+        "ruff": "0 errors"
+      },
+      "ac_hash": "sha256:74ba59e0a366f3296a4a5f1b519a10e7072848a7b24c26109598b957c00069ee"
+    },
+    {
+      "issue_id": "t17",
+      "platform_issue": 72,
+      "branch": "issue/t17-client-lifecycle",
+      "branch_tip": "660b133",
+      "pre_merge_sha": "769a5a6",
+      "merge_sha": "0748f27717139ccd282845a96fc6370e8dfeb658",
+      "merged_at": "2026-10-08T03:11:43Z",
+      "verification": {
+        "verify_issue": "PASS (run 31622934)",
+        "verify_pre_merge": "PASS retry 2/3 (run dd58f033; attempt-1 timeout and early termination were environmental: GitHub GCM interactive-auth dialog, then stale worktree index holding the un-repaired t16/ac4; orchestrator repaired index in 562f038 and synced it into the worktree)",
+        "verify_post_merge": "PASS (run 965a071d, comment posted on #72)"
+      },
+      "post_merge_suite": {
+        "backend": "335 passed, 2 xfailed, exit 0",
+        "frontend": "267 passed / 30 files, exit 0",
+        "tsc": "exit 0"
+      },
+      "ac_hash": "sha256:f48c1b826af6fbdc7e9a89b7dd36902b99401cd42f143732183291d29be93061"
+    },
+    {
+      "issue_id": "t18",
+      "platform_issue": 73,
+      "branch": "issue/t18-response-envelope",
+      "branch_tip": "cae82a1",
+      "pre_merge_sha": "461ffc6",
+      "merge_sha": "df1b5fa48ee77440240c60c1a88de96c8d2a15a1",
+      "merged_at": "2026-10-08T07:41:07Z",
+      "verification": {
+        "verify_issue": "PASS (run 6d5f615f; WARN-1 sentinel intent preserved; comment on #73 2026-10-08T06:36:50Z)",
+        "verify_pre_merge": "PASS (run 05b4e23a; cumulative 11/11 + smoke 3/3; orchestrator posted comment 2026-10-08T07:40:38Z after worktree .env miss)",
+        "verify_post_merge": "PASS (run 975e766a; cumulative 11/11 + smoke 3/3; no regressions; HEAD==merge_sha)"
+      },
+      "post_merge_suite": {
+        "backend": "340 passed, 2 xfailed, exit 0",
+        "frontend": "30 files / 267 tests, exit 0",
+        "tsc": "exit 0"
+      },
+      "ac_hash": "sha256:a0663c652260247a517aed7819e6606018c49b7e7f16baec6e54a1df075fa835"
+    },
+    {
+      "issue_id": "t19",
+      "platform_issue": 74,
+      "branch": "issue/t19-sqlite-contention",
+      "branch_tip": "33ed2a7",
+      "pre_merge_sha": "959cf13",
+      "merge_sha": "441a521fe117ac42703f3963d823a075cffad2fb",
+      "merged_at": "2026-10-08T15:19:45Z",
+      "verification": {
+        "verify_issue": "PASS (run cf5dcb03, first attempt; run timed out AFTER COMPLETE handoff written - orchestrator re-validated exit 0 and posted PASS comment from main)",
+        "verify_pre_merge": "PASS (run 4aaffee8, first attempt; 21/21 cumulative+current, merge-tree rc=0; run timed out AFTER COMPLETE handoff - orchestrator re-validated; PASS comment 14:45:11Z)",
+        "verify_post_merge": "PASS (run 31b153a1, first attempt, clean completion; 21/21; MERGE VERDICT comment posted by verifier)"
+      },
+      "post_merge_suite": {
+        "backend": "344 passed, 2 xfailed, exit 0",
+        "frontend": "267 passed / 30 files, exit 0",
+        "ruff": "0 errors",
+        "tsc": "clean"
+      },
+      "ac_hash": "sha256:6403035f221dd72276ce8f2923fd15d424fe3007145ffa55a97bf1d612b32935"
+    },
+    {
+      "issue_id": "t22",
+      "platform_issue": 77,
+      "branch": "issue/t22-eslint-flat-config",
+      "branch_tip": "fab23e7",
+      "pre_merge_sha": "1a684e5",
+      "merge_sha": "3cbfb9f372e49a00b871a061870c6c86f80120dc",
+      "merged_at": "2026-10-08T18:49:00Z",
+      "verification": {
+        "verify_issue": "PASS (run ffce5646, clean completion; 6/6 AC blocks verbatim incl. 2 orchestrator-fixed definer blocks bcb0280/7b1fc54, floors green, scope CLEAN; env gap: shared node_modules lacked typescript-eslint toolchain - verifier file-copied from builder worktree)",
+        "verify_pre_merge": "PASS (run 43249a1c, clean completion; 21/21 cumulative + 3/3 smoke on local merge 9213827, merge-tree dry-run rc=0 0 conflicts; MERGE VERDICT comment posted)",
+        "verify_post_merge": "PASS (run ed7b7fb4, clean completion; tsc + backend import rc=0 at run time, lint rc=1 at run time due to env gap - orchestrator diagnosed (shared node_modules missing ts-api-utils 2.5.0, shadowed by repo-root ts-api-utils 1.4.3) + fixed by file-copy, rerun 3/3 smoke green on merged tree; MERGE VERDICT comment posted)"
+      },
+      "post_merge_suite": {
+        "backend": "344 passed, 2 xfailed, exit 0",
+        "frontend": "267 passed / 30 files, exit 0",
+        "ruff": "0 errors",
+        "tsc": "clean",
+        "lint": "0 violations (eslint 9.39.5 flat config, after ts-api-utils env fix)"
+      },
+      "ac_hash": "sha256:c5530576aa9e73713bcb458c12e0748afaf61a9167a290005ab9778359f21ca7"
+    },
+    {
+      "issue_id": "t24",
+      "platform_issue": 79,
+      "branch": "issue/t24-sqlite-only-vs-pg",
+      "branch_tip": "44cef91",
+      "pre_merge_sha": "2c25ebf",
+      "merge_sha": "fb3c4c5d0249c1d802f9911fdaf70da6ec351888",
+      "merged_at": "2026-10-08T23:20:00Z",
+      "verification": {
+        "verify_issue": "PASS (run 6acf3e6a-definer-resume->486db230 verifier, 5/5 AC blocks verbatim, backend 347+2xf ruff clean, scope clean = Files list + handoff only, DoD 5/5, 3 new guard tests meaningful; definer timeout recovered via resume (WAL 125/126))",
+        "verify_pre_merge": "PASS (run 6900da10, 27/27 cumulative + 5/5 t24 AC + 3/3 smoke + backend 347+2xf ruff clean + frontend 30/267; merge-tree dry-run rc=0 0 conflicts; MERGE VERDICT comment posted)",
+        "verify_post_merge": "PASS (run f00d5310, 3/3 smoke at fb3c4c5; smoke 3 first attempt failed on 30-char spawn JWT_SECRET param defect - config guard JWT_SECRET_MIN_LENGTH=32 correct behavior, re-run with 34-char secret rc=0 per orchestrator decision B; MERGE VERDICT comment posted)"
+      },
+      "post_merge_suite": {
+        "backend": "347 passed, 2 xfailed, exit 0",
+        "frontend": "267 passed / 30 files, exit 0",
+        "ruff": "0 errors",
+        "tsc": "clean",
+        "lint": "0 violations"
+      },
+      "ac_hash": "sha256:1b04dbced0156fa10f65ddb855749404a4d7606849b05ba29a03b47a43edf6e6"
+    }
+  ]
 }

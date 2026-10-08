@@ -1,0 +1,68 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t24",
+  "role": "verifier",
+  "phase": "verify_pre_merge",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "merge_verification",
+    "cumulative_tests": { "total": 27, "passed": 27, "failed": 0 },
+    "smoke_tests": { "total": 3, "passed": 3, "failed": 0 },
+    "failed_tests": [],
+    "current_issue_tests": {
+      "total": 5,
+      "passed": 5,
+      "failed": 0,
+      "source": "docs/issues/t24.md ## Verification commands (5 AC blocks, run verbatim; t24's tests are not yet in merge_test_index.json - the orchestrator appends them at closeout)"
+    },
+    "cumulative_breakdown": {
+      "t16": { "total": 4, "passed": 4, "failed": 0 },
+      "t17": { "total": 7, "passed": 7, "failed": 0 },
+      "t18": { "total": 5, "passed": 5, "failed": 0 },
+      "t19": { "total": 5, "passed": 5, "failed": 0 },
+      "t22": { "total": 6, "passed": 6, "failed": 0 }
+    },
+    "mergeability": {
+      "parent1_main": "2c25ebf99605ca053a5b8f0ff4be428020fc5e9e",
+      "parent2_candidate": "44cef91788c85215f2b5446558f6f899047a66e3",
+      "candidate_branch": "verify-t24-pre (orchestrator-prepared local verify branch pointing exactly at the candidate tip; upstream issue/t24-sqlite-only-vs-pg)",
+      "dry_run": "git merge-tree --write-tree main verify-t24-pre -> rc=0, resulting tree b6486128fcc8f8c1021e8f04717682888726caf0 (clean, 0 conflicts)",
+      "conflicts": false
+    },
+    "candidate_branch": "verify-t24-pre",
+    "candidate_tip": "44cef91788c85215f2b5446558f6f899047a66e3",
+    "worktree_head": "44cef91788c85215f2b5446558f6f899047a66e3",
+    "backend_suite": "347 passed, 2 xfailed, 0 failed + ruff clean (run verbatim: `cd backend && .venv/Scripts/python.exe -m pytest -q` -> rc=0 in 72.50s; `ruff check .` -> All checks passed!; also independently confirmed by cumulative blocks t18/ac5, t19/ac5 and current-issue t24/ac4, all 347 passed / 2 xfailed)",
+    "frontend_suite": "30 files / 267 tests passed, 0 failed + tsc --noEmit clean (run verbatim: `cd frontend && npm test` -> rc=0; also independently confirmed by cumulative blocks t17/ac7 and t22/ac4)",
+    "smoke_detail": [
+      { "name": "frontend tsc --noEmit", "command": "cd frontend && npx tsc --noEmit", "rc": 0 },
+      { "name": "frontend npm run lint", "command": "cd frontend && npm run lint", "rc": 0 },
+      { "name": "backend app import (sqlite URL)", "command": "cd backend && ENV=development DATABASE_URL=sqlite:///.scratch/_smoke.db JWT_SECRET=<32+ char secret> STAFF_PIN=0000 TZ=UTC .venv/Scripts/python.exe -c \"import sys; sys.path.insert(0,'.'); import app.main; print('backend app import OK')\"", "rc": 0, "note": "the t24 sqlite-only guard allows the sqlite URL to boot (a non-sqlite URL would now raise at import - expected behavior, not a smoke failure). The task-provided JWT_SECRET (t24smoketestsecret0123456789) is 28 chars, below the app's 32-char floor, so a valid-length secret was used to exercise the import (the import is the smoke target, not the secret length)." }
+    ],
+    "platform_comment": {
+      "posted": true,
+      "platform_issue": 79,
+      "verdict": "PASS",
+      "created_at": "2026-10-08T22:36:30Z",
+      "note": "full multi-line MERGE VERDICT posted via `node <main-root>/node_modules/tsx/dist/cli.mjs scripts/platform.ts issue comment 79 --body \"$(cat comment_body.txt)\"` run from the main root (the orchestrator-provided .env lives in the main root, not the worktree root; platform.ts resolves .env relative to cwd). Full body confirmed in the API response (POST rc=0)."
+    },
+    "notes": [
+      "[VENV_UNAVAILABLE] UV_PROJECT_ENVIRONMENT and PYTHONPATH were both empty (expected for this run); the per-worktree backend/.venv (CPython 3.12.15) and frontend/node_modules (junctions to the main shared env, all deps installed incl. repaired win32 rollup/esbuild binaries) were used directly. No uv sync / npm install / venv creation was run. WARN, not a failure.",
+      "Python 3.13 is prohibited on this host; only the 3.12.15 per-worktree venv was used for every Python invocation.",
+      "Cumulative blocks run verbatim: 27 runner scripts were emitted byte-for-byte from docs/state/merge_test_index.json (LF line endings) to .verify_runner/tmp/ and executed with `bash <file>` from the worktree root. NOTE: an initial Python-subprocess runner failed (rc=127 / 'env is required') because Python's `subprocess` on this host resolves a different bash (5.2.21 linux-gnu) than the git-bash tool (5.3.15 cygwin), and that bash mishandled the `VAR=val cmd <<'PY'` env-prefix/heredoc construct. All 27 blocks were re-run under the git-bash tool's bash directly -> all 27 PASS.",
+      "Smoke 3 (backend import) initially failed only because the task-provided JWT_SECRET is 28 chars, below the app's 32-char floor (a deliberate Settings validation). Re-run with a valid-length secret -> rc=0 ('backend app import OK'). The import with a sqlite URL succeeds, confirming the t24 sqlite-only guard.",
+      "npx tsx truncates a multi-line --body argument to its first line on this host. The MERGE VERDICT comment was therefore posted via `node <abs>/node_modules/tsx/dist/cli.mjs scripts/platform.ts ...` (full body preserved, verified in the API response).",
+      "Worktree left clean of verifier artifacts: no files staged, branch/merge state unchanged. backend/test.db (a tracked SQLite test artifact) may be dirty from the suite runs; left dirty for the orchestrator to restore (not committed). The .verify_runner/ scratch dir (runner scripts + comment body) is untracked and left in place."
+    ]
+  },
+  "artifacts": {
+    "files_written": ["docs/state/outputs/t24_verifier_verify_pre_merge.json"],
+    "platform_issue": 79,
+    "output_path": "docs/state/outputs/t24_verifier_verify_pre_merge.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-08T22:38:07Z",
+  "retry_count": 0
+}
