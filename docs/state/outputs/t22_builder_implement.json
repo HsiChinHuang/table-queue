@@ -1,0 +1,80 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t22",
+  "role": "builder",
+  "phase": "implement",
+  "status": "COMPLETE",
+  "reached_state": "built",
+  "evidence": {
+    "evidence_type": "build",
+    "branch": "issue/t22-eslint-flat-config",
+    "branch_sha": "7d7bd0b77468367f2b829b7ae0ddbc9c109aaa8e",
+    "ac_mapping": {
+      "ac1": {
+        "commit": "7d7bd0b77468367f2b829b7ae0ddbc9c109aaa8e",
+        "test": "docs/issues/t22.md ## Verification commands, AC-1 bash block (frontend/eslint.config.js exists + npm run lint exits 0). Fresh run in the worktree printed: PASS AC-1: frontend/eslint.config.js exists and npm run lint exits 0 on a clean checkout (eslint 9 flat config, zero lint errors) (rc=0).",
+        "verdict": "PASS"
+      },
+      "ac2": {
+        "commit": "7d7bd0b77468367f2b829b7ae0ddbc9c109aaa8e",
+        "test": "docs/issues/t22.md ## Verification commands, AC-2 bash block (devDeps present + resolved config for src/main.tsx carries the react-hooks + typescript-eslint recommended rules), run with the block as fixed by orchestrator commit bcb0280 (see warnings). Fresh run printed: PASS AC-2: ruleset ships and is in effect - react-hooks + typescript-eslint recommended rules are enabled in the resolved config for frontend/src/main.tsx (rc=0).",
+        "verdict": "PASS"
+      },
+      "ac3": {
+        "commit": "7d7bd0b77468367f2b829b7ae0ddbc9c109aaa8e",
+        "test": "docs/issues/t22.md ## Verification commands, AC-3 bash block (negative control: planted any-typed violation in frontend/src reds npm run lint with no-explicit-any named, scratch file removed on both exit paths). Fresh run printed: PASS AC-3: negative control - a planted any-typed violation in frontend/src reds npm run lint (rc=1, no-explicit-any named), the ruleset actually fires (rc=0).",
+        "verdict": "PASS"
+      },
+      "ac4": {
+        "commit": "7d7bd0b77468367f2b829b7ae0ddbc9c109aaa8e",
+        "test": "docs/issues/t22.md ## Verification commands, AC-4 bash block (frontend floor: vitest >= 30 files / >= 267 tests / 0 failed + tsc --noEmit rc=0), run with the block as fixed by orchestrator commit 7b1fc54 (see warnings). Fresh run printed: PASS AC-4: frontend floor green - vitest 30 files / 267 tests passed (floor 30/267, 0 failed) + tsc --noEmit rc=0 (rc=0).",
+        "verdict": "PASS"
+      },
+      "ac5": {
+        "commit": "7d7bd0b77468367f2b829b7ae0ddbc9c109aaa8e",
+        "test": "docs/issues/t22.md ## Verification commands, AC-5 bash block (D-03 AC-6 section re-groomed: cites t22 as provenance, contains re-groom wording, asserts the now-green state which is true - npm run lint rc=0). Fresh run printed: PASS AC-5: the D-03 AC-6 inversion is retired - the closed file's AC-6 section cites t22 as the re-groom provenance and asserts the now-green state, which is true (npm run lint rc=0) (rc=0).",
+        "verdict": "PASS"
+      },
+      "ac6": {
+        "commit": "7d7bd0b77468367f2b829b7ae0ddbc9c109aaa8e",
+        "test": "docs/issues/t22.md ## Verification commands, AC-6 bash block (stays on eslint 9: 9.x devDep, shipped 'eslint .' script, zero legacy .eslintrc.* files, flat config at frontend/eslint.config.js). Fresh run printed: PASS AC-6: the fix stays on eslint 9 (9.x devDep, shipped \"eslint .\" script, zero legacy .eslintrc.* files, flat config at frontend/eslint.config.js) (rc=0).",
+        "verdict": "PASS"
+      }
+    },
+    "test_summary": {
+      "total": 267,
+      "passed": 267,
+      "failed": 0
+    },
+    "lint_status": "CLEAN",
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands",
+    "ac_run": "All 6 AC blocks run verbatim (extracted unmodified from the synced docs/issues/t22.md) at 2026-10-08T17:2xZ in the worktree: 6/6 PASS, rc=0 each. Floors: frontend vitest 30 files / 267 tests / 0 failed + tsc --noEmit rc=0 (AC-4); backend pytest 344 passed / 2 xfailed / 0 failed + ruff 'All checks passed!' (run via backend/.venv/Scripts/python.exe).",
+    "builder_measured_violations": "First lint run after authoring the config: 16 problems (15 errors + 1 warning) across 8 files - 6x no-unused-vars (_branchId, handled by the documented argsIgnorePattern override), 2x no-empty-object-type (Input/Label), 1x react-hooks/exhaustive-deps warning (ConfirmDialog), 1x stale eslint-disable import/first (StaffLayout.test), 6x no-explicit-any (waitlist-scale.test). All fixed in commit 7d7bd0b; final lint rc=0.",
+    "warnings": [
+      "AC-2 verification block defect (found by builder, fixed by orchestrator): the shipped block in the groomed docs/issues/t22.md could never pass - (a) line 159 wrote the print-config output to ../.scratch/_t22ac2_config.json (resolves to <root>/.scratch) while lines 162/169/184/187 read frontend/.scratch/_t22ac2_config.json (<root>/frontend/.scratch); (b) the rule-enabled check accepted only string severities (\"error\"/\"warn\") or bare 1/2, but eslint --print-config always emits numeric arrays ([2]/[1]), so the check could never be true. Verified empirically (block printed value: [2]/[1] for all three enabled rules). Orchestrator applied the 2-line fix to the authoritative file on main (commit bcb0280, WAL 107 REQ_MODIFIED) and synced it into the worktree byte-identical (sha256 c5530576aa9e73713bcb458c12e0748afaf61a9167a290005ab9778359f21ca7); the fixed t22.md is included in the final commit of this branch.",
+      "AC-4 verification block defect (found by builder, fixed by orchestrator): the shipped block's two measurement redirects ran inside ( cd frontend && ... > \"$out\" ) with out=frontend/.scratch/_t22ac4.out (root-relative), so the target resolved to frontend/frontend/.scratch/_t22ac4.out which the block never created - the redirect failed rc=1 and the block FAILed before measuring anything (verified empirically; the definer's base 'AC-4 PASS' measurement evidently came from running the floor commands directly). Orchestrator applied the correct fix (in-subshell redirects to \".scratch/_t22ac4.out\") on main (commit 7b1fc54) and synced it into the worktree byte-identical; included in the final commit of this branch.",
+      "npm install incident + environment repair: the first 'npm install -D typescript-eslint' crashed (lockfile generated on Linux vs Windows platform binaries; esbuild postinstall mismatch) and npm's rollback gutted the worktree's frontend/node_modules. Repaired with 'npm install -D typescript-eslint --ignore-scripts' + manual placement of the esbuild win32-x64 platform binary at the lock-pinned 0.25.12. The orchestrator additionally restored @rollup/rollup-win32-x64-msvc and the esbuild platform binary at lock-pinned versions (the agent's npm install had pruned/mismatched them) and ran the fixed AC-4 block verbatim: PASS. No further npm install was run. The committed package-lock.json reflects the typescript-eslint ^8.71.1 addition.",
+      "Config override (judgment call, spec-literal alternative recorded): frontend/eslint.config.js sets @typescript-eslint/no-unused-vars to [\"error\", {\"argsIgnorePattern\": \"^_\"}] because the 6 _branchId params in src/api/*.ts are an intentional API-shape convention (the param name mirrors the endpoint path); renaming them would change the public API surface for zero lint benefit. All other rules run at recommended defaults."
+    ]
+  },
+  "artifacts": {
+    "files_written": [
+      "frontend/eslint.config.js",
+      "frontend/package.json",
+      "frontend/package-lock.json",
+      "frontend/src/components/ConfirmDialog.tsx",
+      "frontend/src/components/ui/Input.tsx",
+      "frontend/src/components/ui/Label.tsx",
+      "frontend/src/layouts/StaffLayout.test.tsx",
+      "frontend/tests/unit/waitlist-scale.test.tsx",
+      "_docs/issues/closed/D-03.md",
+      "docs/state/outputs/t22_builder_implement.json"
+    ],
+    "platform_issue": 77,
+    "output_path": "docs/state/outputs/t22_builder_implement.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-08T17:36:00Z",
+  "retry_count": 0
+}
