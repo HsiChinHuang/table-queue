@@ -8,7 +8,11 @@
 // Resources / actions:
 //   issue create --title <t> --body <b> --labels <l1,l2>
 //   issue get <number>
-//   issue update <number> [--title <t>] [--body <b>] [--labels <l1,l2>]
+//   issue update <number> [--title <t>] [--body <b> | --body-file <path>] [--labels <l1,l2>]
+//     --body-file: read the body from a UTF-8 file. PREFERRED for long bodies:
+//     on Windows hosts, command-line args over ~8KB fail (CreateProcessA limit),
+//     and bodies starting with `--` (e.g. markdown frontmatter) are rejected
+//     by the flag parser. Use --body-file for groomed issue bodies.
 //   issue close <number>
 //   issue reopen <number>
 //   issue comment <number> --body <b>
@@ -569,7 +573,7 @@ function usage(): never {
   console.error('Resources / actions:');
   console.error('  issue create --title <t> --body <b> --labels <l1,l2>');
   console.error('  issue get <number>');
-  console.error('  issue update <number> [--title <t>] [--body <b>] [--labels <l1,l2>]');
+  console.error('  issue update <number> [--title <t>] [--body <b> | --body-file <path>] [--labels <l1,l2>]');
   console.error('  issue close <number>');
   console.error('  issue reopen <number>');
   console.error('  issue comment <number> --body <b>');
@@ -637,13 +641,25 @@ async function main(): Promise<void> {
         process.exit(2);
       }
       const title = flags['title'] ?? null;
-      const body = flags['body'] ?? null;
+      let body: string | null = flags['body'] ?? null;
+      if (flags['body-file'] !== undefined) {
+        if (body !== null) {
+          console.error('ERROR: use either --body or --body-file, not both');
+          process.exit(2);
+        }
+        const bodyPath = flags['body-file'];
+        if (!fs.existsSync(bodyPath)) {
+          console.error(`ERROR: --body-file path does not exist: ${bodyPath}`);
+          process.exit(2);
+        }
+        body = fs.readFileSync(bodyPath, 'utf8');
+      }
       const labelsRaw = flags['labels'];
       const labels = labelsRaw !== undefined
         ? labelsRaw.split(',').map((s) => s.trim()).filter(Boolean)
         : null;
       if (title === null && body === null && labels === null) {
-        console.error('ERROR: issue update requires at least one of --title, --body, --labels');
+        console.error('ERROR: issue update requires at least one of --title, --body, --body-file, --labels');
         process.exit(2);
       }
       const issue = await updateIssue(config, parseInt(num, 10), title, body, labels);
