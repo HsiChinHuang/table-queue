@@ -43,8 +43,9 @@ from typing import Any
 from uuid import UUID
 
 from pydantic import ValidationError
+from sqlalchemy.exc import OperationalError as SQLAlchemyOperationalError
 
-from app.errors import AppError
+from app.errors import STORE_BUSY_MESSAGE, AppError, is_store_busy
 from app.models import (
     Branch,
     CancelledReason,
@@ -426,24 +427,41 @@ def _sweep_expired(db: Any, now: datetime) -> None:
     answers a transition it does not own with a 409 rather than silently ignoring it), and the sweep
     must not read rows it will not write, because SQLite hands the write lock to the first write of
     a deferred transaction.
+
+    The sweep is a write on a read path (t19, AC-4), so it is made contention-safe rather than
+    moved: when a concurrent writer holds the store lock, the transition's commit parks for the
+    documented busy timeout and then fails with SQLite's "database is locked". That failure is the
+    typed 503 ``STORE_BUSY`` - the same contract outcome the error layer answers for the HTTP
+    write paths - never the raw ``OperationalError`` the 500 path (B-4) used to leak. The sweep is
+    request-driven and stays on the staff-list read: after the lock clears, the next read persists
+    the transition exactly as before.
     """
-    lapsed = (
-        db.query(WaitlistEntry)
-        .filter(
-            WaitlistEntry.branch_id == _branch_id(db),
-            WaitlistEntry.status == WaitlistStatus.CALLED,
+    try:
+        lapsed = (
+            db.query(WaitlistEntry)
+            .filter(
+                WaitlistEntry.branch_id == _branch_id(db),
+                WaitlistEntry.status == WaitlistStatus.CALLED,
+            )
+            .all()
         )
-        .all()
-    )
-    swept = False
-    for row in lapsed:
-        if guest_rules.remaining_seconds(row, now) is not None and (
-            guest_rules.remaining_seconds(row, now) <= 0
-        ):
-            guest_rules.apply_lazy_no_show(db, row, now)
-            swept = True
-    if swept:
-        db.commit()
+        swept = False
+        for row in lapsed:
+            if guest_rules.remaining_seconds(row, now) is not None and (
+                guest_rules.remaining_seconds(row, now) <= 0
+            ):
+                guest_rules.apply_lazy_no_show(db, row, now)
+                swept = True
+        if swept:
+            db.commit()
+    except SQLAlchemyOperationalError as exc:
+        if not is_store_busy(exc):
+            raise
+        # The lock is held by someone else: undo the half-made transition on this session and
+        # answer the contract outcome. The rows are untouched on disk - the commit never ran -
+        # so the next read after the lock clears sweeps them as usual.
+        _rollback_quietly(db)
+        raise AppError("STORE_BUSY", message=STORE_BUSY_MESSAGE) from exc
 
 
 def _branch_id(db: Any) -> int:

@@ -1,0 +1,72 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t19",
+  "role": "builder",
+  "phase": "implement",
+  "status": "COMPLETE",
+  "reached_state": "built",
+  "evidence": {
+    "evidence_type": "build",
+    "branch": "issue/t19-sqlite-contention",
+    "branch_sha": "945cd80",
+    "ac_mapping": {
+      "ac1": {
+        "commit": "945cd80",
+        "test": "docs/issues/t19.md ## Verification commands, AC-1 bash block (concurrent external writer probe: held BEGIN EXCLUSIVE, guest join + public board read under the lock, recovery after release). Fresh run in the worktree printed: PASS AC-1: concurrent external writer -> write answers the typed 503 + Retry-After + contract envelope, read 200-or-503, zero 500s, healthy after release (rc=0).",
+        "verdict": "PASS"
+      },
+      "ac2": {
+        "commit": "945cd80",
+        "test": "docs/issues/t19.md ## Verification commands, AC-2 bash block (measured arm: blocked write fails fast under the held lock; static arm: the busy-timeout binding in backend/app/database.py is a documented named value in 0.5..10s). Fresh run printed: PASS AC-2: the per-request busy timeout is a documented named value in 0.5..10s and a blocked write fails fast (< 15s park, not the legacy 30s) (rc=0).",
+        "verdict": "PASS"
+      },
+      "ac3": {
+        "commit": "945cd80",
+        "test": "docs/issues/t19.md ## Verification commands, AC-3 bash block (PRAGMA journal_mode on the app-created store). Fresh run printed: PASS AC-3: the app-created store runs in WAL journal mode (PRAGMA journal_mode = wal) (rc=0) - the WAL arm, not the documentation arm.",
+        "verdict": "PASS"
+      },
+      "ac4": {
+        "commit": "945cd80",
+        "test": "docs/issues/t19.md ## Verification commands, AC-4 bash block (service-level staff-list read under a held BEGIN EXCLUSIVE, then sweep persistence after release). Fresh run printed: PASS AC-4: staff-list read under held lock raises the typed 503 (or completes) - never the raw lock error; after release the lapsed CALLED row reads back NO_SHOW (rc=0).",
+        "verdict": "PASS"
+      },
+      "ac5": {
+        "commit": "945cd80",
+        "test": "docs/issues/t19.md ## Verification commands, AC-5 bash block (full backend suite + ruff). Fresh run printed: PASS AC-5: 344 passed, 2 xfailed, 0 failed + ruff clean (floor 340+ passed) (rc=0).",
+        "verdict": "PASS"
+      }
+    },
+    "test_summary": {
+      "total": 346,
+      "passed": 344,
+      "failed": 0
+    },
+    "lint_status": "CLEAN",
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands",
+    "ac_rerun_note": "All 5 verification commands were re-run fresh from the worktree root (git-bash) after the final code state was committed; each printed exactly one PASS AC-n: line and exited 0. The suite floor moved 340 -> 344 passed (4 new tests in backend/tests/test_sqlite_contention_t19.py), exactly 2 xfailed, 0 failed; ruff check . is clean.",
+    "warnings": [
+      "AC-3 was satisfied via the WAL arm (the issue allows WAL or the documented single-writer constraint): PRAGMA journal_mode=wal is enabled in a SQLAlchemy connect event listener in backend/app/database.py. The pragma is best-effort (sqlite3.Error suppressed at connect time) deliberately: raising from the connect event would, in this SQLAlchemy build, leak the DBAPI connection the pool never closes after a failed connect event, and on Windows the open handle keeps the file locked past the connection's death, which corrupts the test_log_hygiene.py restore and cascades suite failures. A non-database file still fails at the first statement with the same driver error through the normal 500 path, exactly as before WAL existed.",
+      "AC-4: the write-on-GET path (_sweep_expired in the staff-list read) was made contention-safe rather than moved: the sweep's commit is wrapped so that the SQLite busy/locked failure raises the typed 503 AppError STORE_BUSY (same contract outcome as the HTTP write paths) after rolling the session back, never the raw OperationalError. The sweep stays request-driven on the staff-list read; after the lock clears the next read persists the transition. The read path is probed at the service level (list_waitlist) per the definer's warning: the HTTP staff GET under a held lock answers 401 via the auth verifier's own database read (adjacent B-4 symptom, out of scope - the auth layer is not in the Files list).",
+      "The legacy literal 30s busy timeout in backend/app/database.py connect_args is replaced by the named constant SQLITE_BUSY_TIMEOUT = 5.0, documented at the binding site (0.5..10s window the issue names as reasonable); app/errors.py imports the same constant to size the Retry-After header it advertises on the 503 STORE_BUSY.",
+      "The 503 STORE_BUSY row was added to the _docs/specs.md section 11 error table (the ERROR_CODES loader picks it up); the openapi-side entry is logged under Inconsistencies deferred, the same deferral as INTERNAL_ERROR / NOT_FOUND / METHOD_NOT_ALLOWED (owned by platform issue #3).",
+      "The X-Request-ID correlation half of the audit item is out of scope here (owned by t26 / platform issue #81), per the definer handoff.",
+      "No existing test was modified or weakened: backend/tests/test_sqlite_contention_t19.py is a new additive file whose four tests mirror the AC-1..AC-4 probes one-for-one (subprocess probes against scratch databases) plus the AC-2 static arm in-process. The worktree's docs/issues/t19.md is a 27-line stub; the authoritative groomed issue (with the verification commands) was read from the main repo's uncommitted copy, which the definer synced to platform issue #74."
+    ]
+  },
+  "artifacts": {
+    "files_written": [
+      "_docs/specs.md",
+      "backend/app/database.py",
+      "backend/app/errors.py",
+      "backend/app/services/staff_waitlist.py",
+      "backend/tests/test_sqlite_contention_t19.py",
+      "docs/state/outputs/t19_builder_implement.json"
+    ],
+    "platform_issue": 74,
+    "output_path": "docs/state/outputs/t19_builder_implement.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-08T12:31:00Z",
+  "retry_count": 0
+}
