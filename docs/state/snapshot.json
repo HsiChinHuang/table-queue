@@ -1,13 +1,13 @@
 {
   "schema_version": "2.0",
-  "last_seq": 123,
+  "last_seq": 124,
   "updated_at": "2026-10-07T15:47:13.453Z",
   "slots": [
     {
       "slot": 0,
       "phase": "definer_groom",
-      "run_id": null,
-      "spawn_at": null,
+      "run_id": "773d6a15-823d-4865-bb87-3261dce32659",
+      "spawn_at": "2026-10-08T19:25:09Z",
       "worktree_path": null
     }
   ],
