@@ -1,13 +1,13 @@
 {
   "schema_version": "2.0",
-  "last_seq": 129,
+  "last_seq": 131,
   "updated_at": "2026-10-07T15:47:13.453Z",
   "slots": [
     {
       "slot": 0,
-      "phase": "builder_implement",
-      "run_id": "7af357fb-d1ed-4cb6-b985-04bf432a0f34",
-      "spawn_at": "2026-10-08T21:18:53Z",
+      "phase": "verifier_verify_issue",
+      "run_id": null,
+      "spawn_at": null,
       "worktree_path": ".worktrees/t24"
     }
   ],
