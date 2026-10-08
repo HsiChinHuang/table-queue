@@ -16,6 +16,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   vi.useRealTimers();
 });
 
@@ -57,5 +58,47 @@ describe('Countdown', () => {
   it('renders 00:00 immediately for a target in the past', () => {
     render(<Countdown targetTime={BASE - 1_000} />);
     expect(screen.getByText('00:00').className).toContain('text-error');
+  });
+
+  it('T17 AC-4: N>=3 concurrent Countdowns share exactly one 1 Hz interval and decrement independently', () => {
+    const onCompleteA = vi.fn();
+    const onCompleteB = vi.fn();
+    const onCompleteC = vi.fn();
+    const intervalSpy = vi.spyOn(globalThis, 'setInterval');
+    render(
+      <div>
+        <Countdown targetTime={BASE + 90_000} className="a" onComplete={onCompleteA} />
+        <Countdown targetTime={BASE + 45_000} className="b" onComplete={onCompleteB} />
+        <Countdown targetTime={BASE + 10_000} className="c" onComplete={onCompleteC} />
+      </div>,
+    );
+    // Three consumers, ONE shared interval at 1000 ms (the guest-status shape).
+    expect(intervalSpy).toHaveBeenCalledTimes(1);
+    expect(intervalSpy.mock.calls[0][1]).toBe(1000);
+    tick(1);
+    expect(screen.getByText('01:29')).toBeTruthy();
+    expect(screen.getByText('00:44')).toBeTruthy();
+    expect(screen.getByText('00:09')).toBeTruthy();
+    // C reaches zero first and fires its own onComplete exactly once; A and B
+    // keep ticking on the same shared interval.
+    tick(9);
+    expect(onCompleteC).toHaveBeenCalledTimes(1);
+    expect(onCompleteA).not.toHaveBeenCalled();
+    expect(onCompleteB).not.toHaveBeenCalled();
+    expect(screen.getByText('01:20')).toBeTruthy();
+    expect(screen.getByText('00:35')).toBeTruthy();
+    // B reaches zero at t=45s on the shared interval.
+    tick(35);
+    expect(onCompleteB).toHaveBeenCalledTimes(1);
+    expect(onCompleteA).not.toHaveBeenCalled();
+    expect(screen.getByText('00:45')).toBeTruthy();
+    // A reaches zero at t=90s; the shared ticker then dies with the last subscriber.
+    tick(45);
+    expect(onCompleteA).toHaveBeenCalledTimes(1);
+    expect(onCompleteA).toHaveBeenCalledTimes(1);
+    expect(onCompleteB).toHaveBeenCalledTimes(1);
+    expect(onCompleteC).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(intervalSpy).toHaveBeenCalledTimes(1);
   });
 });

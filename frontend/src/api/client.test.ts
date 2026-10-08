@@ -70,6 +70,37 @@ describe('auth header', () => {
     expect(calls[0].init.headers).toMatchObject({ Authorization: 'Bearer abc1239999' });
   });
 
+  it('T17 AC-2: short-circuits a known-expired token with AUTH_TOKEN_EXPIRED before fetch', async () => {
+    const fetchMock = stubFetch({ body: {} });
+    staffStore.setToken('expired-token');
+    staffStore.setExpiresAt(Date.now() - 1_000);
+    await expect(get('/staff/dashboard')).rejects.toMatchObject({
+      code: 'AUTH_TOKEN_EXPIRED',
+      statusCode: 401,
+    });
+    // No outbound request may ever carry the expired bearer.
+    expect(fetchMock).not.toHaveBeenCalled();
+    // The dead session is swept, not replayed.
+    expect(staffStore.token).toBeNull();
+    expect(staffStore.expiresAt).toBeNull();
+  });
+
+  it('T17 AC-2: sends a live token whose known expiry is in the future', async () => {
+    staffStore.setToken('live-token');
+    staffStore.setExpiresAt(Date.now() + 3_600_000);
+    stubFetch({ body: { ok: true } });
+    await get('/staff/dashboard');
+    expect(calls[0].init.headers).toMatchObject({ Authorization: 'Bearer live-token' });
+  });
+
+  it('T17 AC-2: sends a token with no known expiry (unknown is not expired)', async () => {
+    staffStore.setToken('no-expiry-token');
+    staffStore.setExpiresAt(null);
+    stubFetch({ body: { ok: true } });
+    await get('/staff/dashboard');
+    expect(calls[0].init.headers).toMatchObject({ Authorization: 'Bearer no-expiry-token' });
+  });
+
   it('omits the Authorization header when logged out', async () => {
     stubFetch({ body: {} });
     await get('/staff/dashboard');
@@ -159,7 +190,7 @@ describe('response handling', () => {
 
   it('clears the token and redirects on 401', async () => {
     // jsdom refuses real navigation, so replace window.location with a plain probe object.
-    const locationProbe: { href: string } = { href: '' };
+    const locationProbe = { pathname: '/staff/board', assign: vi.fn() };
     vi.stubGlobal('location', locationProbe);
     Object.defineProperty(window, 'location', { value: locationProbe, writable: true, configurable: true });
     staffStore.setToken('stale-token');
@@ -172,12 +203,29 @@ describe('response handling', () => {
       statusCode: 401,
     });
     expect(staffStore.token).toBeNull();
-    expect(locationProbe.href).toBe('/staff/login');
+    // T17 AC-3: the redirect is router-driven - location.assign(ROUTES.STAFF_LOGIN).
+    expect(locationProbe.assign).toHaveBeenCalledTimes(1);
+    expect(locationProbe.assign).toHaveBeenCalledWith('/staff/login');
     // T30: destroySession sweeps all four storage slots, not just one.
     expect(localStorage.getItem('staff-storage')).toBeNull();
     expect(sessionStorage.getItem('staff-storage')).toBeNull();
     expect(localStorage.getItem('tq_staff_token')).toBeNull();
     expect(sessionStorage.getItem('tq_staff_token')).toBeNull();
+  });
+
+  it('T17 AC-3: does not re-navigate on 401 when already on the login page', async () => {
+    const locationProbe = { pathname: '/staff/login', assign: vi.fn() };
+    vi.stubGlobal('location', locationProbe);
+    Object.defineProperty(window, 'location', { value: locationProbe, writable: true, configurable: true });
+    staffStore.setToken('stale-token');
+    stubFetch({ ok: false, status: 401, body: {} });
+    await expect(get('/staff/dashboard')).rejects.toMatchObject({
+      code: 'AUTH_TOKEN_EXPIRED',
+      statusCode: 401,
+    });
+    // Already on the login route: no navigation, but the session is still swept.
+    expect(locationProbe.assign).not.toHaveBeenCalled();
+    expect(staffStore.token).toBeNull();
   });
 
   it('maps a network failure to NETWORK_ERROR with status 0', async () => {

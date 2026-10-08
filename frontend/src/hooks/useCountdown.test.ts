@@ -42,6 +42,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   vi.useRealTimers();
 });
 
@@ -64,11 +65,12 @@ describe('useCountdown', () => {
     expect(remaining()).toBe('0');
   });
 
-  it('DEFECT DEF-F06-1: stop() is undone by the auto-start effect while the target is future', () => {
-    // Not the intent of stop(), but it is what the F-06 hook does: the auto-start effect
-    // (deps targetTime/start/isRunning) sees isRunning false and calls start() again, so a
-    // manual stop() on a future target immediately restarts the interval. Pinned as-is rather
-    // than silently patched - F-15 may not edit hooks/useCountdown.ts (F-06 owns it).
+  it('DEFECT DEF-F06-1 (re-pinned T17): stop() is undone by the auto-start effect while the target is future', () => {
+    // T17 replaced the per-instance interval with ONE shared 1 Hz ticker, but the
+    // auto-start effect (deps targetTime/start/isRunning) is unchanged: it sees
+    // isRunning false and calls start() again, so a manual stop() on a future target
+    // immediately re-subscribes to the shared ticker. The pinned semantics still hold
+    // under the new mechanism - kept, not silently patched.
     render(React.createElement(Harness, { target: BASE + 90_000 }));
     fireEvent.click(screen.getByText('stop'));
     tick(30);
@@ -120,7 +122,46 @@ describe('useCountdown', () => {
 
   it('clears its interval on unmount', () => {
     const { unmount } = render(React.createElement(Harness, { target: BASE + 90_000 }));
+    expect(vi.getTimerCount()).toBe(1); // the one shared ticker
     unmount();
-    expect(() => act(() => void vi.advanceTimersByTime(60_000))).not.toThrow();
+    expect(vi.getTimerCount()).toBe(0); // no interval left behind
+    expect(() => act(() => void vi.advanceTimersByTime(60_000))).not.toThrow(); // no post-unmount updates
+  });
+
+  it('T17 AC-4: drives N>=3 concurrent countdowns from exactly one shared 1 Hz interval', () => {
+    const intervalSpy = vi.spyOn(globalThis, 'setInterval');
+    const a = render(React.createElement(Harness, { target: BASE + 90_000 }));
+    const b = render(React.createElement(Harness, { target: BASE + 45_000 }));
+    const c = render(React.createElement(Harness, { target: BASE + 10_000 }));
+    // Three consumers, ONE interval, at 1000 ms.
+    expect(intervalSpy).toHaveBeenCalledTimes(1);
+    expect(intervalSpy.mock.calls[0][1]).toBe(1000);
+    tick(10);
+    // Each display decrements independently.
+    expect(a.container.querySelector('[data-testid="remaining"]')?.textContent).toBe('80');
+    expect(b.container.querySelector('[data-testid="remaining"]')?.textContent).toBe('35');
+    expect(c.container.querySelector('[data-testid="remaining"]')?.textContent).toBe('0');
+    // Unmounting consumers leaves the shared ticker alive for the rest, and the
+    // interval is never re-created.
+    a.unmount();
+    expect(vi.getTimerCount()).toBe(1);
+    b.unmount();
+    c.unmount();
+    expect(vi.getTimerCount()).toBe(0);
+    expect(intervalSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('T17 AC-4: each countdown fires its own onComplete exactly once at zero on the shared ticker', () => {
+    const onCompleteA = vi.fn();
+    const onCompleteB = vi.fn();
+    render(React.createElement(Harness, { target: BASE + 90_000, onComplete: onCompleteA }));
+    const b = render(React.createElement(Harness, { target: BASE + 10_000, onComplete: onCompleteB }));
+    tick(10); // b reaches zero first; a keeps ticking
+    expect(onCompleteB).toHaveBeenCalledTimes(1);
+    expect(onCompleteA).not.toHaveBeenCalled();
+    tick(80); // a reaches zero on the same shared ticker
+    expect(onCompleteA).toHaveBeenCalledTimes(1);
+    expect(onCompleteB).toHaveBeenCalledTimes(1);
+    b.unmount();
   });
 });

@@ -4,8 +4,8 @@
  * for a CALLED entry with a target time, the wait-minutes line for other statuses, the note
  * line, and every callback prop firing.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { WaitlistCard } from './WaitlistCard';
 
 const entry = {
@@ -22,7 +22,22 @@ const entry = {
 const withStatus = (status: 'WAITING' | 'CALLED' | 'NO_SHOW', extra: Record<string, unknown> = {}) =>
   ({ ...entry, status, ...extra }) as never;
 
-afterEach(cleanup);
+const BASE = 1_700_000_000_000;
+
+// T17: fake timers across the file make the shared 1 Hz ticker deterministic
+// (CALLED cards render a live Countdown, which subscribes to it).
+beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(BASE);
+});
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+});
+
+const tick = (seconds: number) => act(() => void vi.advanceTimersByTime(seconds * 1000));
 
 const click = (label: string) => fireEvent.click(screen.getByLabelText(label));
 const present = (text: string) => screen.queryByText(text) !== null;
@@ -97,6 +112,50 @@ describe('action set per status', () => {
   it('hides every action when no callback is passed', () => {
     render(<WaitlistCard entry={withStatus('WAITING')} />);
     expect(screen.queryAllByRole('button').length).toBe(0);
+  });
+});
+
+describe('T17 shared ticker fan-out', () => {
+  it('renders N>=3 CALLED cards from ONE shared interval; each decrements 1 s per 1000 ms', () => {
+    const intervalSpy = vi.spyOn(globalThis, 'setInterval');
+    const called = (id: string, queueNumber: string, targetTime: number) =>
+      ({ ...entry, id, queueNumber, status: 'CALLED' as const, targetTime }) as never;
+    render(
+      <div>
+        <WaitlistCard entry={called('c1', 'A001', BASE + 90_000)} />
+        <WaitlistCard entry={called('c2', 'A002', BASE + 60_000)} />
+        <WaitlistCard entry={called('c3', 'A003', BASE + 30_000)} />
+      </div>,
+    );
+    // The staff-list fan-out: three live countdowns, ONE shared interval at 1000 ms.
+    expect(intervalSpy).toHaveBeenCalledTimes(1);
+    expect(intervalSpy.mock.calls[0][1]).toBe(1000);
+    tick(1);
+    expect(screen.getByText('01:29')).toBeTruthy();
+    expect(screen.getByText('00:59')).toBeTruthy();
+    expect(screen.getByText('00:29')).toBeTruthy();
+    tick(29);
+    expect(screen.getByText('01:00')).toBeTruthy();
+    expect(screen.getByText('00:30')).toBeTruthy();
+    expect(screen.getAllByText('00:00').length).toBe(1); // A003 reached zero
+    tick(30);
+    expect(screen.getByText('00:30')).toBeTruthy();
+    expect(screen.getAllByText('00:00').length).toBe(2); // A002 reached zero too
+  });
+
+  it('unmounting every card leaves no interval behind', () => {
+    const called = (id: string, queueNumber: string, targetTime: number) =>
+      ({ ...entry, id, queueNumber, status: 'CALLED' as const, targetTime }) as never;
+    const { unmount } = render(
+      <div>
+        <WaitlistCard entry={called('c1', 'A001', BASE + 60_000)} />
+        <WaitlistCard entry={called('c2', 'A002', BASE + 45_000)} />
+      </div>,
+    );
+    expect(vi.getTimerCount()).toBe(1);
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
+    expect(() => tick(60)).not.toThrow(); // no post-unmount updates
   });
 });
 

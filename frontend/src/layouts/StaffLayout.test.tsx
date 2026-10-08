@@ -12,15 +12,24 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 
 const { destroySession } = vi.hoisted(() => ({ destroySession: vi.fn() }));
-let session: { token: string | null } = { token: 'tok-12345678' };
+let session: { token: string | null; expiresAt: number | null } = {
+  token: 'tok-12345678',
+  expiresAt: null,
+};
 
 vi.mock('@/stores/staffStore', () => ({
   destroySession,
+  // Real predicate (mirrors the store's export) so the layout's own expiry check
+  // is exercised; the watcher/rehydrate guard that live in the real module are out
+  // of scope here - this file pins the layout's redirect decision.
+  isSessionExpired: (s: { token: string | null; expiresAt: number | null }) =>
+    s.token !== null && s.expiresAt !== null && Date.now() >= s.expiresAt,
 }));
 
 vi.mock('@/api/staffStore', () => ({
   useStaffStore: () => ({
     token: session.token,
+    expiresAt: session.expiresAt,
   }),
 }));
 
@@ -49,13 +58,13 @@ function renderAt(path: string) {
 afterEach(() => {
   cleanup();
   destroySession.mockClear();
-  session = { token: 'tok-12345678' };
+  session = { token: 'tok-12345678', expiresAt: null };
   vi.unstubAllEnvs();
 });
 
 describe('auth guard', () => {
   it('redirects an anonymous visitor to the login screen', () => {
-    session = { token: null };
+    session = { token: null, expiresAt: null };
     renderAt('/staff/board');
     expect(screen.getByText('LOGIN SCREEN')).toBeTruthy();
     expect(screen.queryByTestId('outlet')).toBeNull();
@@ -67,8 +76,28 @@ describe('auth guard', () => {
     expect(screen.queryByText('LOGIN SCREEN')).toBeNull();
   });
 
+  it('T17: renders the child for a token with a future known expiry', () => {
+    session = { token: 'tok-12345678', expiresAt: Date.now() + 3_600_000 };
+    renderAt('/staff/board');
+    expect(screen.getByTestId('outlet').textContent).toBe('STAFF CHILD');
+    expect(screen.queryByText('LOGIN SCREEN')).toBeNull();
+  });
+
+  it('T17: treats a token whose known expiry has passed as logged out (redirect)', () => {
+    session = { token: 'tok-12345678', expiresAt: Date.now() - 1_000 };
+    renderAt('/staff/board');
+    expect(screen.getByText('LOGIN SCREEN')).toBeTruthy();
+    expect(screen.queryByTestId('outlet')).toBeNull();
+  });
+
+  it('T17: keeps the login route reachable for an expired token', () => {
+    session = { token: 'tok-12345678', expiresAt: Date.now() - 1_000 };
+    renderAt('/staff/login');
+    expect(screen.getByText('LOGIN SCREEN')).toBeTruthy();
+  });
+
   it('leaves the login route itself reachable without a token', () => {
-    session = { token: null };
+    session = { token: null, expiresAt: null };
     renderAt('/staff/login');
     expect(screen.getByText('LOGIN SCREEN')).toBeTruthy();
   });

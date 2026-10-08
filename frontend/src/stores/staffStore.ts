@@ -20,7 +20,12 @@ const STORAGE_KEY = 'staff-storage';
 const LEGACY_RAW_KEY = 'tq_staff_token';
 
 /** The shape the persist middleware serialises (see `partialize` below). */
-type PersistedState = { token: string | null; soundEnabled: boolean };
+type PersistedState = {
+  token: string | null;
+  /** T17 AC-1: epoch ms when the token expires; null when no expiry is known. */
+  expiresAt: number | null;
+  soundEnabled: boolean;
+};
 
 // remember-me preference. Module-level (not in the persisted state) because the
 // storage adapter must read it synchronously on every write, including during the
@@ -74,8 +79,12 @@ const dynamicStorage: PersistStorage<PersistedState> = {
 
 export interface StaffStore {
   token: string | null;
+  /** T17 AC-1: epoch ms when the token expires; null when no expiry is known. */
+  expiresAt: number | null;
   soundEnabled: boolean;
   setToken: (token: string | null) => void;
+  /** T17: set the token's expiry (epoch ms) alongside the token. */
+  setExpiresAt: (expiresAt: number | null) => void;
   /** T30: set the token AND the remember-me preference in one write. */
   setSession: (token: string, remember: boolean) => void;
   logout: () => void;
@@ -84,30 +93,80 @@ export interface StaffStore {
   setSoundEnabled: (enabled: boolean) => void;
 }
 
+/**
+ * T17 AC-1: true when a token is present, its expiry is KNOWN, and that expiry is
+ * at or before now. Unknown expiry (null) is NOT treated as expired - the backend
+ * always issues a bounded lifetime, but a null here must not log staff out.
+ */
+export function isSessionExpired(state: { token: string | null; expiresAt: number | null }): boolean {
+  return state.token !== null && state.expiresAt !== null && Date.now() >= state.expiresAt;
+}
+
 export const staffStore = create<StaffStore>()(
   persist(
     (set) => ({
       token: null,
+      expiresAt: null,
       soundEnabled: true,
       setToken: (token) => set({ token }),
+      setExpiresAt: (expiresAt) => set({ expiresAt }),
       setSession: (token, remember) => {
         rememberMe = remember;
         set({ token });
       },
-      logout: () => set({ token: null }),
-      clearToken: () => set({ token: null }),
+      // T17 AC-1: logout nulls the expiry together with the token.
+      logout: () => set({ token: null, expiresAt: null }),
+      clearToken: () => set({ token: null, expiresAt: null }),
       setSoundEnabled: (enabled) => set({ soundEnabled: enabled }),
     }),
     {
       name: STORAGE_KEY,
       storage: dynamicStorage,
+      // T17 AC-1: the persisted envelope carries expiresAt so a reload rehydrates
+      // the full session (token + expiry), not a bare token.
       partialize: (state): PersistedState => ({
         token: state.token,
+        expiresAt: state.expiresAt,
         soundEnabled: state.soundEnabled,
       }),
+      // T17 AC-1 (hydrated guard): if rehydration restores an already-expired
+      // session, treat it as logged out BEFORE any staff UI renders - the full
+      // destroySession sweep runs (token null + all four slots emptied).
+      onRehydrateStorage: () => (state) => {
+        if (state && isSessionExpired(state)) {
+          destroySession();
+        }
+      },
     }
   )
 );
+
+// T17 AC-1 (expiry timer): while a session is live, a single watcher is armed at
+// expiresAt and performs the same destroySession sweep (no network call) when the
+// deadline passes. The watcher re-arms on every token/expiry change; it never arms
+// for a token without a known expiry or for one that is already expired.
+if (typeof window !== 'undefined') {
+  let expiryTimer: ReturnType<typeof setTimeout> | null = null;
+  const armExpiryWatch = (state: Pick<StaffStore, 'token' | 'expiresAt'>) => {
+    if (expiryTimer) {
+      clearTimeout(expiryTimer);
+      expiryTimer = null;
+    }
+    const { token, expiresAt } = state;
+    if (!token || expiresAt === null || expiresAt <= Date.now()) return;
+    const delay = Math.min(expiresAt - Date.now(), 2_147_483_647); // setTimeout cap
+    expiryTimer = setTimeout(() => {
+      expiryTimer = null;
+      const current = staffStore.getState();
+      if (isSessionExpired(current)) destroySession();
+    }, delay);
+  };
+  staffStore.subscribe((state, prev) => {
+    if (state.token !== prev.token || state.expiresAt !== prev.expiresAt) {
+      armExpiryWatch(state);
+    }
+  });
+}
 
 /**
  * T30: a real logout. Sweeps ALL four storage slots (both storages x both keys) plus
@@ -121,7 +180,8 @@ export function destroySession(): void {
     window.localStorage.removeItem(STORAGE_KEY);
     window.sessionStorage.removeItem(STORAGE_KEY);
   }
-  // Null the in-memory token. (The wrapped setState re-persists, but the token-less
-  // envelope is dropped by the storage adapter, so no slot is recreated.)
-  staffStore.setState({ token: null });
+  // Null the in-memory token AND its expiry. (The wrapped setState re-persists, but
+  // the token-less envelope is dropped by the storage adapter, so no slot is
+  // recreated.) T17 AC-1: the expiry dies with the token.
+  staffStore.setState({ token: null, expiresAt: null });
 }

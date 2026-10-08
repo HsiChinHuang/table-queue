@@ -1,16 +1,21 @@
 import { Outlet, Navigate, Link, useLocation } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
 import { useStaffStore } from '@/api/staffStore';
-import { destroySession } from '@/stores/staffStore';
+import { destroySession, isSessionExpired } from '@/stores/staffStore';
 import DevBadge from '@/components/DevBadge';
 import { ROUTES } from '@/routes';
 
 function StaffLayout() {
-  const { token } = useStaffStore();
+  const { token, expiresAt } = useStaffStore();
   const location = useLocation();
 
-  // Redirect to login if no token (except on login page itself)
-  if (!token && location.pathname !== ROUTES.STAFF_LOGIN) {
+  // Redirect to login if no token (except on login page itself).
+  // T17 AC-1: a token whose KNOWN expiry has already passed is the same as no
+  // token - an expired session never renders the staff area. (The store's own
+  // watcher + rehydration guard run the destroySession sweep; this check keeps
+  // the guard honest even in the frame before that sweep lands.)
+  const expired = token !== null && isSessionExpired({ token, expiresAt });
+  if ((!token || expired) && location.pathname !== ROUTES.STAFF_LOGIN) {
     return <Navigate to={ROUTES.STAFF_LOGIN} replace />;
   }
 
