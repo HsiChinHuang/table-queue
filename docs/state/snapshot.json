@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "last_seq": 93,
+  "last_seq": 94,
   "updated_at": "2026-10-07T15:47:13.453Z",
   "slots": [
     {
@@ -8,8 +8,8 @@
       "issue_id": "t19",
       "role": "verifier",
       "phase": "verify_issue",
-      "run_id": null,
-      "spawn_at": null,
+      "run_id": "cf5dcb03-cb40-4ef2-9f01-26db44819618",
+      "spawn_at": "2026-10-08T12:35:23Z",
       "last_activity_at": null,
       "worktree_path": "C:/Users/tw097/Desktop/261003_ai_test/table-queue/.worktrees/t19",
       "retry_count": 0
