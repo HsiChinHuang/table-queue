@@ -1,0 +1,58 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t22",
+  "role": "verifier",
+  "phase": "verify_post_merge",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "merge_verification",
+    "smoke_tests": {
+      "total": 3,
+      "passed": 2,
+      "failed": 1
+    },
+    "merge_sha": "3cbfb9f",
+    "regressions_detected": [],
+    "smoke_detail": [
+      {
+        "name": "frontend tsc --noEmit",
+        "command": "cd frontend && npx tsc --noEmit",
+        "rc": 0
+      },
+      {
+        "name": "frontend npm run lint",
+        "command": "cd frontend && npm run lint",
+        "rc": 1,
+        "note": "Environment issue: typescript-eslint 8.71.1 parser fails with 'tsutils.iterateComments is not a function' on all 83 files. Same error reproduced in main repo root. Not a merge regression."
+      },
+      {
+        "name": "backend app import",
+        "command": "cd backend && ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=<32+char secret> STAFF_PIN=0000 TZ=UTC .venv/Scripts/python.exe -c \"import sys; sys.path.insert(0,'.'); import app.main; print('backend app import OK')\"",
+        "rc": 0
+      }
+    ],
+    "platform_comment": {
+      "posted": true,
+      "platform_issue": 77,
+      "verdict": "PASS",
+      "created_at": "2026-10-08T18:57:24Z",
+      "note": "Posted via `node node_modules/tsx/dist/cli.mjs scripts/platform.ts issue comment 77 --body ...` (npx tsx truncates multi-line --body on this host). Verified via `issue latest-comment 77`."
+    },
+    "notes": [
+      "[VENV_UNAVAILABLE] UV_PROJECT_ENVIRONMENT and PYTHONPATH were both empty (expected for this run); per-worktree backend/.venv (CPython 3.12.15) used directly. WARN, not a failure.",
+      "Smoke 2 (frontend lint) failed due to a pre-existing environment issue: typescript-eslint 8.71.1 is incompatible with TypeScript 5.4.5 on this host (tsutils.iterateComments is not a function). The same error is reproduced in the main repo root, confirming it is not caused by the merge. No code regression detected.",
+      "Smoke 3 (backend import) required a 32+ character JWT_SECRET (the app enforces minimum length by design). Used a compliant dev secret; import succeeded.",
+      "Worktree left clean: git status shows no modified/untracked files. No test.db was created by the import smoke (SQLite in-memory or file not persisted)."
+    ]
+  },
+  "artifacts": {
+    "files_written": ["docs/state/outputs/t22_verifier_verify_post_merge.json"],
+    "platform_issue": 77,
+    "output_path": "docs/state/outputs/t22_verifier_verify_post_merge.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-08T18:57:33Z",
+  "retry_count": 0
+}
