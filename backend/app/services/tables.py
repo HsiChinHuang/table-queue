@@ -133,15 +133,34 @@ def list_tables(db: Any, include_inactive: bool = False) -> list[Table]:
 # ---------------------------------------------------------------------------
 
 
-def _reject() -> AppError:
+def _reject(details: dict[str, Any] | None = None) -> AppError:
     """Return the 422 a body outside the shipped bounds has to be answered with.
 
     A factory rather than nine literal calls: ``app/errors.py`` takes ``message`` and
     ``status_code`` as keyword-only arguments, and a throwaway that passed the message
     positionally raised ``TypeError`` inside the handler, which surfaced as a 500
     ``INTERNAL_ERROR`` instead of the envelope. One call site gets that wrong at most once.
+
+    ``details`` is the ``error.details`` the rejection carries (t18 AC-3): a service-level
+    bound that raises it answers the same flat ``field -> message`` map the schema-level
+    422 does, so the two 422 families are indistinguishable in shape.
     """
-    return AppError("VALIDATION_ERROR", status_code=422, message="Field validation failed")
+    return AppError(
+        "VALIDATION_ERROR", status_code=422, message="Field validation failed", details=details
+    )
+
+
+def _reject_field(field: str, message: str) -> AppError:
+    """Return the 422 a service-level field rejection answers with, naming the field.
+
+    The map it builds - ``details.fields`` as a ``field -> message`` dictionary - is the
+    exact shape ``app/errors.py::_validation_details`` builds for a schema-level
+    rejection, which is the parity the audit asks for (t18 AC-3): the PATCH schema
+    declares no bounds of its own, so a service-level rejection is where a field the
+    create schema prices can still be refused, and it must read exactly like the
+    schema-level one.
+    """
+    return _reject(details={"fields": {field: message}})
 
 
 def _reject_label(label: Any) -> bool:
@@ -157,11 +176,25 @@ def _reject_capacity(capacity: Any) -> bool:
     ``isinstance`` also refuses a ``bool`` spelled as JSON ``true``: the shipped schema
     would coerce it to a capacity of 1, and the route is the only place left that can say
     a capacity is a whole number.
+
+    Each rejection names ``capacity`` in ``details.fields`` (t18 AC-3) with a
+    pydantic-shaped message, so a service-level 422 for an out-of-range capacity is
+    indistinguishable in shape from the schema-level one the create path answers.
     """
-    if not isinstance(capacity, int) or isinstance(capacity, bool) or not (
-        CAPACITY_MIN <= capacity <= CAPACITY_MAX
-    ):
-        raise _reject()
+    if not isinstance(capacity, int) or isinstance(capacity, bool):
+        raise _reject_field("capacity", "Input should be a valid integer")
+    if capacity < CAPACITY_MIN:
+        raise _reject_field(
+            "capacity",
+            f"Input should be greater than or equal to {CAPACITY_MIN} "
+            f"(ge={CAPACITY_MIN}, le={CAPACITY_MAX})",
+        )
+    if capacity > CAPACITY_MAX:
+        raise _reject_field(
+            "capacity",
+            f"Input should be less than or equal to {CAPACITY_MAX} "
+            f"(ge={CAPACITY_MIN}, le={CAPACITY_MAX})",
+        )
     return True
 
 

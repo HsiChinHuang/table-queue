@@ -660,17 +660,26 @@ def test_no_new_endpoints(client, dev_env) -> None:
 
 
 def _fastapi_not_found(answer) -> bool:
-    """Whether ``answer`` carries FastAPI's own unroutable ``{"detail":"Not Found"}`` body.
+    """Whether ``answer`` is the framework-level unroutable 404, not a domain one.
 
     The sentinel AC-10's block uses, factored out because two probes here read it and a 404 from a
-    real handler (a not-found envelope, for instance) is not the same fact at all.
+    real handler (a not-found envelope, for instance) is not the same fact at all. Before t18 the
+    framework rendered ``{"detail": "Not Found"}`` for an unroutable path, which is how the two
+    kinds were told apart. t18 moved the router-level refusal into the contract envelope, so the
+    unroutable 404 now carries the code ``NOT_FOUND``; both signatures are accepted. The
+    distinction is unchanged - a route that GREW into a domain handler answers 404 with a domain
+    code (``TABLE_NOT_FOUND`` / ``WAITLIST_NOT_FOUND`` / ``BRANCH_NOT_FOUND``...), never
+    ``NOT_FOUND``, so the sentinel still tells an unroutable path apart from a real one.
     """
     if answer.status_code != 404 or answer.text[:1] != "{":
         return False
     try:
-        return answer.json().get("detail") == "Not Found"
+        body = answer.json()
     except Exception:  # pragma: no cover - a malformed 404 body is not the router's sentinel
         return False
+    if body.get("detail") == "Not Found":
+        return True
+    return isinstance(body.get("error"), dict) and body["error"].get("code") == "NOT_FOUND"
 
 
 AC1_OPERATION_ID_MESSAGE = (
