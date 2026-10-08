@@ -1,0 +1,57 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t18",
+  "role": "verifier",
+  "phase": "verify_pre_merge",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "merge_verification",
+    "cumulative_tests": { "total": 11, "passed": 11, "failed": 0 },
+    "smoke_tests": { "total": 3, "passed": 3, "failed": 0 },
+    "failed_tests": [],
+    "mergeability": {
+      "mergeable": true,
+      "method": "git merge-tree --write-tree main HEAD (dry run, no merge performed)",
+      "candidate_head": "cae82a1e02f91d21c0e4868a74929ef70fccffc1",
+      "candidate_branch": "issue/t18-response-envelope",
+      "main_head": "461ffc6a1cf356b41205933740aec440e90f29d2",
+      "merge_base": "5d712be8ef894c2c8ed163e859015f9fa1d51918",
+      "result_tree": "de0c2bd5fb0c054daf81b05da7493ad42f641bc9",
+      "conflicts": []
+    },
+    "cumulative_details": [
+      { "test": "t16 ac1", "rc": 0, "verdict": "PASS AC-1: 404 trio STOPPED (no frontend references to /public/board, /staff/login, /staff/pin/change)" },
+      { "test": "t16 ac2", "rc": 0, "verdict": "PASS AC-2: POST waitlist + POST seat 422 resolve to error envelope in openapi.yaml; specs.md documents the 422 VALIDATION_ERROR envelope" },
+      { "test": "t16 ac3", "rc": 0, "verdict": "PASS AC-3: Close-Day is a documented, served endpoint: POST /api/v1/staff/waitlist/close-day" },
+      { "test": "t16 ac4", "rc": 0, "verdict": "PASS AC-4: sweep test references all three legacy fragments + 422 envelope + Close-Day and passes (10 passed)" },
+      { "test": "t17 ac1", "rc": 0, "verdict": "PASS AC-1: Test Files 2 passed - expiresAt stored with token; hydrated guard + expiry timer -> destroySession" },
+      { "test": "t17 ac2", "rc": 0, "verdict": "PASS AC-2: Test Files 1 passed - request() refuses to send a known-expired bearer" },
+      { "test": "t17 ac3", "rc": 0, "verdict": "PASS AC-3: Test Files 1 passed - 401 redirect via ROUTES.STAFF_LOGIN + location.assign with already-on-login guard" },
+      { "test": "t17 ac4", "rc": 0, "verdict": "PASS AC-4: Test Files 3 passed - ONE shared 1Hz ticker (1 interval); WaitlistCard fan-out preserved" },
+      { "test": "t17 ac5", "rc": 0, "verdict": "PASS AC-5: Test Files 1 passed - SoundToggle reuses one lazily-created AudioContext, closes on teardown" },
+      { "test": "t17 ac6", "rc": 0, "verdict": "PASS AC-6: Test Files 1 passed - useConnection.resetFailure timeout tracked + cleared on unmount" },
+      { "test": "t17 ac7", "rc": 0, "verdict": "PASS AC-7: Test Files 30 passed / Tests 267 passed - full suite green, tsc --noEmit clean, no skipped/only tests" }
+    ],
+    "smoke_details": [
+      { "test": "full backend pytest (cd backend && .venv/Scripts/python.exe -m pytest tests -q -p no:randomly)", "rc": 0, "summary": "340 passed, 2 xfailed, 3 warnings in 48.58s" },
+      { "test": "full frontend vitest (cd frontend && npx vitest run)", "rc": 0, "summary": "Test Files 30 passed (30); Tests 267 passed (267); Duration 3.63s" },
+      { "test": "npx tsc --noEmit (cd frontend)", "rc": 0, "summary": "clean (no output)" }
+    ],
+    "warnings": [
+      "[VENV_UNAVAILABLE] UV_PROJECT_ENVIRONMENT and PYTHONPATH were empty in the verifier shell. No practical impact: none of the 11 cumulative commands or the 3 smokes use `uv run`; all gate on backend/.venv/Scripts/python.exe (CPython 3.12.15) or npx.",
+      "Worktree is DETACHED at the candidate tip cae82a1 (== branch issue/t18-response-envelope); `git branch --show-current` is empty. Verified HEAD == branch tip, satisfying the candidate-branch intent (spec Step 2 assumes a checked-out branch).",
+      "Step 6 platform comment could NOT be posted: the worktree has no .env (only .env.example); scripts/platform.ts loadEnvFile('.env') uses a relative path and exited 1 with 'ERROR: .env not found at .env'. The main repo (which has .env) must not be touched per task. The PASS verdict is recorded in this handoff instead.",
+      "The bash tool's default CWD was the main repo root; all operations were performed after cd into the worktree (pwd verified == worktree path)."
+    ]
+  },
+  "artifacts": {
+    "files_written": [],
+    "platform_issue": 73,
+    "output_path": "docs/state/outputs/t18_verifier_verify_pre_merge.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-08T07:36:01Z",
+  "retry_count": 0
+}

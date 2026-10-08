@@ -40,6 +40,26 @@
     "tsc": "exit 0"
    },
    "ac_hash": "sha256:f48c1b826af6fbdc7e9a89b7dd36902b99401cd42f143732183291d29be93061"
+  },
+  {
+   "issue_id": "t18",
+   "platform_issue": 73,
+   "branch": "issue/t18-response-envelope",
+   "branch_tip": "cae82a1",
+   "pre_merge_sha": "461ffc6",
+   "merge_sha": "df1b5fa48ee77440240c60c1a88de96c8d2a15a1",
+   "merged_at": "2026-10-08T07:41:07Z",
+   "verification": {
+    "verify_issue": "PASS (run 6d5f615f; WARN-1 sentinel intent preserved; comment on #73 2026-10-08T06:36:50Z)",
+    "verify_pre_merge": "PASS (run 05b4e23a; cumulative 11/11 + smoke 3/3; orchestrator posted comment 2026-10-08T07:40:38Z after worktree .env miss)",
+    "verify_post_merge": "PASS (run 975e766a; cumulative 11/11 + smoke 3/3; no regressions; HEAD==merge_sha)"
+   },
+   "post_merge_suite": {
+    "backend": "340 passed, 2 xfailed, exit 0",
+    "frontend": "30 files / 267 tests, exit 0",
+    "tsc": "exit 0"
+   },
+   "ac_hash": "sha256:a0663c652260247a517aed7819e6606018c49b7e7f16baec6e54a1df075fa835"
   }
  ]
 }

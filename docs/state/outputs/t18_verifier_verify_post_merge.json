@@ -1,0 +1,53 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t18",
+  "role": "verifier",
+  "phase": "verify_post_merge",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "merge_verification",
+    "smoke_tests": {
+      "total": 3,
+      "passed": 3,
+      "failed": 0
+    },
+    "merge_sha": "df1b5fa48ee77440240c60c1a88de96c8d2a15a1",
+    "regressions_detected": [],
+    "cumulative_commands": {
+      "total": 11,
+      "passed": 11,
+      "failed": 0,
+      "details": [
+        { "id": "t16/ac1", "result": "PASS" },
+        { "id": "t16/ac2", "result": "PASS" },
+        { "id": "t16/ac3", "result": "PASS" },
+        { "id": "t16/ac4", "result": "PASS" },
+        { "id": "t17/ac1", "result": "PASS" },
+        { "id": "t17/ac2", "result": "PASS" },
+        { "id": "t17/ac3", "result": "PASS" },
+        { "id": "t17/ac4", "result": "PASS" },
+        { "id": "t17/ac5", "result": "PASS" },
+        { "id": "t17/ac6", "result": "PASS" },
+        { "id": "t17/ac7", "result": "PASS" }
+      ]
+    },
+    "smoke_details": [
+      { "command": "cd backend && uv run pytest tests -q -p no:randomly", "result": "340 passed, 2 xfailed (exit 0)" },
+      { "command": "cd frontend && npx vitest run", "result": "30 files / 267 tests passed (exit 0)" },
+      { "command": "cd frontend && npx tsc --noEmit", "result": "exit 0 (no output)" }
+    ],
+    "warnings": [
+      "[WARN-NO_ENV_COMMENT] platform.ts refused to post the PASS comment on platform issue #73: 'ERROR: .env not found at .env' (this worktree has no .env; platform.ts resolves .env relative to CWD). Per spec, posting attempts were stopped and the orchestrator will post the comment from main. No token was read or echoed."
+    ]
+  },
+  "artifacts": {
+    "files_written": ["docs/state/outputs/t18_verifier_verify_post_merge.json"],
+    "platform_issue": 73,
+    "output_path": "docs/state/outputs/t18_verifier_verify_post_merge.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-08T07:53:51Z",
+  "retry_count": 0
+}

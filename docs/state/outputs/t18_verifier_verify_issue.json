@@ -1,0 +1,88 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t18",
+  "role": "verifier",
+  "phase": "verify_issue",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "verification",
+    "ac_results": {
+      "ac1": {
+        "verdict": "PASS",
+        "command": "docs/issues/t18.md ## Verification commands, '### AC-1 — Router-level 404/405 refusals carry the contract envelope' bash block (run fresh from repo root)",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "PASS AC-1: unmatched-path 404 (incl. traversal-style) and 405 method-not-allowed all carry the {error:{code,message}} envelope"
+      },
+      "ac2": {
+        "verdict": "PASS",
+        "command": "docs/issues/t18.md ## Verification commands, '### AC-2 — specs.md section 11 documents the edge-owned 400 and the in-app 404/405 mapping' bash block (run fresh from repo root)",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "PASS AC-2: specs.md section 11 documents the edge-owned oversized-request-line 400 and the in-app 404/405 contract mapping"
+      },
+      "ac3": {
+        "verdict": "PASS",
+        "command": "docs/issues/t18.md ## Verification commands, '### AC-3 — Capacity-reject 422 carries details.fields naming the field' bash block (run fresh from repo root)",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "PASS AC-3: service capacity-reject 422 (capacity=21 and 0) carries details.fields naming 'capacity'; schema-level parity holds"
+      },
+      "ac4": {
+        "verdict": "PASS",
+        "command": "docs/issues/t18.md ## Verification commands, '### AC-4 — The conformance sweep asserts the envelope shape on all eight classes and passes' bash block (run fresh from repo root)",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "PASS AC-4: the conformance sweep references all eight status classes (401/404/405/409/422/429/500/503) and passes (10 passed)"
+      },
+      "ac5": {
+        "verdict": "PASS",
+        "command": "docs/issues/t18.md ## Verification commands, '### AC-5 — Backend floor green, no regressions, ruff clean' bash block (run fresh from repo root)",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "PASS AC-5: 340 passed, 2 xfailed, 3 warnings in 46.85s + ruff clean - backend floor holds (groom baseline 335 passed, 2 xfailed)"
+      }
+    },
+    "test_summary": {
+      "total": 342,
+      "passed": 340,
+      "failed": 0
+    },
+    "failure_type": null,
+    "lint_report": {
+      "errors": 0,
+      "warnings": 0
+    },
+    "test_quality_warnings": [],
+    "dod_verified": {
+      "ac1_to_ac5_all_print_PASS_and_exit_0": true,
+      "backend_floor_green_335plus_passed_exactly_2_xfailed_ruff_clean": true,
+      "only_files_list_changed_openapi_yaml_and_frontend_untouched": true,
+      "single_conventional_commit_t18_prefix_branch_issue_t18_from_main_no_force_push": true,
+      "new_404_405_codes_in_specs_section_11_and_openapi_reconciliation_logged_deferred": true
+    },
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands",
+    "sentinel_check": {
+      "builder_warning": "WARN-1: test_admin_reset.py::_fastapi_not_found sentinel was extended to accept the new envelope 404 signature",
+      "result": "INTENT PRESERVED (not weakened/skipped)",
+      "detail": "The bare NOT_FOUND code is produced only by the router-level StarletteHTTPException handler (errors.py::HTTP_REJECTION_CODES, 404->NOT_FOUND). No domain handler raises AppError('NOT_FOUND') - domain 404s use TABLE_NOT_FOUND / WAITLIST_NOT_FOUND / BRANCH_NOT_FOUND. The sentinel still distinguishes an unroutable 404 (framework/router-level) from a domain 404, so it remains discriminating for the two probes in test_no_new_endpoints (reset endpoint is a real handler; invented path is unroutable). No assertion was weakened, deleted, skipped, or xfailed."
+    },
+    "warnings": [
+      "[VENV_UNAVAILABLE] UV_PROJECT_ENVIRONMENT and PYTHONPATH were empty and the shared venv path (backend/.pi-agent/venvs/904d60405ccb81a6) did not exist; the AC commands pin backend/.venv/Scripts/python.exe (Python 3.12.15) directly, so the per-worktree venv was used. WARN, not a failure.",
+      "Label transition (built -> verified) intentionally NOT performed per the task's explicit 'Do NOT label/close the issue' and the orchestrator-owns-state-labels convention the builder followed. The Step 7 PASS verdict comment was posted to platform issue #73 (created 2026-10-08T06:36:50Z) via the repo-local tsx binary (npx tsx truncates multi-line --body on this host).",
+      "DoD commit-convention nuance: the feature commit 't18: response-envelope compliance ...' follows the repo's established <id>: subject convention (t17 precedent: 't17: Frontend client lifecycle ...') rather than a literal 'fix:' type prefix; the subject prefix t18:, branch issue/t18-response-envelope, fork from main (groom commit 5d712be is on main), and linear history (no force-push) all hold, and the commit is a fix. Marked satisfied."
+    ]
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/state/outputs/t18_verifier_verify_issue.json"
+    ],
+    "platform_issue": 73,
+    "output_path": "docs/state/outputs/t18_verifier_verify_issue.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-08T06:38:28Z",
+  "retry_count": 0
+}
