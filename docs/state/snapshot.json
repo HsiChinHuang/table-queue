@@ -1,14 +1,14 @@
 {
   "schema_version": "2.0",
-  "last_seq": 132,
+  "last_seq": 134,
   "updated_at": "2026-10-07T15:47:13.453Z",
   "slots": [
     {
       "slot": 0,
-      "phase": "verifier_verify_issue",
-      "run_id": "486db230-f62d-4ec1-b618-06deafe73f1e",
-      "spawn_at": "2026-10-08T21:52:27Z",
-      "worktree_path": ".worktrees/t24"
+      "phase": "verifier_verify_pre_merge",
+      "run_id": null,
+      "spawn_at": null,
+      "worktree_path": ".worktrees/verify-t24"
     }
   ],
   "merge_queue": [],
