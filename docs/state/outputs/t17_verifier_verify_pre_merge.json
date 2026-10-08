@@ -1,0 +1,41 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t17",
+  "role": "verifier",
+  "phase": "verify_pre_merge",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "merge_verification",
+    "cumulative_tests": { "total": 4, "passed": 4, "failed": 0 },
+    "smoke_tests": { "total": 3, "passed": 3, "failed": 0 },
+    "failed_tests": [],
+    "cumulative_detail": {
+      "t16/ac1": "PASS (exit 0) - legacy client paths all STOPPED, no frontend references",
+      "t16/ac2": "PASS (exit 0) - 422 error envelope documented (both waitlist operations declare 422 resolving to the error envelope; specs.md documents the 422 VALIDATION_ERROR body)",
+      "t16/ac3": "PASS (exit 0) - Close-Day is a documented, served endpoint (POST /api/v1/staff/waitlist/close-day)",
+      "t16/ac4": "PASS (exit 0) - conformance sweep test_e2e_contract.py: 9 passed; references all 3 legacy path fragments, 422 VALIDATION_ERROR envelope with /seat, Close-Day surface (repaired index: parent-context .out paths target $scratch.out = backend/.scratch/...)"
+    },
+    "smoke_detail": {
+      "backend_full_suite": "335 passed, 2 xfailed (exit 0) via uv run --python 3.12 pytest tests -q -p no:randomly",
+      "frontend_full_suite": "30 files / 267 tests passed (exit 0) via npx vitest run; baseline 244 -> +23 from t17 new AC tests (growth, not shrink)",
+      "frontend_tsc": "tsc --noEmit exit 0 (clean)",
+      "no_test_modifiers": "no it.only/describe.only/it.skip/it.todo/xit/xdescribe in frontend/src (clean)"
+    },
+    "scope_check": "t17 diff vs merge-base f9bc2cd: only frontend/src/** + docs/state/outputs/t17_builder_implement.json changed (frontend-only, as required)",
+    "warnings": [
+      "plan.md has no '## Smoke tests' section; per verify_pre_merge.md fallback, smoke = full backend pytest + full frontend vitest + tsc --noEmit (3 smoke commands). smoke_tests_min/max (10/20) bounds do not strictly apply to the fallback full-suite commands.",
+      "t16/ac4 was repaired by the orchestrator before this run (parent-context .out paths now target $scratch.out = backend/.scratch/...); this run executed the repaired command extracted from the worktree index and it passed (9 passed, exit 0). The prior attempt-1 FAIL (archived as t17_verifier_verify_pre_merge.attempt-1.json) was caused by the stale worktree index, not a t17 regression.",
+      "frontend node_modules is a symlink to the sibling t17 worktree node_modules (both at the same commit 660b133); a fresh npm install fails on a stale esbuild binary (expected 0.25.12, got 0.28.2). This is an environment workaround, not a code change."
+    ]
+  },
+  "artifacts": {
+    "files_written": ["docs/state/outputs/t17_verifier_verify_pre_merge.json"],
+    "platform_issue": 72,
+    "output_path": "docs/state/outputs/t17_verifier_verify_pre_merge.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-08T02:54:50Z",
+  "retry_count": 0
+}

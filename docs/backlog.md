@@ -6,7 +6,7 @@ Adopted 2026-10-06 (framework commit 34591cc). 15 open platform issues (HsiChinH
 |---|---|---|---|---|
 | t13 | FINAL regression gate: every closed-feature QA surface re-passes green after the audit batch | t9, t10, t11, t12, t14, t15, t16-t31 (see docs/issues/t13.md) | 68 | defined |
 | t16 | Contract completion: client-facing 404 trio, bodiless 422 docs, Close-Day endpoint | - | 71 | closed |
-| t17 | Frontend client lifecycle: expires_at honoured, router-driven redirect, shared-UI resource cleanup | - | 72 | defined |
+| t17 | Frontend client lifecycle: expires_at honoured, router-driven redirect, shared-UI resource cleanup | - | 72 | closed |
 | t18 | Response-envelope compliance: contract error envelope on every non-2xx, including router-level refusals | - | 73 | defined |
 | t19 | Store contention is a contract outcome: busy/locked maps to a retryable code, WAL or documented single-writer, no silent 500 | - | 74 | defined |
 | t22 | eslint flat config for eslint 9: author it, get the codebase lint-clean, retire the D-03 AC-6 inversion | - | 77 | defined |

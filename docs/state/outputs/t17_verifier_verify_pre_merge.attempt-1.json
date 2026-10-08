@@ -1,0 +1,57 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t17",
+  "role": "verifier",
+  "phase": "verify_pre_merge",
+  "status": "FAIL",
+  "reached_state": "unchanged",
+  "evidence": {
+    "evidence_type": "merge_verification",
+    "cumulative_tests": { "total": 4, "passed": 3, "failed": 1 },
+    "smoke_tests": { "total": 3, "passed": 3, "failed": 0 },
+    "failed_tests": [
+      {
+        "test": "t16/ac4 (conformance sweep)",
+        "error_summary": "t16 ac4 command path bug: grep looks for .scratch/... but subshell wrote backend/.scratch/... Underlying test_e2e_contract.py PASSES (9 passed). Not a t17 regression."
+      }
+    ],
+    "cumulative_detail": {
+      "t16/ac1": "PASS (exit 0) - legacy client paths all STOPPED, no frontend references",
+      "t16/ac2": "PASS (exit 0) - 422 error envelope documented (both waitlist operations declare 422)",
+      "t16/ac3": "PASS (exit 0) - Close-Day is a documented, served endpoint (POST /api/v1/staff/waitlist/close-day)",
+      "t16/ac4": "FAIL (exit 1) - deterministic path bug in stored command; underlying test_e2e_contract.py PASSES (9 passed, rc=0)"
+    },
+    "smoke_detail": {
+      "backend_full_suite": "335 passed, 2 xfailed (exit 0)",
+      "frontend_full_suite": "30 files / 267 tests passed (exit 0); baseline 244 -> +23 from t17 new AC tests (growth, not shrink)",
+      "frontend_tsc": "tsc --noEmit exit 0 (clean)",
+      "no_test_modifiers": "no it.only/describe.only/it.skip/it.todo/xit/xdescribe in frontend/src (clean)"
+    },
+    "scope_check": "t17 diff vs merge-base f9bc2cd: only frontend/src/** + docs/state/outputs/t17_builder_implement.json changed (frontend-only, as required)"
+  },
+  "artifacts": {
+    "files_written": ["docs/state/outputs/t17_verifier_verify_pre_merge.json"],
+    "platform_issue": 72,
+    "output_path": "docs/state/outputs/t17_verifier_verify_pre_merge.json"
+  },
+  "error": {
+    "error_type": "business_failure",
+    "error_code": "CUMULATIVE_TEST_FAILED",
+    "message": "t16 ac4 (conformance sweep) exits 1: deterministic path bug in stored command. Subshell `cd backend` writes pytest out to backend/.scratch/... but grep looks for .scratch/... (repo-root) -> not found. Underlying test_e2e_contract.py PASSES (9 passed, rc=0). t17 frontend-only; NOT a t17 regression. Smoke green: backend 335p+2xf; frontend 30f/267t; tsc clean; no skipped/only.",
+    "context": {
+      "failure_type": "ac_wrong",
+      "detail": "The t16 ac4 command string in merge_test_index.json has a path bug: `srel=${scratch#backend/}` strips the backend/ prefix, so the grep target `.scratch/_t16ac4_<PID>.db.out` is repo-root-relative, but the subshell `cd backend` writes the file to `backend/.scratch/_t16ac4_<PID>.db.out`. The underlying conformance sweep test passes (9 passed). Fix: correct the grep path to backend/.scratch/... and re-run pre-merge verification for t17."
+    },
+    "retryable": false,
+    "suggested_action": "rerun_with_role",
+    "suggested_role": "definer",
+    "suggested_phase": "re_groom"
+  },
+  "next_action": {
+    "role": "definer",
+    "phase": "re_groom",
+    "reason": "Re-groom the t16 ac4 command in merge_test_index.json: the grep target path is wrong (should be backend/.scratch/... not .scratch/...). The underlying conformance sweep test passes (9 passed); only the command's grep path is broken. After fixing the command, re-run verify_pre_merge for t17."
+  },
+  "timestamp": "2026-10-08T01:38:28Z",
+  "retry_count": 0
+}

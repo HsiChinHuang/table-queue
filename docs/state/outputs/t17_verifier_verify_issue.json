@@ -1,0 +1,92 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t17",
+  "role": "verifier",
+  "phase": "verify_issue",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "verification",
+    "ac_results": {
+      "ac1": {
+        "verdict": "PASS",
+        "command": "root=$(git rev-parse --show-toplevel 2>/dev/null) || root=.\ncd \"$root\" || { echo \"FAIL AC-1: cannot cd to the repo root\"; exit 1; }\n[ -f frontend/src/stores/staffStore.ts ] || { echo \"FAIL AC-1: not run from the TableQueue repo root (frontend/src/stores/staffStore.ts missing)\"; exit 1; }\ngrep -q \"expiresAt\" frontend/src/stores/staffStore.ts || { echo \"FAIL AC-1: stores/staffStore.ts does not hold an expiresAt field alongside the token\"; exit 1; }\nout=$(mktemp)\n( cd frontend && npx vitest run src/stores/staffStore.test.ts src/layouts/StaffLayout.test.tsx >\"$out\" 2>&1 )\nrc=$?\nif [ $rc -ne 0 ] || grep -Eq \"Test Files .*failed\" \"$out\" || ! grep -Eq \"Test Files .*passed\" \"$out\"; then\n  tail -n 20 \"$out\"\n  echo \"FAIL AC-1: expiry lifecycle tests failed (rc=$rc) - last lines above\"\n  rm -f \"$out\"\n  exit 1\nfi\necho \"PASS AC-1: $(grep -E 'Test Files' \"$out\" | head -1 | xargs) - expiresAt stored with the token; hydrated guard + expiry timer treat expiry as logout (destroySession)\"\nrm -f \"$out\"\nexit 0",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "PASS AC-1: Test Files 2 passed (2) - expiresAt stored with the token; hydrated guard + expiry timer treat expiry as logout (destroySession)"
+      },
+      "ac2": {
+        "verdict": "PASS",
+        "command": "root=$(git rev-parse --show-toplevel 2>/dev/null) || root=.\ncd \"$root\" || { echo \"FAIL AC-2: cannot cd to the repo root\"; exit 1; }\n[ -f frontend/src/api/client.ts ] || { echo \"FAIL AC-2: not run from the TableQueue repo root (frontend/src/api/client.ts missing)\"; exit 1; }\ngrep -q \"expiresAt\" frontend/src/api/client.ts || { echo \"FAIL AC-2: api/client.ts does not consult an expiresAt before attaching the bearer\"; exit 1; }\nout=$(mktemp)\n( cd frontend && npx vitest run src/api/client.test.ts >\"$out\" 2>&1 )\nrc=$?\nif [ $rc -ne 0 ] || grep -Eq \"Test Files .*failed\" \"$out\" || ! grep -Eq \"Test Files .*passed\" \"$out\"; then\n  tail -n 20 \"$out\"\n  echo \"FAIL AC-2: client bearer-expiry tests failed (rc=$rc) - last lines above\"\n  rm -f \"$out\"\n  exit 1\nfi\necho \"PASS AC-2: $(grep -E 'Test Files' \"$out\" | head -1 | xargs) - request() refuses to send a known-expired bearer\"\nrm -f \"$out\"\nexit 0",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "PASS AC-2: Test Files 1 passed (1) - request() refuses to send a known-expired bearer"
+      },
+      "ac3": {
+        "verdict": "PASS",
+        "command": "root=$(git rev-parse --show-toplevel 2>/dev/null) || root=.\ncd \"$root\" || { echo \"FAIL AC-3: cannot cd to the repo root\"; exit 1; }\n[ -f frontend/src/api/client.ts ] || { echo \"FAIL AC-3: not run from the TableQueue repo root (frontend/src/api/client.ts missing)\"; exit 1; }\ngrep -q \"location\\.assign\" frontend/src/api/client.ts || { echo \"FAIL AC-3: api/client.ts does not redirect via location.assign\"; exit 1; }\ngrep -q \"ROUTES\" frontend/src/api/client.ts || { echo \"FAIL AC-3: api/client.ts does not use the ROUTES constant for the 401 redirect\"; exit 1; }\nif grep -q \"window.location.href\" frontend/src/api/client.ts; then\n  echo \"FAIL AC-3: api/client.ts still assigns window.location.href (must use location.assign(ROUTES.STAFF_LOGIN))\"\n  exit 1\nfi\nout=$(mktemp)\n( cd frontend && npx vitest run src/api/client.test.ts >\"$out\" 2>&1 )\nrc=$?\nif [ $rc -ne 0 ] || grep -Eq \"Test Files .*failed\" \"$out\" || ! grep -Eq \"Test Files .*passed\" \"$out\"; then\n  tail -n 20 \"$out\"\n  echo \"FAIL AC-3: 401 redirect tests failed (rc=$rc) - last lines above\"\n  rm -f \"$out\"\n  exit 1\nfi\necho \"PASS AC-3: $(grep -E 'Test Files' \"$out\" | head -1 | xargs) - 401 redirect via ROUTES.STAFF_LOGIN + location.assign with already-on-login guard\"\nrm -f \"$out\"\nexit 0",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "PASS AC-3: Test Files 1 passed (1) - 401 redirect via ROUTES.STAFF_LOGIN + location.assign with already-on-login guard"
+      },
+      "ac4": {
+        "verdict": "PASS",
+        "command": "root=$(git rev-parse --show-toplevel 2>/dev/null) || root=.\ncd \"$root\" || { echo \"FAIL AC-4: cannot cd to the repo root\"; exit 1; }\n[ -f frontend/src/hooks/useCountdown.ts ] || { echo \"FAIL AC-4: not run from the TableQueue repo root (frontend/src/hooks/useCountdown.ts missing)\"; exit 1; }\nn=$(grep -o \"setInterval(\" frontend/src/hooks/useCountdown.ts | wc -l | tr -d \" \")\nif [ \"$n\" -gt 1 ]; then\n  echo \"FAIL AC-4: hooks/useCountdown.ts creates $n intervals - the shared ticker must create at most one\"\n  exit 1\nfi\nout=$(mktemp)\n( cd frontend && npx vitest run src/hooks/useCountdown.test.ts src/components/Countdown.test.tsx src/components/WaitlistCard.test.tsx >\"$out\" 2>&1 )\nrc=$?\nif [ $rc -ne 0 ] || grep -Eq \"Test Files .*failed\" \"$out\" || ! grep -Eq \"Test Files .*passed\" \"$out\"; then\n  tail -n 20 \"$out\"\n  echo \"FAIL AC-4: shared-ticker / countdown fan-out tests failed (rc=$rc) - last lines above\"\n  rm -f \"$out\"\n  exit 1\nfi\necho \"PASS AC-4: $(grep -E 'Test Files' \"$out\" | head -1 | xargs) - ONE shared 1Hz ticker (hooks create $n interval(s) <= 1); WaitlistCard fan-out preserved\"\nrm -f \"$out\"\nexit 0",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "PASS AC-4: Test Files 3 passed (3) - ONE shared 1Hz ticker (hooks create 1 interval(s) <= 1); WaitlistCard fan-out preserved"
+      },
+      "ac5": {
+        "verdict": "PASS",
+        "command": "root=$(git rev-parse --show-toplevel 2>/dev/null) || root=.\ncd \"$root\" || { echo \"FAIL AC-5: cannot cd to the repo root\"; exit 1; }\n[ -f frontend/src/components/SoundToggle.tsx ] || { echo \"FAIL AC-5: not run from the TableQueue repo root (frontend/src/components/SoundToggle.tsx missing)\"; exit 1; }\ngrep -q \"\\.close(\" frontend/src/components/SoundToggle.tsx || { echo \"FAIL AC-5: SoundToggle.tsx never closes the AudioContext\"; exit 1; }\nout=$(mktemp)\n( cd frontend && npx vitest run src/components/SoundToggle.test.tsx >\"$out\" 2>&1 )\nrc=$?\nif [ $rc -ne 0 ] || grep -Eq \"Test Files .*failed\" \"$out\" || ! grep -Eq \"Test Files .*passed\" \"$out\"; then\n  tail -n 20 \"$out\"\n  echo \"FAIL AC-5: SoundToggle AudioContext tests failed (rc=$rc) - last lines above\"\n  rm -f \"$out\"\n  exit 1\nfi\necho \"PASS AC-5: $(grep -E 'Test Files' \"$out\" | head -1 | xargs) - SoundToggle reuses one lazily-created AudioContext, closes it on teardown, first-interaction unlock registered once\"\nrm -f \"$out\"\nexit 0",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "PASS AC-5: Test Files 1 passed (1) - SoundToggle reuses one lazily-created AudioContext, closes it on teardown, first-interaction unlock registered once"
+      },
+      "ac6": {
+        "verdict": "PASS",
+        "command": "root=$(git rev-parse --show-toplevel 2>/dev/null) || root=.\ncd \"$root\" || { echo \"FAIL AC-6: cannot cd to the repo root\"; exit 1; }\n[ -f frontend/src/components/ConnectionBanner.test.tsx ] || { echo \"FAIL AC-6: not run from the TableQueue repo root (frontend/src/components/ConnectionBanner.test.tsx missing)\"; exit 1; }\nout=$(mktemp)\n( cd frontend && npx vitest run src/components/ConnectionBanner.test.tsx >\"$out\" 2>&1 )\nrc=$?\nif [ $rc -ne 0 ] || grep -Eq \"Test Files .*failed\" \"$out\" || ! grep -Eq \"Test Files .*passed\" \"$out\"; then\n  tail -n 20 \"$out\"\n  echo \"FAIL AC-6: ConnectionBanner timer tests failed (rc=$rc) - last lines above\"\n  rm -f \"$out\"\n  exit 1\nfi\necho \"PASS AC-6: $(grep -E 'Test Files' \"$out\" | head -1 | xargs) - useConnection.resetFailure timeout tracked + cleared on unmount\"\nrm -f \"$out\"\nexit 0",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "PASS AC-6: Test Files 1 passed (1) - useConnection.resetFailure timeout tracked + cleared on unmount"
+      },
+      "ac7": {
+        "verdict": "PASS",
+        "command": "root=$(git rev-parse --show-toplevel 2>/dev/null) || root=.\ncd \"$root\" || { echo \"FAIL AC-7: cannot cd to the repo root\"; exit 1; }\n[ -f frontend/package.json ] || { echo \"FAIL AC-7: not run from the TableQueue repo root (frontend/package.json missing)\"; exit 1; }\nout=$(mktemp)\n( cd frontend && npx vitest run >\"$out\" 2>&1 )\nrc=$?\nif [ $rc -ne 0 ] || grep -Eq \"Test Files .*failed\" \"$out\" || ! grep -Eq \"Test Files .*passed\" \"$out\"; then\n  tail -n 20 \"$out\"\n  echo \"FAIL AC-7: full frontend suite failed (rc=$rc) - last lines above\"\n  rm -f \"$out\"\n  exit 1\nfi\ntscout=$(mktemp)\n( cd frontend && npx tsc --noEmit >\"$tscout\" 2>&1 )\ntrc=$?\nif [ $trc -ne 0 ]; then\n  tail -n 20 \"$tscout\"\n  echo \"FAIL AC-7: tsc --noEmit failed (rc=$trc) - last lines above\"\n  rm -f \"$out\" \"$tscout\"\n  exit 1\nfi\nbad=$(grep -rnE \"\\.only\\(|\\.skip\\(|\\.todo\\(|\\bxit\\(|\\bxdescribe\" frontend/src --include=*.ts --include=*.tsx 2>/dev/null || true)\nif [ -n \"$bad\" ]; then\n  echo \"FAIL AC-7: skipped/only test modifiers present in frontend/src:\"\n  echo \"$bad\"\n  rm -f \"$out\" \"$tscout\"\n  exit 1\nfi\necho \"PASS AC-7: $(grep -E 'Test Files' \"$out\" | head -1 | xargs) + $(grep -E '^\\s*Tests' \"$out\" | head -1 | xargs) - full suite green, tsc --noEmit clean, no skipped/only tests\"\nrm -f \"$out\" \"$tscout\"\nexit 0",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "PASS AC-7: Test Files 30 passed (30) + Tests 267 passed (267) - full suite green, tsc --noEmit clean, no skipped/only tests"
+      }
+    },
+    "test_summary": {
+      "total": 267,
+      "passed": 267,
+      "failed": 0
+    },
+    "failure_type": null,
+    "lint_report": null,
+    "test_quality_warnings": [],
+    "dod_verified": {
+      "all_seven_ac_commands_print_pass_and_exit_0": true,
+      "frontend_floor_green_30_files_267_tests_no_shrink": true,
+      "tsc_noEmit_exits_0": true,
+      "no_it_only_describe_only_it_skip_it_todo_xit_xdescribe_in_frontend_src": true,
+      "no_changes_outside_frontend_impl_commit_only_frontend_files": true,
+      "backend_and_docs_untouched_backend_floor_holds_by_no_change_plus_groom_baseline": true,
+      "useCountdown_pins_preserved_and_DEF_F06_1_re_pinned_with_comment": true,
+      "conventional_commit_feat_t17_on_branch_issue_t17_client_lifecycle": true
+    },
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands"
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/state/outputs/t17_verifier_verify_issue.json"
+    ],
+    "platform_issue": 72,
+    "output_path": "docs/state/outputs/t17_verifier_verify_issue.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-08T00:38:53.620Z",
+  "retry_count": 0
+}
