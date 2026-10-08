@@ -9,7 +9,7 @@ Adopted 2026-10-06 (framework commit 34591cc). 15 open platform issues (HsiChinH
 | t17 | Frontend client lifecycle: expires_at honoured, router-driven redirect, shared-UI resource cleanup | - | 72 | closed |
 | t18 | Response-envelope compliance: contract error envelope on every non-2xx, including router-level refusals | - | 73 | closed |
 | t19 | Store contention is a contract outcome: busy/locked maps to a retryable code, WAL or documented single-writer, no silent 500 | - | 74 | closed |
-| t22 | eslint flat config for eslint 9: author it, get the codebase lint-clean, retire the D-03 AC-6 inversion | - | 77 | defined |
+| t22 | eslint flat config for eslint 9: author it, get the codebase lint-clean, retire the D-03 AC-6 inversion | - | 77 | closed |
 | t24 | SQLite-only reality vs PostgreSQL affordance: add the driver and exercise the path, or remove the claim | - | 79 | defined |
 | t25 | Repository artifact hygiene: gitignore DB sidecars and local dot-env files; no DB artifacts left in the tree | - | 80 | defined |
 | t26 | Security headers on every response class plus CSP, HSTS-ready, cache policy | - | 81 | defined |
