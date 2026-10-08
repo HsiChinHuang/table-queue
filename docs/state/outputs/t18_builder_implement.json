@@ -1,0 +1,77 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t18",
+  "role": "builder",
+  "phase": "implement",
+  "status": "COMPLETE",
+  "reached_state": "built",
+  "evidence": {
+    "evidence_type": "build",
+    "branch": "issue/t18-response-envelope",
+    "branch_sha": "3482595e88b1a5aeeed0c64599bcaa07903ba0cd",
+    "ac_mapping": {
+      "ac1": {
+        "commit": "3482595e88b1a5aeeed0c64599bcaa07903ba0cd",
+        "test": "bash block AC-1 in docs/issues/t18.md '## Verification commands': in-process TestClient probe on a scratch DB asserting the {error:{code,message}} envelope (no 'detail' key) for GET /api/v1/definitely-not-a-route, GET /api/v1/../../etc/passwd, GET /nope (404) and DELETE /health (405). Printed 'PASS AC-1', exit 0.",
+        "verdict": "PASS"
+      },
+      "ac2": {
+        "commit": "3482595e88b1a5aeeed0c64599bcaa07903ba0cd",
+        "test": "bash block AC-2 in docs/issues/t18.md '## Verification commands': static probe over _docs/specs.md section 11 asserting the oversized-request-line 400 note (400 + uvicorn/edge within +/-30 lines) and a 405 mention. Printed 'PASS AC-2', exit 0.",
+        "verdict": "PASS"
+      },
+      "ac3": {
+        "commit": "3482595e88b1a5aeeed0c64599bcaa07903ba0cd",
+        "test": "bash block AC-3 in docs/issues/t18.md '## Verification commands': in-process TestClient probe (STAFF_PIN=0000, scratch DB) — login, create table, PATCH capacity 21 and 0 -> 422 VALIDATION_ERROR with details.fields keys exactly {capacity} and non-empty string values; POST capacity 21 -> 422 with capacity in details.fields (schema parity). Printed 'PASS AC-3', exit 0.",
+        "verdict": "PASS"
+      },
+      "ac4": {
+        "commit": "3482595e88b1a5aeeed0c64599bcaa07903ba0cd",
+        "test": "bash block AC-4 in docs/issues/t18.md '## Verification commands': pytest tests/test_e2e_contract.py -q on a scratch DB (10 passed, incl. the new test_every_non_2xx_class_answers_the_contract_envelope sweeping 401/404/405/409/422/429/500/503) + static check that the file references all eight status classes and the 'error' key. Printed 'PASS AC-4', exit 0.",
+        "verdict": "PASS"
+      },
+      "ac5": {
+        "commit": "3482595e88b1a5aeeed0c64599bcaa07903ba0cd",
+        "test": "bash block AC-5 in docs/issues/t18.md '## Verification commands': pytest tests -q -p no:randomly -> '340 passed, 2 xfailed' (floor >=335, exactly 2 xfailed) + ruff check . clean. Printed 'PASS AC-5', exit 0.",
+        "verdict": "PASS"
+      }
+    },
+    "test_summary": {
+      "total": 342,
+      "passed": 340,
+      "failed": 0
+    },
+    "lint_status": "CLEAN",
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands",
+    "ac_hash": "sha256:a0663c652260247a517aed7819e6606018c49b7e7f16baec6e54a1df075fa835",
+    "floor_note": "groom baseline 335 passed / 2 xfailed; measured 340 passed / 2 xfailed (5 new tests: 4 in tests/test_error_envelope_t18.py, 1 sweep in tests/test_e2e_contract.py). No existing test weakened, removed, skipped or xfailed to force green.",
+    "ac2_note": "AC-2 is a documentation AC: its verification command is itself the assertion (a static probe over section 11). No product code or automated test applies beyond the floor suite keeping the specs table and the ERROR_CODES loader in lockstep (tests/test_errors.py::test_error_codes_match_specs green).",
+    "warnings": [
+      "Sole existing-test touch (intent-preserving sentinel update): tests/test_admin_reset.py::_fastapi_not_found now also recognises the contract-envelope NOT_FOUND 404 signature as unroutable, because t18 intentionally changes the body this sentinel measured (the framework-default {'detail': 'Not Found'} no longer reaches a client for an unmatched route). The assertion's intent is unchanged and still discriminating: a route that grew into a domain handler still answers 404 with a domain code (TABLE_NOT_FOUND / WAITLIST_NOT_FOUND / BRANCH_NOT_FOUND), never NOT_FOUND. No assertion was weakened, deleted, skipped or xfailed.",
+      "Groom WARN-5 resolved (404/405 grey zone): new section 11 code pair NOT_FOUND (404) + METHOD_NOT_ALLOWED (405) introduced rather than reusing a 404-family code — both were acceptable per the groom; new codes chosen because a router-level refusal is a distinct contract class. The ERROR_CODES loader and tests/test_errors.py::test_error_codes_match_specs read the same table with the same regex, so the floor stayed green.",
+      "Openapi reconciliation deferred: NOT_FOUND and METHOD_NOT_ALLOWED have no _docs/openapi.yaml entries (the file is outside this issue's Files list). Logged in specs.md section 11 'Inconsistencies deferred' and in the commit body — platform issue #3 owns the contract change (same deferral pattern as INTERNAL_ERROR).",
+      "Groom WARN-6 applied: the AC-4 sweep drives the 500/503 classes through the app's own error layer (500 = unhandled exception through the registered generic handler; 503 = AppError with a forced status override). The 503's real producer (locked database) lands with t19; the two probe routes exist only for the test's body and are removed in a finally, so no route-table residue.",
+      "Stale docstrings left untouched: app/routers/public.py and app/routers/staff_waitlist.py still describe the old framework-default 405 behaviour in docstrings; those files are not in this issue's Files list, so they were not modified. A future router-owning issue should refresh them.",
+      "Step 0 nuance: the run started with CWD at the main repo root; it was corrected to the worktree before any operation, and all work (venv, edits, tests, commits) happened inside .worktrees/t18.",
+      "Host quirk: on this host the `npx tsx` chain (npm exec layer) truncates a multi-line --body argv to its first line (direct node.exe and the repo-local tsx bin preserve it). The first completion comment on platform issue #73 was therefore posted truncated at 06:08:13Z; the full comment was re-posted at 06:10:59Z (now the latest) using the repo-local tsx binary from the main-repo CWD (where the platform .env lives; the script path remained the worktree copy). No secrets were read.",
+      "Label transitions (remove `groomed`, add `built`) intentionally skipped per orchestrator instruction — state labels are orchestrator-owned; the issue was not closed. The platform comment required by implement.md Step 8 was posted."
+    ]
+  },
+  "artifacts": {
+    "files_written": [
+      "backend/app/errors.py",
+      "backend/app/services/tables.py",
+      "_docs/specs.md",
+      "backend/tests/test_error_envelope_t18.py",
+      "backend/tests/test_e2e_contract.py",
+      "backend/tests/test_admin_reset.py",
+      "docs/state/outputs/t18_builder_implement.json"
+    ],
+    "platform_issue": 73,
+    "output_path": "docs/state/outputs/t18_builder_implement.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-08T06:12:30Z",
+  "retry_count": 0
+}
