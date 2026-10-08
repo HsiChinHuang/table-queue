@@ -1,0 +1,67 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t24",
+  "role": "builder",
+  "phase": "implement",
+  "status": "COMPLETE",
+  "reached_state": "built",
+  "evidence": {
+    "evidence_type": "build",
+    "branch": "issue/t24-sqlite-only-vs-pg",
+    "branch_sha": "b0bef2cef9197f5b7cae980b0ba305683e79b074",
+    "ac_mapping": {
+      "ac1": {
+        "commit": "b0bef2cef9197f5b7cae980b0ba305683e79b074",
+        "test": "docs/issues/t24.md ## Verification commands, AC-1 bash block (live-doc greps: no 'no code changes needed' PG passage, no 'Future PostgreSQL' heading in _docs/deployment.md, no postgres/psycopg string in README/SETUP/QUICKSTART/config.md/config.yaml/config.yaml.example/config_reference.md, deployment doc still states SQLite). Run verbatim from the worktree root: PASS AC-1: no live doc claims a PostgreSQL boot - the deployment doc is SQLite-only and the live doc set is grep-clean for postgres/psycopg (rc=0).",
+        "verdict": "PASS"
+      },
+      "ac2": {
+        "commit": "b0bef2cef9197f5b7cae980b0ba305683e79b074",
+        "test": "docs/issues/t24.md ## Verification commands, AC-2 bash block (subprocess import probes via backend/.venv/Scripts/python.exe: postgresql+psycopg:// and postgresql+psycopg2:// refused fast with the three contract phrases - 'only SQLite'/'DATABASE_URL'/'sqlite:////' - and no opaque psycopg ModuleNotFoundError; sqlite URL boots unchanged; named guard present in backend/app/database.py; import app.seed on a postgres URL refused with the contract message). Run verbatim: PASS AC-2: non-sqlite DATABASE_URL (psycopg and psycopg2 spellings) is refused fast at import with the actionable contract error; the seeder's engine build is covered; the sqlite path boots unchanged (rc=0).",
+        "verdict": "PASS"
+      },
+      "ac3": {
+        "commit": "b0bef2cef9197f5b7cae980b0ba305683e79b074",
+        "test": "docs/issues/t24.md ## Verification commands, AC-3 bash block (static read of backend/app/database.py: sqlite-backend dialect guard present, create_engine 'timeout' binds the module-level named constant SQLITE_BUSY_TIMEOUT, and the binding site carries the sqlite-only premise note). Run verbatim: PASS AC-3: connect_args are sqlite-flavoured and correct by enforcement - dialect guard present, timeout is a named constant, the sqlite-only premise is documented at the binding site (rc=0).",
+        "verdict": "PASS"
+      },
+      "ac4": {
+        "commit": "b0bef2cef9197f5b7cae980b0ba305683e79b074",
+        "test": "docs/issues/t24.md ## Verification commands, AC-4 bash block (full backend suite via backend/.venv/Scripts/python.exe -m pytest tests -q -p no:randomly + ruff check . + no psycopg in pyproject.toml/uv.lock). Run verbatim: PASS AC-4: 347 passed, 2 xfailed, 0 failed + ruff clean + no driver added (floor 344+ passed) (rc=0).",
+        "verdict": "PASS"
+      },
+      "ac5": {
+        "commit": "b0bef2cef9197f5b7cae980b0ba305683e79b074",
+        "test": "docs/issues/t24.md ## Verification commands, AC-5 bash block (fresh-clone triple: psycopg and psycopg2 both unimportable in the suite venv; doc surface grep-clean per AC-1; non-sqlite DATABASE_URL refused fast at import app.database with the AC-2 contract). Run verbatim: PASS AC-5: fresh-clone invariant holds - no PG driver ships, no live doc promises a PG boot, and a non-sqlite DATABASE_URL is refused fast at import with the actionable contract error (rc=0).",
+        "verdict": "PASS"
+      }
+    },
+    "test_summary": {
+      "total": 349,
+      "passed": 347,
+      "failed": 0
+    },
+    "lint_status": "CLEAN",
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands",
+    "ac_run": "All 5 AC blocks run verbatim (extracted unmodified from the synced docs/issues/t24.md at the groom commit b0e8304) at 2026-10-08T21:2xZ in the worktree: 5/5 PASS, rc=0 each. New unit tests in backend/tests/test_database.py (3 tests: psycopg URL refused with contract phrases, psycopg2 URL refused with contract phrases, sqlite URLs accepted) pass standalone in 0.02s. Suite floor: 347 passed / exactly 2 xfailed / 0 failed (groom baseline 344 + 3 new) + ruff 'All checks passed!'.",
+    "notes": "The branch was spawned at 8f41ecf, one commit behind the groom commit b0e8304 on main (the 384-line groomed issue + definer handoff); it was fast-forwarded to b0e8304 before implementing (no unique commits existed on the branch). backend/test.db (tracked artifact) was restored via git checkout before committing so it is not in the commit. The worktree had no .env (gitignored); the main tree's .env was copied into the worktree so scripts/platform.ts could authenticate - .env remains untracked and is not committed.",
+    "warnings": [
+      "Branch spawn point was stale (8f41ecf, pre-groom) instead of the stated origin/main b0e8304; resolved by fast-forward merge --ff-only to b0e8304 before any implementation work."
+    ]
+  },
+  "artifacts": {
+    "files_written": [
+      "_docs/deployment.md",
+      "backend/app/database.py",
+      "backend/app/seed.py",
+      "backend/tests/test_database.py",
+      "docs/state/outputs/t24_builder_implement.json"
+    ],
+    "platform_issue": 79,
+    "output_path": "docs/state/outputs/t24_builder_implement.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-08T21:31:18Z",
+  "retry_count": 0
+}
