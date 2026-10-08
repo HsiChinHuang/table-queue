@@ -27,8 +27,8 @@ vi.mock('@/api/public', () => ({
   getPublicBranch: vi.fn(async () => ({ id: 'branch-001', name: 'T14 Scale' })),
 }));
 
-import { listWaitlist } from '@/api/waitlist';
-import { getDashboard } from '@/api/dashboard';
+import { listWaitlist, type WaitlistEntry } from '@/api/waitlist';
+import { getDashboard, type DashboardResponse } from '@/api/dashboard';
 import WaitlistPage from '@/pages/staff/WaitlistPage';
 
 // --- Fixture: N=200 entries ---
@@ -54,8 +54,8 @@ const N = 200;
 
 describe('Waitlist scale/perf (N=200)', () => {
   it('arm 1: loading-state mount returns (no render loop)', async () => {
-    (listWaitlist as any).mockImplementation(() => new Promise(() => {}));
-    (getDashboard as any).mockImplementation(() => new Promise(() => {}));
+    vi.mocked(listWaitlist).mockImplementation(() => new Promise<WaitlistEntry[]>(() => {}));
+    vi.mocked(getDashboard).mockImplementation(() => new Promise<DashboardResponse>(() => {}));
     const qc = new QueryClient({
       defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
     });
@@ -74,13 +74,13 @@ describe('Waitlist scale/perf (N=200)', () => {
 
   it('arm 2: N=200 active case completes within budget and reports numbers', async () => {
     const active = Array.from({ length: N }, (_, i) => makeEntry(i + 1, 'WAITING'));
-    (listWaitlist as any).mockResolvedValue(active);
-    (getDashboard as any).mockResolvedValue({
+    vi.mocked(listWaitlist).mockResolvedValue(active as WaitlistEntry[]);
+    vi.mocked(getDashboard).mockResolvedValue({
       waiting_count: N,
       called_count: 0,
       available_tables: 8,
       occupied_tables: 4,
-    });
+    } as DashboardResponse);
     const qc = new QueryClient({
       defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
     });
@@ -110,13 +110,13 @@ describe('Waitlist scale/perf (N=200)', () => {
   it('arm 3: closed section capped at 50 rows with working show-more', async () => {
     const active = Array.from({ length: 5 }, (_, i) => makeEntry(i + 1, 'WAITING'));
     const closed = Array.from({ length: 100 }, (_, i) => makeEntry(i + 1, 'DONE'));
-    (listWaitlist as any).mockResolvedValue([...active, ...closed]);
-    (getDashboard as any).mockResolvedValue({
+    vi.mocked(listWaitlist).mockResolvedValue([...active, ...closed] as WaitlistEntry[]);
+    vi.mocked(getDashboard).mockResolvedValue({
       waiting_count: 5,
       called_count: 0,
       available_tables: 8,
       occupied_tables: 4,
-    });
+    } as DashboardResponse);
     const qc = new QueryClient({
       defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
     });

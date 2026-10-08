@@ -33,7 +33,6 @@ vi.mock('@/api/staffStore', () => ({
   }),
 }));
 
-// eslint-disable-next-line import/first
 import StaffLayout from './StaffLayout';
 
 function renderAt(path: string) {

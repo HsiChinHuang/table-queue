@@ -57,16 +57,17 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     onClose();
   };
 
-  // Close on Escape key
+  // Close on Escape key (same actions as the cancel button)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && open) {
-        handleCancel();
+        onCancel?.();
+        onClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open]);
+  }, [open, onCancel, onClose]);
 
   const isDanger = variant === 'danger';
 
