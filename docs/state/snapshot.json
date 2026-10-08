@@ -5,7 +5,7 @@
   "slots": [
     {
       "slot": 0,
-      "phase": null,
+      "phase": "definer_groom",
       "run_id": null,
       "spawn_at": null,
       "worktree_path": null
