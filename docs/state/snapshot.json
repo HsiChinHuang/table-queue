@@ -1,17 +1,17 @@
 {
   "schema_version": "2.0",
-  "last_seq": 75,
+  "last_seq": 76,
   "updated_at": "2026-10-07T15:47:13.453Z",
   "slots": [
     {
       "slot_id": "slot_1",
       "issue_id": "t18",
       "role": "verifier",
-      "phase": "verify_issue",
-      "run_id": "6d5f615f-549c-4efd-90b5-6eb8dea3f651",
-      "spawn_at": "2026-10-08T06:19:01Z",
+      "phase": "verify_pre_merge",
+      "run_id": null,
+      "spawn_at": null,
       "last_activity_at": null,
-      "worktree_path": "C:/Users/tw097/Desktop/261003_ai_test/table-queue/.worktrees/t18",
+      "worktree_path": "C:/Users/tw097/Desktop/261003_ai_test/table-queue/.worktrees/verify-t18",
       "retry_count": 0
     }
   ],
