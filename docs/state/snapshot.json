@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "last_seq": 88,
+  "last_seq": 89,
   "updated_at": "2026-10-07T15:47:13.453Z",
   "slots": [
     {
@@ -12,7 +12,7 @@
       "spawn_at": "2026-10-08T09:10:32Z",
       "last_activity_at": null,
       "worktree_path": null,
-      "retry_count": 1
+      "retry_count": 2
     }
   ],
   "merge_queue": [],
