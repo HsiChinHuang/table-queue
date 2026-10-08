@@ -1,17 +1,17 @@
 {
   "schema_version": "2.0",
-  "last_seq": 111,
+  "last_seq": 113,
   "updated_at": "2026-10-07T15:47:13.453Z",
   "slots": [
     {
       "slot_id": "slot_1",
       "issue_id": "t22",
       "role": "builder",
-      "phase": "implement",
-      "run_id": "ffce5646-0851-46e5-b620-b6e158dddeb8",
-      "spawn_at": "2026-10-08T17:45:02Z",
+      "phase": "verify_pre_merge",
+      "run_id": null,
+      "spawn_at": null,
       "last_activity_at": null,
-      "worktree_path": "C:/Users/tw097/Desktop/261003_ai_test/table-queue/.worktrees/verify-t22",
+      "worktree_path": "C:/Users/tw097/Desktop/261003_ai_test/table-queue/.worktrees/verify-t22-premerge",
       "retry_count": 0
     }
   ],

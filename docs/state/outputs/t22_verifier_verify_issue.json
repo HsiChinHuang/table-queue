@@ -1,0 +1,111 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t22",
+  "role": "verifier",
+  "phase": "verify_issue",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "verification",
+    "ac_results": {
+      "ac1": {
+        "verdict": "PASS",
+        "command": "bash block from docs/issues/t22.md ## Verification commands AC-1: check frontend/eslint.config.js exists + npm --prefix frontend run lint exits 0",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "PASS AC-1: frontend/eslint.config.js exists and npm run lint exits 0 on a clean checkout (eslint 9 flat config, zero lint errors)"
+      },
+      "ac2": {
+        "verdict": "PASS",
+        "command": "bash block from docs/issues/t22.md ## Verification commands AC-2: devDeps check + npx eslint --print-config src/main.tsx + node rule-enabled check (orchestrator-fixed block, main commit bcb0280, WAL 107 REQ_MODIFIED)",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "PASS AC-2: ruleset ships and is in effect. Block was authored with unpassable defects (scratch-path mismatch + string-only severity check for numeric arrays) and fixed by orchestrator commit bcb0280. Verifying the fixed block verbatim."
+      },
+      "ac3": {
+        "verdict": "PASS",
+        "command": "bash block from docs/issues/t22.md ## Verification commands AC-3: plant _t22ac3_probe.tsx with any-typed export, npm --prefix frontend run lint, check rc=1 + file named + no-explicit-any named, cleanup on both exit paths",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "PASS AC-3: negative control - planted any-typed violation reds npm run lint (rc=1, no-explicit-any named), the ruleset actually fires"
+      },
+      "ac4": {
+        "verdict": "PASS",
+        "command": "bash block from docs/issues/t22.md ## Verification commands AC-4: cd frontend && npx vitest run (>= 30 files, >= 267 tests, 0 failed) + npx tsc --noEmit rc=0 (orchestrator-fixed block, main commit 7b1fc54, WAL 108 REQ_MODIFIED)",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "PASS AC-4: frontend floor green - vitest 30 files / 267 tests passed (floor 30/267, 0 failed) + tsc --noEmit rc=0. Block was authored with in-subshell scratch-path defect and fixed by orchestrator commit 7b1fc54. Verifying the fixed block verbatim."
+      },
+      "ac5": {
+        "verdict": "PASS",
+        "command": "bash block from docs/issues/t22.md ## Verification commands AC-5: extract D-03 AC-6 section, check t22 provenance + re-groom wording + npm --prefix frontend run lint rc=0",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "PASS AC-5: the D-03 AC-6 inversion is retired - the closed file's AC-6 section cites t22 as the re-groom provenance and asserts the now-green state, which is true (npm run lint rc=0)"
+      },
+      "ac6": {
+        "verdict": "PASS",
+        "command": "bash block from docs/issues/t22.md ## Verification commands AC-6: node check eslint 9.x devDep + shipped 'eslint .' script + zero legacy .eslintrc.* files + frontend/eslint.config.js exists",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "PASS AC-6: the fix stays on eslint 9 (9.x devDep, shipped \"eslint .\" script, zero legacy .eslintrc.* files, flat config at frontend/eslint.config.js)"
+      }
+    },
+    "test_summary": {
+      "total": 267,
+      "passed": 267,
+      "failed": 0
+    },
+    "failure_type": null,
+    "lint_report": {
+      "errors": 0,
+      "warnings": 0
+    },
+    "test_quality_warnings": [
+      "AC-2 and AC-4 verification blocks were authored by the definer with unpassable defects and fixed by the orchestrator during the build phase (main commits bcb0280 and 7b1fc54, WAL 107/108 REQ_MODIFIED). The blocks at the verified tip are the fixed versions, byte-identical to main (sha256 c5530576aa9e73713bcb458c12e0748afaf61a9167a290005ab9778359f21ca7). Verifying the fixed blocks verbatim is correct."
+    ],
+    "dod_verified": {
+      "all_six_ac_blocks_pass_exit_0": true,
+      "frontend_floor_green_30_files_267_tests_0_failed_tsc_rc0": true,
+      "only_files_list_changed_backend_untouched": true,
+      "conventional_commit_t22_prefix_branch_issue_t22": true,
+      "d03_ac6_re_groom_note_citing_t22": true
+    },
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands",
+    "floors": {
+      "backend_pytest": "344 passed, 2 xfailed, 0 failed (73.07s)",
+      "backend_ruff": "All checks passed! (0 errors, 0 warnings)",
+      "frontend_vitest": "30 files / 267 tests / 0 failed",
+      "frontend_tsc": "rc=0"
+    },
+    "scope_check": {
+      "files_in_diff": [
+        "_docs/issues/closed/D-03.md",
+        "docs/issues/t22.md",
+        "docs/state/outputs/t22_builder_implement.json",
+        "frontend/eslint.config.js",
+        "frontend/package-lock.json",
+        "frontend/package.json",
+        "frontend/src/components/ConfirmDialog.tsx",
+        "frontend/src/components/ui/Input.tsx",
+        "frontend/src/components/ui/Label.tsx",
+        "frontend/src/layouts/StaffLayout.test.tsx",
+        "frontend/tests/unit/waitlist-scale.test.tsx"
+      ],
+      "out_of_scope_files": [],
+      "result": "CLEAN - all files match the Files list in docs/issues/t22.md"
+    },
+    "environment_note": "typescript-eslint and @typescript-eslint/* packages were missing from the shared frontend/node_modules (junction target). Restored by copying from the builder's worktree (.worktrees/t22/frontend/node_modules/) - a file copy, not an npm mutation. The orchestrator's environment repair restored rollup/esbuild but did not include the typescript-eslint toolchain."
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/state/outputs/t22_verifier_verify_issue.json"
+    ],
+    "platform_issue": 77,
+    "output_path": "docs/state/outputs/t22_verifier_verify_issue.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-08T18:12:07Z",
+  "retry_count": 0
+}
