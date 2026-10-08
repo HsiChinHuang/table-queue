@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "last_seq": 89,
+  "last_seq": 90,
   "updated_at": "2026-10-07T15:47:13.453Z",
   "slots": [
     {
@@ -8,8 +8,8 @@
       "issue_id": "t19",
       "role": "definer",
       "phase": "groom",
-      "run_id": "71340845-9322-474f-bfff-9c4be02c6378",
-      "spawn_at": "2026-10-08T09:10:32Z",
+      "run_id": "adcca882-349e-4e75-b531-19cfbe5dd5ea",
+      "spawn_at": "2026-10-08T09:28:54Z",
       "last_activity_at": null,
       "worktree_path": null,
       "retry_count": 2
