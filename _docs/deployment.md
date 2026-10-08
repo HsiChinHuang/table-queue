@@ -144,11 +144,9 @@ VITE_PUBLIC_BASE_URL	``	Public base URL (QR code, share links)
 
 A database that has not been seeded holds those three rows and no table rows, so staff cannot seat anyone until `make seed` runs or tables are added in the Settings page. A seeded database holds the tables `_docs/specs.md` section 19 specifies: A1-A4 (2 pax), B1-B4 (4 pax), C1-C2 (6 pax).
 
-### Future PostgreSQL
-- Set `DATABASE_URL=postgresql+psycopg://user:pass@host/db`.
-- No code changes needed.
-- Add Alembic before production.
-- Add `pool_size=5`, `max_overflow=10`.
+### PostgreSQL (unsupported in v1)
+- v1 is SQLite-only: the store is the single SQLite file `dev.db`, and the app refuses to boot on a non-sqlite `DATABASE_URL` - the startup guard in `backend/app/database.py` exits the process with an actionable error that names `DATABASE_URL` and the supported `sqlite:////` shape.
+- Moving to PostgreSQL is a future, unsupported direction, not a set-the-URL step: it would need the driver dependency added, migrations (Alembic) introduced, and pool settings (`pool_size=5`, `max_overflow=10`) configured and exercised.
 
 ### Backup
 - v1: copy `dev.db`.
@@ -170,8 +168,8 @@ A database that has not been seeded holds those three rows and no table rows, so
 - Set `CORS_ORIGINS` to the frontend URL, keeping the comma-separated list form.
 
 ### Database
-- Managed PostgreSQL.
-- Add Alembic migrations.
+- v1 is SQLite-only: a non-sqlite `DATABASE_URL` is refused at startup, so a managed PostgreSQL deployment is not a v1 option.
+- A PostgreSQL move is a future, unsupported direction: it needs the driver dependency, Alembic migrations, and pool settings - it is not a set-the-URL step.
 - Enable backups.
 
 ### HTTPS

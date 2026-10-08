@@ -23,12 +23,16 @@ from app.models import (
     WaitlistSource,
     CancelledReason,
 )
-from app.database import Base
+from app.database import Base, ensure_sqlite_only
 
 
 def get_engine():
     """Create SQLAlchemy engine from current environment settings."""
     settings = get_settings()
+    # t24 (Option B): the seeder's engine is the second of the two engine builds, so it
+    # gets the same sqlite-only refusal as the application's module-level engine: a
+    # non-sqlite DATABASE_URL is refused here, at build time, before create_engine.
+    ensure_sqlite_only(settings.database_url)
     return create_engine(
         settings.database_url,
         connect_args={"check_same_thread": False},

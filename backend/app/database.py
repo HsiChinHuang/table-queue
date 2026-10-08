@@ -1,15 +1,38 @@
-"""Database configuration and session management."""
+"""Database configuration and session management.
+
+The store is sqlite-only by enforcement (t24, decision Option B): ``ensure_sqlite_only``
+refuses any non-sqlite ``DATABASE_URL`` at import, before ``create_engine`` runs, so the
+sqlite-flavoured ``connect_args`` bound below are correct by construction - the B-10
+portable-API-misuse premise is closed by the guard, not papered over.
+"""
 
 import contextlib
 import sqlite3
 
 from sqlalchemy import create_engine, event
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 from sqlalchemy.pool import NullPool
 
 from app.config import get_settings
 
 settings = get_settings()
+
+
+def ensure_sqlite_only(url: str) -> None:
+    """Refuse a ``DATABASE_URL`` whose backend is not SQLite (t24, decision Option B).
+
+    v1 supports exactly one backend: SQLite. The refusal happens at import, before
+    ``create_engine`` and before any network I/O, so a misconfigured process exits
+    non-zero with an actionable error instead of dying later on the absent driver.
+    """
+    if make_url(url).get_backend_name() != "sqlite":
+        raise RuntimeError(
+            "DATABASE_URL is set to a non-SQLite backend: TableQueue v1 supports only "
+            "SQLite. Set DATABASE_URL to a SQLite URL, e.g. sqlite:////absolute/path/to/dev.db "
+            "(or the shipped sqlite:///./dev.db); PostgreSQL is not supported in v1 and no "
+            "PostgreSQL driver ships, so a non-sqlite URL cannot boot this application."
+        )
 
 # Create SQLAlchemy engine.
 #
@@ -45,6 +68,12 @@ settings = get_settings()
 # itself, short enough that a genuinely held lock fails the request fast instead of parking the
 # worker for 30s. The error layer reuses the same constant for the Retry-After it advertises.
 SQLITE_BUSY_TIMEOUT = 5.0
+
+# t24 (Option B): the URL is enforced sqlite-only before any engine exists. The
+# connect_args bound below are sqlite-flavoured - ``check_same_thread`` is a sqlite3
+# keyword and ``timeout`` is SQLite's busy timeout - and they are correct by
+# enforcement, not by luck: a non-sqlite URL never reaches create_engine (B-10 closed).
+ensure_sqlite_only(settings.database_url)
 
 engine = create_engine(
     settings.database_url,
