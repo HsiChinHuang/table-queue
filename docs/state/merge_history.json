@@ -1,65 +1,86 @@
 {
- "schema_version": "1.0",
- "merges": [
-  {
-   "issue_id": "t16",
-   "platform_issue": 71,
-   "branch": "issue/t16-contract-completion",
-   "branch_tip": "b3cd444",
-   "pre_merge_sha": "a90ff8d",
-   "merge_sha": "52766eae973e97a1b6b19b6333660f6688f3c1a2",
-   "merged_at": "2026-10-07T08:54:11Z",
-   "verification": {
-    "verify_issue": "PASS (comment 6030592458)",
-    "verify_pre_merge": "PASS retry 1/2 (comment 6032148384; attempt-1 FAIL was environmental: worktree venv Python 3.13 vs baseline 3.12, WinError 32 teardown)",
-    "verify_post_merge": "PASS (comment 6034264509)"
-   },
-   "post_merge_suite": {
-    "backend": "335 passed, 2 xfailed, exit 0",
-    "frontend": "244 passed / 30 files, exit 0",
-    "ruff": "0 errors"
-   },
-   "ac_hash": "sha256:74ba59e0a366f3296a4a5f1b519a10e7072848a7b24c26109598b957c00069ee"
-  },
-  {
-   "issue_id": "t17",
-   "platform_issue": 72,
-   "branch": "issue/t17-client-lifecycle",
-   "branch_tip": "660b133",
-   "pre_merge_sha": "769a5a6",
-   "merge_sha": "0748f27717139ccd282845a96fc6370e8dfeb658",
-   "merged_at": "2026-10-08T03:11:43Z",
-   "verification": {
-    "verify_issue": "PASS (run 31622934)",
-    "verify_pre_merge": "PASS retry 2/3 (run dd58f033; attempt-1 timeout and early termination were environmental: GitHub GCM interactive-auth dialog, then stale worktree index holding the un-repaired t16/ac4; orchestrator repaired index in 562f038 and synced it into the worktree)",
-    "verify_post_merge": "PASS (run 965a071d, comment posted on #72)"
-   },
-   "post_merge_suite": {
-    "backend": "335 passed, 2 xfailed, exit 0",
-    "frontend": "267 passed / 30 files, exit 0",
-    "tsc": "exit 0"
-   },
-   "ac_hash": "sha256:f48c1b826af6fbdc7e9a89b7dd36902b99401cd42f143732183291d29be93061"
-  },
-  {
-   "issue_id": "t18",
-   "platform_issue": 73,
-   "branch": "issue/t18-response-envelope",
-   "branch_tip": "cae82a1",
-   "pre_merge_sha": "461ffc6",
-   "merge_sha": "df1b5fa48ee77440240c60c1a88de96c8d2a15a1",
-   "merged_at": "2026-10-08T07:41:07Z",
-   "verification": {
-    "verify_issue": "PASS (run 6d5f615f; WARN-1 sentinel intent preserved; comment on #73 2026-10-08T06:36:50Z)",
-    "verify_pre_merge": "PASS (run 05b4e23a; cumulative 11/11 + smoke 3/3; orchestrator posted comment 2026-10-08T07:40:38Z after worktree .env miss)",
-    "verify_post_merge": "PASS (run 975e766a; cumulative 11/11 + smoke 3/3; no regressions; HEAD==merge_sha)"
-   },
-   "post_merge_suite": {
-    "backend": "340 passed, 2 xfailed, exit 0",
-    "frontend": "30 files / 267 tests, exit 0",
-    "tsc": "exit 0"
-   },
-   "ac_hash": "sha256:a0663c652260247a517aed7819e6606018c49b7e7f16baec6e54a1df075fa835"
-  }
- ]
+  "schema_version": "1.0",
+  "merges": [
+    {
+      "issue_id": "t16",
+      "platform_issue": 71,
+      "branch": "issue/t16-contract-completion",
+      "branch_tip": "b3cd444",
+      "pre_merge_sha": "a90ff8d",
+      "merge_sha": "52766eae973e97a1b6b19b6333660f6688f3c1a2",
+      "merged_at": "2026-10-07T08:54:11Z",
+      "verification": {
+        "verify_issue": "PASS (comment 6030592458)",
+        "verify_pre_merge": "PASS retry 1/2 (comment 6032148384; attempt-1 FAIL was environmental: worktree venv Python 3.13 vs baseline 3.12, WinError 32 teardown)",
+        "verify_post_merge": "PASS (comment 6034264509)"
+      },
+      "post_merge_suite": {
+        "backend": "335 passed, 2 xfailed, exit 0",
+        "frontend": "244 passed / 30 files, exit 0",
+        "ruff": "0 errors"
+      },
+      "ac_hash": "sha256:74ba59e0a366f3296a4a5f1b519a10e7072848a7b24c26109598b957c00069ee"
+    },
+    {
+      "issue_id": "t17",
+      "platform_issue": 72,
+      "branch": "issue/t17-client-lifecycle",
+      "branch_tip": "660b133",
+      "pre_merge_sha": "769a5a6",
+      "merge_sha": "0748f27717139ccd282845a96fc6370e8dfeb658",
+      "merged_at": "2026-10-08T03:11:43Z",
+      "verification": {
+        "verify_issue": "PASS (run 31622934)",
+        "verify_pre_merge": "PASS retry 2/3 (run dd58f033; attempt-1 timeout and early termination were environmental: GitHub GCM interactive-auth dialog, then stale worktree index holding the un-repaired t16/ac4; orchestrator repaired index in 562f038 and synced it into the worktree)",
+        "verify_post_merge": "PASS (run 965a071d, comment posted on #72)"
+      },
+      "post_merge_suite": {
+        "backend": "335 passed, 2 xfailed, exit 0",
+        "frontend": "267 passed / 30 files, exit 0",
+        "tsc": "exit 0"
+      },
+      "ac_hash": "sha256:f48c1b826af6fbdc7e9a89b7dd36902b99401cd42f143732183291d29be93061"
+    },
+    {
+      "issue_id": "t18",
+      "platform_issue": 73,
+      "branch": "issue/t18-response-envelope",
+      "branch_tip": "cae82a1",
+      "pre_merge_sha": "461ffc6",
+      "merge_sha": "df1b5fa48ee77440240c60c1a88de96c8d2a15a1",
+      "merged_at": "2026-10-08T07:41:07Z",
+      "verification": {
+        "verify_issue": "PASS (run 6d5f615f; WARN-1 sentinel intent preserved; comment on #73 2026-10-08T06:36:50Z)",
+        "verify_pre_merge": "PASS (run 05b4e23a; cumulative 11/11 + smoke 3/3; orchestrator posted comment 2026-10-08T07:40:38Z after worktree .env miss)",
+        "verify_post_merge": "PASS (run 975e766a; cumulative 11/11 + smoke 3/3; no regressions; HEAD==merge_sha)"
+      },
+      "post_merge_suite": {
+        "backend": "340 passed, 2 xfailed, exit 0",
+        "frontend": "30 files / 267 tests, exit 0",
+        "tsc": "exit 0"
+      },
+      "ac_hash": "sha256:a0663c652260247a517aed7819e6606018c49b7e7f16baec6e54a1df075fa835"
+    },
+    {
+      "issue_id": "t19",
+      "platform_issue": 74,
+      "branch": "issue/t19-sqlite-contention",
+      "branch_tip": "33ed2a7",
+      "pre_merge_sha": "959cf13",
+      "merge_sha": "441a521fe117ac42703f3963d823a075cffad2fb",
+      "merged_at": "2026-10-08T15:19:45Z",
+      "verification": {
+        "verify_issue": "PASS (run cf5dcb03, first attempt; run timed out AFTER COMPLETE handoff written - orchestrator re-validated exit 0 and posted PASS comment from main)",
+        "verify_pre_merge": "PASS (run 4aaffee8, first attempt; 21/21 cumulative+current, merge-tree rc=0; run timed out AFTER COMPLETE handoff - orchestrator re-validated; PASS comment 14:45:11Z)",
+        "verify_post_merge": "PASS (run 31b153a1, first attempt, clean completion; 21/21; MERGE VERDICT comment posted by verifier)"
+      },
+      "post_merge_suite": {
+        "backend": "344 passed, 2 xfailed, exit 0",
+        "frontend": "267 passed / 30 files, exit 0",
+        "ruff": "0 errors",
+        "tsc": "clean"
+      },
+      "ac_hash": "sha256:6403035f221dd72276ce8f2923fd15d424fe3007145ffa55a97bf1d612b32935"
+    }
+  ]
 }

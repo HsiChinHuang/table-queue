@@ -1,0 +1,56 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t19",
+  "role": "verifier",
+  "phase": "verify_pre_merge",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "merge_verification",
+    "cumulative_tests": { "total": 16, "passed": 16, "failed": 0 },
+    "smoke_tests": { "total": 3, "passed": 3, "failed": 0 },
+    "failed_tests": [],
+    "current_issue_tests": { "total": 5, "passed": 5, "failed": 0 },
+    "mergeability": {
+      "command": "git merge-tree --write-tree main issue/t19-sqlite-contention",
+      "rc": 0,
+      "conflicts": false,
+      "tree_hash": "3a29a347c3e6a7dfbee6cbcc02c7654d584e8291"
+    },
+    "candidate_branch": "issue/t19-sqlite-contention",
+    "candidate_tip": "33ed2a78cc486670fd0a73b0b06b3239e2d4c4c7",
+    "worktree_head": "33ed2a78cc486670fd0a73b0b06b3239e2d4c4c7",
+    "backend_suite": "344 passed, 2 xfailed, 0 failed + ruff clean (floor 344+ holds)",
+    "frontend_suite": "30 files / 267 tests green + tsc --noEmit clean",
+    "dod": {
+      "all_acs_pass": true,
+      "all_cumulative_pass": true,
+      "all_smoke_pass": true,
+      "no_new_lint_errors": "ruff clean + tsc --noEmit clean",
+      "no_console_errors": "N/A (t19 is backend-only; frontend suite green + tsc clean)",
+      "api_contract": "openapi.yaml unchanged; new STORE_BUSY (503) documented in specs.md with explicit deferral to Platform Issue #3 (same pattern as t18 NOT_FOUND/METHOD_NOT_ALLOWED and pre-existing INTERNAL_ERROR)",
+      "no_new_warnings": "3 backend warnings are pre-existing third-party (fastapi/starlette testclient) deprecation warnings, not from t19 code"
+    },
+    "platform_comment": {
+      "posted": true,
+      "platform_issue": 74,
+      "verdict": "PASS",
+      "created_at": "2026-10-08T14:45:11Z"
+    },
+    "notes": [
+      "[VENV_UNAVAILABLE] UV_PROJECT_ENVIRONMENT and PYTHONPATH were both empty; per-worktree backend/.venv (CPython 3.12.15) used directly. All index/AC commands pin backend/.venv/Scripts/python.exe, so this is a WARN, not a failure.",
+      "[WARN] Worktree is detached at the candidate branch tip (HEAD == issue/t19-sqlite-contention tip 33ed2a7); `git branch --show-current` is empty. Accepted per the task wording 'detached at candidate branch tip' - the worktree is at exactly the candidate tip, which is the correct verification state.",
+      "[WARN] An initial cumulative run via a Python subprocess runner produced 13 spurious FAILs (command mangling: backslash-newline continuations, quoting, heredoc handling). All 16 were re-run verbatim via `bash <file>` (commands extracted byte-for-byte from merge_test_index.json) -> 16/16 PASS. The subprocess results are discarded.",
+      "Smoke floor note: backend full suite reports exactly 344 passed (>= 344 floor holds); t19 AC-5 floor is 340+ and t18 AC-5 floor is 335 - all satisfied by the same 344."
+    ]
+  },
+  "artifacts": {
+    "files_written": ["docs/state/outputs/t19_verifier_verify_pre_merge.json"],
+    "platform_issue": 74,
+    "output_path": "docs/state/outputs/t19_verifier_verify_pre_merge.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-08T14:46:32Z",
+  "retry_count": 0
+}
