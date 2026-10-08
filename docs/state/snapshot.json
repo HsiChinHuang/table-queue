@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "last_seq": 105,
+  "last_seq": 106,
   "updated_at": "2026-10-07T15:47:13.453Z",
   "slots": [
     {
@@ -8,10 +8,10 @@
       "issue_id": "t22",
       "role": "builder",
       "phase": "implement",
-      "run_id": null,
-      "spawn_at": null,
+      "run_id": "6ba55a27-f898-4457-b0dd-1f102f6f3640",
+      "spawn_at": "2026-10-08T16:08:17Z",
       "last_activity_at": null,
-      "worktree_path": null,
+      "worktree_path": "C:/Users/tw097/Desktop/261003_ai_test/table-queue/.worktrees/t22",
       "retry_count": 0
     }
   ],
