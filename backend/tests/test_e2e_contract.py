@@ -20,10 +20,13 @@ os.environ.setdefault("JWT_SECRET", "tq-test-jwt-secret-e2e-0123456789abcdef")
 os.environ.setdefault("STAFF_PIN", "1234")
 os.environ.setdefault("ENV", "development")
 
+import contextlib
+
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.errors import AppError
+from app.main import app, limiter
 from app.models import (
     CancelledReason,
     Table,
@@ -31,6 +34,7 @@ from app.models import (
     WaitlistEntry,
     WaitlistStatus,
 )
+from app.services.rate_limit import BoundedFrozenClockMemoryStorage
 from tests._db_test_support import TEST_CREDENTIAL_HASH
 from tests.public_fixtures import seed_branch
 
@@ -356,3 +360,140 @@ def test_close_day_requires_staff_token(client: TestClient) -> None:
     resp = client.post("/api/v1/staff/waitlist/close-day")
     assert resp.status_code == 401
     assert resp.json()["error"]["code"] == "AUTH_TOKEN_EXPIRED"
+
+
+# ---------------------------------------------------------------------------
+# T18 AC-4: the conformance sweep over the eight non-2xx classes the contract ships.
+# ---------------------------------------------------------------------------
+
+
+def _envelope_problems(resp, want_status: int) -> list[str]:
+    """Return the reasons ``resp`` is not the contract envelope for ``want_status``.
+
+    An empty list is the pass. The checks are the AC's own: the status is the one asked
+    for, the body is JSON whose top level is exactly the ``error`` key, ``code`` and
+    ``message`` are non-empty strings, ``details`` is an object when present, and no
+    framework ``detail`` key appears at the top level or inside ``error``. One helper
+    applied per class is what the AC asks for, so all eight answers are measured the
+    same way.
+    """
+    if resp.status_code != want_status:
+        return [f"status is {resp.status_code}, want {want_status}"]
+    try:
+        body = resp.json()
+    except ValueError:
+        return ["the body is not JSON"]
+    if not isinstance(body, dict) or set(body) != {"error"}:
+        keys = sorted(body) if isinstance(body, dict) else type(body).__name__
+        return [f"the top level carries {keys!r}, want exactly ['error']"]
+    error = body["error"]
+    if not isinstance(error, dict):
+        return ["error is not an object"]
+    if "detail" in body or "detail" in error:
+        return ["a 'detail' key (framework default shape) leaked through"]
+    if not isinstance(error.get("code"), str) or not error["code"]:
+        return ["error.code is missing or not a non-empty string"]
+    if not isinstance(error.get("message"), str) or not error["message"]:
+        return ["error.message is missing or not a non-empty string"]
+    if "details" in error and not isinstance(error["details"], dict):
+        return ["error.details is present but is not an object"]
+    return []
+
+
+@contextlib.contextmanager
+def limiter_on_fresh_store():
+    """Enable the shared limiter on a fresh counter store, then restore both.
+
+    The conftest ``disable_limiter`` fixture is autouse, so the 429 class can only be
+    measured with the limiter switched on for the probe alone. The store swap mirrors
+    ``test_rate_limit_t23.limiter_on_fresh_store``: a fresh bounded store makes the
+    boundary exact (ten 200s, the eleventh 429) and keeps one burst from leaking into
+    the next test's window.
+    """
+    previous_enabled = limiter.enabled
+    previous_storage = limiter._storage  # noqa: SLF001
+    limiter.enabled = True
+    limiter._storage = BoundedFrozenClockMemoryStorage()  # noqa: SLF001
+    try:
+        yield
+    finally:
+        limiter.enabled = previous_enabled
+        limiter._storage = previous_storage  # noqa: SLF001
+
+
+def test_every_non_2xx_class_answers_the_contract_envelope(client, db_session) -> None:
+    """T18 AC-4: every error class the contract can produce answers the envelope.
+
+    The eight classes, probed the way the AC names: 401 an invalid PIN, 404 an
+    unmatched route, 405 a method the router does not allow, 409 a duplicate-phone
+    join, 422 a malformed body, 429 a guest-budget burst - all real contract answers
+    the product already produces. The 500 and 503 are forced through the app's own
+    error layer (an unhandled exception through the registered handler, and an
+    ``AppError`` status override respectively) because the 503's real producer - the
+    locked database - lands with t19. The two probe routes exist only for this test's
+    body and are removed in the ``finally``: nothing a later test's route-table walk
+    could find may be left behind.
+    """
+    seed_branch(db_session, branch_id=1, is_open=True)
+    db_session.commit()
+
+    def check(label: str, resp, want_status: int) -> None:
+        problems = _envelope_problems(resp, want_status)
+        assert problems == [], f"{label}: the envelope is not the contract's: {problems}"
+
+    # 401: an invalid PIN against a bootstrapped store - a refused credential, not a missing one.
+    check("401 invalid PIN", client.post("/api/v1/auth/login", json={"pin": "9999"}), 401)
+
+    # 404: a path no route serves, answered by the router-level error layer (t18 AC-1).
+    check(
+        "404 unmatched route",
+        client.get("/api/v1/definitely-not-a-route"),
+        404,
+    )
+
+    # 405: a method the router does not allow on a mounted path, the same layer.
+    check("405 method not allowed", client.delete("/health"), 405)
+
+    # 409: a phone that already holds a place today, the real conflict answer.
+    join = {
+        "name": "Sweep Guest",
+        "phone": "0900-000-010",
+        "party_size": 2,
+    }
+    first = client.post("/api/v1/branches/1/waitlist", json=join)
+    assert first.status_code == 201, f"join failed: {first.text}"
+    check("409 duplicate phone", client.post("/api/v1/branches/1/waitlist", json=join), 409)
+
+    # 422: a malformed body the request schema rejects.
+    check("422 malformed body", client.post("/api/v1/auth/login", json={}), 422)
+
+    # 429: the guest budget on the un-limited branch read - ten answers, the eleventh refused.
+    with limiter_on_fresh_store():
+        burst = [client.get("/api/v1/public/branches/1") for _ in range(11)]
+        assert all(r.status_code == 200 for r in burst[:10]), [
+            r.status_code for r in burst[:10]
+        ]
+        check("429 guest budget burst", burst[10], 429)
+
+    # 500/503: forced through the app's own error layer, see the docstring for why.
+    routes_before = len(app.router.routes)
+    try:
+
+        @app.get("/_t18_sweep_500")
+        def _t18_sweep_500() -> None:
+            raise RuntimeError("the t18 sweep's forced 500")
+
+        @app.get("/_t18_sweep_503")
+        def _t18_sweep_503() -> None:
+            raise AppError(
+                "INTERNAL_ERROR", status_code=503, message="Service temporarily unavailable"
+            )
+
+        check("500 unhandled exception", client.get("/_t18_sweep_500"), 500)
+        check(
+            "503 service unavailable (status override; t19 lands the real producer)",
+            client.get("/_t18_sweep_503"),
+            503,
+        )
+    finally:
+        del app.router.routes[routes_before:]

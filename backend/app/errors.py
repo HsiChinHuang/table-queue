@@ -4,8 +4,9 @@ Provides:
 - `ERROR_CODES`: mapping of error code string to HTTP status (derived from specs.md).
 - `AppError`: exception class carrying an error code, optional custom message, status_code, details.
 - `register_error_handlers(app)`: registers FastAPI exception handlers for `AppError`,
-  `RequestValidationError` (422 VALIDATION_ERROR), `RateLimitExceeded` (429 RATE_LIMITED),
-  and generic `Exception` (500 INTERNAL_ERROR).
+  `StarletteHTTPException` (the router-level refusals: 404 NOT_FOUND, 405 METHOD_NOT_ALLOWED;
+  t18 AC-1), `RequestValidationError` (422 VALIDATION_ERROR), `RateLimitExceeded`
+  (429 RATE_LIMITED), and generic `Exception` (500 INTERNAL_ERROR).
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 log = logging.getLogger(__name__)
 
@@ -89,6 +91,62 @@ class AppError(Exception):
 
 def _handle_app_error(request: Request, exc: AppError) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content=exc.to_payload())
+
+
+HTTP_REJECTION_CODES: Mapping[int, str] = {
+    404: "NOT_FOUND",
+    405: "METHOD_NOT_ALLOWED",
+}
+"""The contract codes the router-level refusals answer with (t18 AC-1).
+
+The keys are the two statuses the Starlette router raises itself - no application code
+raises ``StarletteHTTPException`` anywhere in ``app/`` - so the mapping is closed rather
+than derived: a status the framework raises but the contract does not own must keep the
+framework default body, not be rewritten into a code the table does not price. The codes
+are the ones ``ERROR_CODES`` derives from specs.md section 11 (the table rows), so this
+map and the spec cannot drift apart without the loader noticing the row is missing.
+"""
+
+HTTP_REJECTION_MESSAGES: Mapping[int, str] = {
+    404: "Route not found",
+    405: "Method not allowed",
+}
+"""The human-readable half of the two router-level envelopes.
+
+Spelled here rather than derived from the code names because ``AppError``'s default
+renders a code with its underscores printed as spaces ("NOT FOUND") - a message that is
+the code read out loud, in the shape ``INTERNAL_ERROR_MESSAGE`` exists to avoid. The
+texts are unpinned by any acceptance probe (the AC set asks for a non-empty string), so
+the wording is this module's to choose.
+"""
+
+
+def _handle_http_exception(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+    """Answer the router-level refusals with the contract envelope (t18 AC-1).
+
+    Starlette's router raises ``StarletteHTTPException`` for the two refusals the
+    application itself owns the answer to: a path no route serves (404 - a made-up
+    prefix, or a traversal-style request that arrives as an unmatched one) and a method
+    a mounted path does not declare (405, carrying the ``Allow`` header the router set).
+    Before this handler existed both fell through to the framework default
+    ``{"detail": "Not Found"}`` / ``{"detail": "Method Not Allowed"}`` body - the B-6
+    escape the phase-5 audit named. The statuses map to the codes above and the response
+    keeps the original status and headers, so this handler rewrites exactly the two
+    refusals the contract owns and nothing else: any other status the framework raises
+    keeps the framework default body, and no other handler sees these exceptions.
+    """
+    code = HTTP_REJECTION_CODES.get(exc.status_code)
+    if code is None:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
+            headers=exc.headers,
+        )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": {"code": code, "message": HTTP_REJECTION_MESSAGES[exc.status_code]}},
+        headers=exc.headers,
+    )
 
 
 # The fixed message the contract's own example carries. It is a constant rather than a
@@ -233,8 +291,16 @@ def _handle_generic_exception(request: Request, exc: Exception) -> JSONResponse:
 
 
 def register_error_handlers(app: FastAPI) -> None:
-    """Register global exception handlers used by the B‑04 tests."""
+    """Register global exception handlers used by the B‑04 tests.
+
+    The ``StarletteHTTPException`` registration (t18 AC-1) is the one that pulls the
+    router-level 404/405 refusals into the contract envelope: FastAPI seeds its own
+    default for that same class, so ``add_exception_handler`` replaces the framework
+    body for the two statuses :data:`HTTP_REJECTION_CODES` prices and leaves the rest
+    to the default body this handler renders unchanged.
+    """
     app.add_exception_handler(AppError, _handle_app_error)
+    app.add_exception_handler(StarletteHTTPException, _handle_http_exception)
     app.add_exception_handler(RequestValidationError, _handle_validation_error)
     app.add_exception_handler(RateLimitExceeded, _handle_rate_limit)
     app.add_exception_handler(Exception, _handle_generic_exception)

@@ -460,6 +460,8 @@ CONFLICT	409	Conflict with another change
 RATE_LIMITED	429	Too many requests
 INTERNAL_ERROR	500	Unhandled error
 BRANCH_NOT_FOUND	404	Branch not found
+NOT_FOUND	404	Route not found
+METHOD_NOT_ALLOWED	405	Method not allowed
 
 Error response shape:
 {
@@ -470,7 +472,14 @@ Error response shape:
   }
 }
 
-This table lists exactly the `error.code` values that `_docs/openapi.yaml` returns. `_docs/openapi.yaml` is the contract of record for error codes, so a code that no operation returns must not appear in this table.
+This table lists exactly the `error.code` values that `_docs/openapi.yaml` returns, plus the two router-level codes `NOT_FOUND` (404) and `METHOD_NOT_ALLOWED` (405), which the error layer answers for the router's own refusals rather than any declared operation. `_docs/openapi.yaml` is the contract of record for error codes, so any other code that no operation returns must not appear in this table; the openapi-side entries for the two router-level codes are logged under Inconsistencies deferred.
+
+### Router-level refusals and the edge-owned 400
+
+Two refusals the application can produce are not answered by a route handler, so each needs the sentence that says who answers it:
+
+- **Edge-owned oversized-request-line 400.** An oversized HTTP request line (or request header) is rejected by the edge — uvicorn's HTTP parser answers HTTP 400 with the plaintext body "Invalid HTTP request sent" — *before* the request reaches the application. No route and no error handler ever see it, so it can never carry the error envelope above, and no in-app middleware can map it: the 400 is edge-owned, and this note is the contract's documentation of that fact.
+- **In-app router-level 404/405.** The refusals the application itself can produce are the router's own: a path no route serves (a made-up `/api/v1/...` prefix, or a traversal-style request that arrives as an unmatched prefix) answers 404 `NOT_FOUND`, and a method a mounted path does not declare (for example `DELETE /health`) answers 405 `METHOD_NOT_ALLOWED`, both in the envelope shape above. `app/errors.py::register_error_handlers` installs the `StarletteHTTPException` handler that renders these two refusals — that handler is the contract-mapping layer the audit asked for — so the framework-default `{"detail": ...}` body never reaches a client for a router-level refusal.
 
 ### Codes outside the API contract
 
@@ -484,6 +493,7 @@ These codes are still specified in this document and referenced by other docs, b
 
 - `AUTH_RATE_LIMITED` and `SETTINGS_NOT_FOUND` have no `components.responses` entry in `_docs/openapi.yaml`; adding them belongs to Platform Issue #31 and Platform Issue #36, and the contract change itself to Platform Issue #3.
 - `INTERNAL_ERROR` is specified here but `openapi.yaml` declares no 500 response and no generic `components.responses` entry; adding one belongs to Platform Issue #3.
+- `NOT_FOUND` (404) and `METHOD_NOT_ALLOWED` (405) are specified here for the router-level refusals the error layer answers (t18), but `openapi.yaml` declares no 404/405 response and no such `components.responses` entry; adding them belongs to Platform Issue #3, the same deferral as `INTERNAL_ERROR`.
 - Status colour values are owned by `_docs/ui.md` section 2; aligning the colour token table with this specification belongs to Platform Issue #2.
 
 ## 12. API Summary
