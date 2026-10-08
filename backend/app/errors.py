@@ -6,7 +6,8 @@ Provides:
 - `register_error_handlers(app)`: registers FastAPI exception handlers for `AppError`,
   `StarletteHTTPException` (the router-level refusals: 404 NOT_FOUND, 405 METHOD_NOT_ALLOWED;
   t18 AC-1), `RequestValidationError` (422 VALIDATION_ERROR), `RateLimitExceeded`
-  (429 RATE_LIMITED), and generic `Exception` (500 INTERNAL_ERROR).
+  (429 RATE_LIMITED), the SQLite busy/locked `OperationalError` (503 STORE_BUSY with a
+  Retry-After header; t19), and generic `Exception` (500 INTERNAL_ERROR).
 """
 
 from __future__ import annotations
@@ -21,7 +22,10 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy.exc import OperationalError as SQLAlchemyOperationalError
 from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from app.database import SQLITE_BUSY_TIMEOUT
 
 log = logging.getLogger(__name__)
 
@@ -91,6 +95,68 @@ class AppError(Exception):
 
 def _handle_app_error(request: Request, exc: AppError) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content=exc.to_payload())
+
+
+# ---------------------------------------------------------------------------
+# Store-busy mapping (t19): SQLite busy/locked is a contract outcome, not a crash.
+# ---------------------------------------------------------------------------
+
+_BUSY_LOCK_MARKERS: tuple[str, ...] = ("database is locked", "sqlite_busy")
+"""The signatures of the one SQLite failure the 503 mapping owns.
+
+Anything else an ``OperationalError`` carries - "no such table", a constraint the driver
+surfaces as operational - is a different failure and keeps the generic 500 answer, so the
+mapping below cannot turn an unhandled bug into a retryable one clients would loop on.
+"""
+
+
+def is_store_busy(exc: BaseException) -> bool:
+    """Whether ``exc`` is the SQLite busy/locked signature (t19), and nothing else.
+
+    SQLAlchemy wraps the driver's ``sqlite3.OperationalError: database is locked`` in its own
+    ``OperationalError``; the driver exception rides it as ``orig`` and the message rides both
+    levels, so the check reads both. Only the busy/locked signature maps to the typed 503 -
+    a store that is locked by a concurrent writer is a contention a client can retry, and a
+    store that is broken is not.
+    """
+    orig = getattr(exc, "orig", None)
+    text = " ".join(str(part) for part in (orig, exc) if part is not None).lower()
+    return any(marker in text for marker in _BUSY_LOCK_MARKERS)
+
+
+STORE_BUSY_MESSAGE = "Store is busy; retry shortly"
+"""The fixed message the store-busy envelope carries.
+
+Spelled here rather than derived from the code name (which would render "STORE BUSY" - the code
+read out loud) because the message is what a client's operator reads when the store is locked by
+a concurrent writer; the Retry-After header carries the retryable half, and the code carries the
+contract half. The status is derived from the specs.md section 11 row, like every other code.
+"""
+
+
+def _handle_store_busy(request: Request, exc: SQLAlchemyOperationalError) -> JSONResponse:
+    """Answer the locked store with the typed 503, and nothing else (t19).
+
+    A request that touches the store while a concurrent writer holds the file lock parks for the
+    documented busy timeout (``SQLITE_BUSY_TIMEOUT`` in app/database.py) and then fails with
+    SQLite's "database is locked". Before this handler that failure fell through the generic
+    handler and
+    answered 500 INTERNAL_ERROR - indistinguishable from a crash, the B-4 gap. Now it answers
+    the 503 ``STORE_BUSY`` row of specs.md section 11 with the contract envelope and a
+    ``Retry-After`` header sized to the same documented window the request just waited out.
+
+    An ``OperationalError`` that is not the busy/locked signature is not this handler's: it is
+    answered exactly the way the generic handler would, so a broken store still reads as a 500.
+    """
+    if not is_store_busy(exc):
+        return _handle_generic_exception(request, exc)
+    err = AppError("STORE_BUSY", message=STORE_BUSY_MESSAGE)
+    retry_after = max(1, int(round(SQLITE_BUSY_TIMEOUT)))
+    return JSONResponse(
+        status_code=err.status_code,
+        content=err.to_payload(),
+        headers={"Retry-After": str(retry_after)},
+    )
 
 
 HTTP_REJECTION_CODES: Mapping[int, str] = {
@@ -303,5 +369,8 @@ def register_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(StarletteHTTPException, _handle_http_exception)
     app.add_exception_handler(RequestValidationError, _handle_validation_error)
     app.add_exception_handler(RateLimitExceeded, _handle_rate_limit)
+    # The store-busy handler (t19) is more specific than the generic one: a locked store is the
+    # 503, every other unhandled exception keeps the 500 the generic handler renders.
+    app.add_exception_handler(SQLAlchemyOperationalError, _handle_store_busy)
     app.add_exception_handler(Exception, _handle_generic_exception)
 
