@@ -20,6 +20,26 @@
     "ruff": "0 errors"
    },
    "ac_hash": "sha256:74ba59e0a366f3296a4a5f1b519a10e7072848a7b24c26109598b957c00069ee"
+  },
+  {
+   "issue_id": "t17",
+   "platform_issue": 72,
+   "branch": "issue/t17-client-lifecycle",
+   "branch_tip": "660b133",
+   "pre_merge_sha": "769a5a6",
+   "merge_sha": "0748f27717139ccd282845a96fc6370e8dfeb658",
+   "merged_at": "2026-10-08T03:11:43Z",
+   "verification": {
+    "verify_issue": "PASS (run 31622934)",
+    "verify_pre_merge": "PASS retry 2/3 (run dd58f033; attempt-1 timeout and early termination were environmental: GitHub GCM interactive-auth dialog, then stale worktree index holding the un-repaired t16/ac4; orchestrator repaired index in 562f038 and synced it into the worktree)",
+    "verify_post_merge": "PASS (run 965a071d, comment posted on #72)"
+   },
+   "post_merge_suite": {
+    "backend": "335 passed, 2 xfailed, exit 0",
+    "frontend": "267 passed / 30 files, exit 0",
+    "tsc": "exit 0"
+   },
+   "ac_hash": "sha256:f48c1b826af6fbdc7e9a89b7dd36902b99401cd42f143732183291d29be93061"
   }
  ]
 }

@@ -1,0 +1,50 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t17",
+  "role": "verifier",
+  "phase": "verify_post_merge",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "merge_verification",
+    "smoke_tests": {
+      "total": 3,
+      "passed": 3,
+      "failed": 0
+    },
+    "merge_sha": "0748f27717139ccd282845a96fc6370e8dfeb658",
+    "regressions_detected": [],
+    "cumulative_commands": {
+      "total": 11,
+      "passed": 11,
+      "failed": 0,
+      "details": [
+        {"id": "t16/ac1", "result": "PASS"},
+        {"id": "t16/ac2", "result": "PASS"},
+        {"id": "t16/ac3", "result": "PASS"},
+        {"id": "t16/ac4", "result": "PASS"},
+        {"id": "t17/ac1", "result": "PASS"},
+        {"id": "t17/ac2", "result": "PASS"},
+        {"id": "t17/ac3", "result": "PASS"},
+        {"id": "t17/ac4", "result": "PASS"},
+        {"id": "t17/ac5", "result": "PASS"},
+        {"id": "t17/ac6", "result": "PASS"},
+        {"id": "t17/ac7", "result": "PASS"}
+      ]
+    },
+    "smoke_details": [
+      {"command": "uv run pytest tests -q -p no:randomly", "result": "335 passed, 2 xfailed"},
+      {"command": "npx vitest run", "result": "30 files / 267 tests passed"},
+      {"command": "npx tsc --noEmit", "result": "exit 0"}
+    ]
+  },
+  "artifacts": {
+    "files_written": ["docs/state/outputs/t17_verifier_verify_post_merge.json"],
+    "platform_issue": 72,
+    "output_path": "docs/state/outputs/t17_verifier_verify_post_merge.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-08T03:26:35Z",
+  "retry_count": 0
+}
