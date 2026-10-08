@@ -1,17 +1,17 @@
 {
   "schema_version": "2.0",
-  "last_seq": 116,
+  "last_seq": 119,
   "updated_at": "2026-10-07T15:47:13.453Z",
   "slots": [
     {
       "slot_id": "slot_1",
       "issue_id": "t22",
       "role": "builder",
-      "phase": "merge",
-      "run_id": null,
-      "spawn_at": null,
+      "phase": "verify_post_merge",
+      "run_id": "ed7b7fb4-9e20-465a-bcd8-18db7ebfcc87",
+      "spawn_at": "2026-10-08T18:50:21Z",
       "last_activity_at": null,
-      "worktree_path": null,
+      "worktree_path": "C:/Users/tw097/Desktop/261003_ai_test/table-queue/.worktrees/verify-t22-postmerge",
       "retry_count": 0
     }
   ],
