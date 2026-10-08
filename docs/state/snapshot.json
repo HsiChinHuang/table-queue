@@ -1,18 +1,18 @@
 {
   "schema_version": "2.0",
-  "last_seq": 90,
+  "last_seq": 91,
   "updated_at": "2026-10-07T15:47:13.453Z",
   "slots": [
     {
       "slot_id": "slot_1",
       "issue_id": "t19",
-      "role": "definer",
-      "phase": "groom",
-      "run_id": "adcca882-349e-4e75-b531-19cfbe5dd5ea",
-      "spawn_at": "2026-10-08T09:28:54Z",
+      "role": "builder",
+      "phase": "implement",
+      "run_id": null,
+      "spawn_at": null,
       "last_activity_at": null,
-      "worktree_path": null,
-      "retry_count": 2
+      "worktree_path": "C:/Users/tw097/Desktop/261003_ai_test/table-queue/.worktrees/t19",
+      "retry_count": 0
     }
   ],
   "merge_queue": [],
