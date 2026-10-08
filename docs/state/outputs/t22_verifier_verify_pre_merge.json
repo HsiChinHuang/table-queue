@@ -1,0 +1,69 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t22",
+  "role": "verifier",
+  "phase": "verify_pre_merge",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "merge_verification",
+    "cumulative_tests": { "total": 21, "passed": 21, "failed": 0 },
+    "smoke_tests": { "total": 3, "passed": 3, "failed": 0 },
+    "failed_tests": [],
+    "current_issue_tests": {
+      "total": 6,
+      "passed": 6,
+      "failed": 0,
+      "source": "docs/state/outputs/t22_verifier_verify_issue.json (PASS 6/6 AC; the 2 orchestrator-fixed blocks bcb0280/7b1fc54 were verified verbatim in the verify_issue phase)"
+    },
+    "cumulative_breakdown": {
+      "t16": { "total": 4, "passed": 4, "failed": 0 },
+      "t17": { "total": 7, "passed": 7, "failed": 0 },
+      "t18": { "total": 5, "passed": 5, "failed": 0 },
+      "t19": { "total": 5, "passed": 5, "failed": 0 }
+    },
+    "mergeability": {
+      "merge_commit": "92138273c207809708b42af1a21e16c36959e11e",
+      "parents": {
+        "parent1_main": "13457f72808a3057bece3c86a9b2a9be387e8b9f",
+        "parent2_builder": "fab23e73dd7ce21ef975d1b451c80eb15e99f2a5"
+      },
+      "dry_run": "git merge-tree --write-tree 9213827^1 9213827^2 -> rc=0 (clean, 0 conflicts); the orchestrator pre-ran the same dry-run clean before preparing the worktree",
+      "conflicts": false
+    },
+    "candidate_branch": "verify/t22-premerge",
+    "candidate_tip": "92138273c207809708b42af1a21e16c36959e11e",
+    "worktree_head": "92138273c207809708b42af1a21e16c36959e11e",
+    "backend_suite": "344 passed, 2 xfailed, 0 failed + ruff clean (t18 AC-5 floor 335+ and t19 AC-5 floor 340+ both hold; run verbatim by cumulative blocks t18/ac5 and t19/ac5)",
+    "frontend_suite": "30 files / 267 tests green + tsc --noEmit clean (run verbatim by cumulative block t17/ac7)",
+    "smoke_detail": [
+      { "name": "frontend tsc --noEmit", "command": "cd frontend && npx tsc --noEmit", "rc": 0 },
+      { "name": "frontend npm run lint", "command": "cd frontend && npm run lint", "rc": 0 },
+      { "name": "backend app import", "command": "cd backend && ENV=development DATABASE_URL=sqlite:///.scratch/_smoke.db JWT_SECRET=<secret> STAFF_PIN=0000 TZ=UTC .venv/Scripts/python.exe -c \"import sys; sys.path.insert(0,'.'); import app.main; print('backend app import OK')\"", "rc": 0, "note": "the app requires ENV/DATABASE_URL/JWT_SECRET/STAFF_PIN to be set (it refuses implicit env resolution by design); run with the standard env set used by every cumulative block" }
+    ],
+    "platform_comment": {
+      "posted": true,
+      "platform_issue": 77,
+      "verdict": "PASS",
+      "created_at": "2026-10-08T18:38:55Z",
+      "note": "full-body MERGE VERDICT posted via `node node_modules/tsx/dist/cli.mjs scripts/platform.ts issue comment 77 --body ...` (npx tsx truncates a multi-line --body to its first line on this host). An earlier truncated header-only comment at 18:36:00Z remains (platform.ts exposes no comment delete/edit)."
+    },
+    "notes": [
+      "[VENV_UNAVAILABLE] UV_PROJECT_ENVIRONMENT and PYTHONPATH were both empty (expected for this run); per-worktree backend/.venv (CPython 3.12.15) used directly. frontend/node_modules is a junction to the builder's complete dep dir (branch package.json + package-lock.json state, incl. repaired rollup/esbuild win32 platform binaries + the eslint 9 toolchain). WARN, not a failure.",
+      "Python 3.13 is prohibited on this host; only the 3.12.15 per-worktree venv was used.",
+      "Cumulative blocks run verbatim: 21 runner scripts were emitted byte-for-byte from docs/state/merge_test_index.json (LF line endings) to a shared Windows temp path via a Python helper, then executed with `bash <file>` from the worktree root. (On this host npx tsx / Python /tmp views differ from git-bash /tmp, so a Windows absolute path was used for the runner scripts.)",
+      "Smoke 3 (backend import) initially failed only because the app requires ENV/DATABASE_URL/JWT_SECRET/STAFF_PIN to be set (deliberate: the codebase refuses implicit env resolution). Re-run with the standard env set used by every cumulative block -> rc=0.",
+      "npx tsx truncates a multi-line --body argument to its first line on this host (git-bash -> Windows -> Node arg passing). The MERGE VERDICT comment was therefore posted via `node node_modules/tsx/dist/cli.mjs scripts/platform.ts ...`, which preserves the full body (verified via `issue latest-comment 77`).",
+      "Worktree left clean: backend/test.db (a tracked SQLite test artifact written by the backend suite runs) was restored to its committed state via `git restore backend/test.db`; no files staged, branch/merge state unchanged."
+    ]
+  },
+  "artifacts": {
+    "files_written": ["docs/state/outputs/t22_verifier_verify_pre_merge.json"],
+    "platform_issue": 77,
+    "output_path": "docs/state/outputs/t22_verifier_verify_pre_merge.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-08T18:40:25Z",
+  "retry_count": 0
+}
