@@ -1,12 +1,12 @@
 # Status
 
-Updated: 2026-10-09T04:29:00Z
+Updated: 2026-10-09T05:14:00Z
 
 ## Active slots
 
 | Slot | Issue | Role | Phase | Spawn | Last Activity |
 |---|---|---|---|---|---|
-| slot_0 | t26 | builder | implement | 1246460d | 2026-10-09T04:29:00Z |
+| slot_0 | t26 | verifier | verify_issue | c30d4d08 | 2026-10-09T05:14:00Z |
 
 ## Merge queue
 
@@ -56,3 +56,5 @@ FIFO: t27 (#82) → t28 (#83) → t29 (#84) → t31 (#86) → t35 (#91) → t36 
 - 178 COMPLETE: groom done (5 ACs, 4.1KB), handoff valid
 - 179 TRANSITION: header-case fix + gate1 PASS; logged definer --body leading-space workaround
 - 180 SPAWN: t26 builder implement (1246460d, slot_0)
+- 181-182 COMPLETE+gate2 PASS: 5/5 AC, floors re-run green (352/2xf/0, ruff, tsc, lint)
+- 183 SPAWN: t26 verifier verify_issue (c30d4d08, slot_0, worktree .worktrees/t26)
