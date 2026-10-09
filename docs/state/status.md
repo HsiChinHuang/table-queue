@@ -6,7 +6,7 @@ Updated: 2026-10-09T08:12:00Z
 
 | Slot | Issue | Role | Phase | Spawn | Last Activity |
 |---|---|---|---|---|---|
-| slot_0 | t28 | builder | implement | 0116aff9 | 2026-10-09T12:20:00Z |
+| slot_0 | t28 | verifier | verify_issue | bac3a98f | 2026-10-09T12:40:00Z |
 
 ## Merge queue
 
@@ -81,3 +81,5 @@ FIFO: t27 (#82) → t28 (#83) → t29 (#84) → t31 (#86) → t35 (#91) → t36 
 - 216-217 RESUMED->77bb9dd5 (run-id remap)
 - 218-219 groom COMPLETE + gate1 PASS (5 ACs re-run green; py3.13 stdlib-only exception logged)
 - 220 SPAWN: t28 builder implement (0116aff9, .worktrees/t28; adopts definer artifacts onto branch)
+- 221-222 ANOMALY (e65ef08 git add -A swept artifacts into main) ACCEPTED+documented; gate2 PASS, floors green
+- 223 SPAWN: t28 verifier verify_issue (bac3a98f, .worktrees/t28 @ e97d00f)
