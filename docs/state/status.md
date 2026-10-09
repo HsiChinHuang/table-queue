@@ -1,12 +1,12 @@
 # Status
 
-Updated: 2026-10-09T03:35:00Z
+Updated: 2026-10-09T03:37:10Z
 
 ## Active slots
 
 | Slot | Issue | Role | Phase | Spawn | Last Activity |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| slot_0 | t25 | verifier | verify_post_merge | e24310eb (resumed) | 2026-10-09T03:37:10Z |
 
 ## Merge queue
 
@@ -43,3 +43,6 @@ FIFO: t26 (#81) → t27 (#82) → t28 (#83) → t29 (#84) → t31 (#86) → t35 
 - 165 MERGE_RESUME: t25 resume merge step 7 (closeout)
 - 166 RECOVER: orphan run e24310eb (verify_post_merge t25) failed pre-handoff by restart -> RESUME
 - 167 RECOVERY_OK: slots=0 queue=0
+- 168 TRANSITION: state rebuilt from platform (9 open, issue_map + merge_queue)
+- 169 FAIL: e24310eb killed by restart before handoff (s1/s2 rc=0 done)
+- 170 RESUMED: e24310eb rebound slot_0, resume from s3
