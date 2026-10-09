@@ -6,7 +6,7 @@ Updated: 2026-10-09T08:12:00Z
 
 | Slot | Issue | Role | Phase | Spawn | Last Activity |
 |---|---|---|---|---|---|
-| slot_0 | t29 | definer | groom | 221567ed | 2026-10-09T14:12:00Z |
+| slot_0 | t29 | definer | groom | 873af0ae | 2026-10-09T15:14:00Z |
 
 ## Merge queue
 
@@ -91,3 +91,4 @@ FIFO: t27 (#82) → t28 (#83) → t29 (#84) → t31 (#86) → t35 (#91) → t36 
 - 230-231 post_merge PASS + gate4 PASS; closeout 1-8 done
 - 232 #83 CLOSED LAST - t28 COMPLETE
 - 233 SPAWN: t29 definer groom (221567ed, slot_0)
+- 234-235 221567ed TIMED OUT (repro-heavy, no handoff) -> RESUMED 873af0ae (remap)

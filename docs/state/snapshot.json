@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "updated_at": "2026-10-09T14:12:00Z",
+  "updated_at": "2026-10-09T15:14:00Z",
   "last_seq": 167,
   "slots": [
     {
@@ -8,9 +8,9 @@
       "issue_id": "t29",
       "role": "definer",
       "phase": "groom",
-      "run_id": "221567ed-cf24-4668-b80e-e2f62a83c68e",
-      "spawn_at": "2026-10-09T14:12:00Z",
-      "last_activity_at": "2026-10-09T14:12:00Z",
+      "run_id": "873af0ae-01e7-4512-8c8b-2b5184edec47",
+      "spawn_at": "2026-10-09T15:14:00Z",
+      "last_activity_at": "2026-10-09T15:14:00Z",
       "worktree_path": null
     }
   ],
