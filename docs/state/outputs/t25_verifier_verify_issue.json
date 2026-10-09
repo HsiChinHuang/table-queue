@@ -1,0 +1,72 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t25",
+  "role": "verifier",
+  "phase": "verify_issue",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "verification",
+    "ac_results": {
+      "ac1": {
+        "verdict": "PASS",
+        "command": "docs/issues/t25.md ## Verification commands, AC-1 bash block (root .gitignore carries all seven whole lines - backend/test.db, *.db, *.db-journal, *.db-wal, *.db-shm, .env.local, .env.*.local - and git check-ignore -q --no-index exits 0 for all seven probe paths; pre-existing .env entry stays). Run verbatim from the worktree root.",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "PASS AC-1: .gitignore covers backend/test.db, *.db, *.db-journal, *.db-wal, *.db-shm, .env.local and .env.*.local - all seven check-ignore probes are ignored"
+      },
+      "ac2": {
+        "verdict": "PASS",
+        "command": "docs/issues/t25.md ## Verification commands, AC-2 bash block (Arm A: env -u DATABASE_URL timeout 60 pytest from backend/ exits non-zero fast at conftest import - message names DATABASE_URL and states the sqlite URL shape, nothing collected, no new untracked files, no tq_test_*.db; Arm B positive control: with DATABASE_URL=sqlite:///./test.db, pytest --collect-only -q exits 0 and collects >= 300 tests). Run verbatim from the worktree root.",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "PASS AC-2: a DATABASE_URL-less pytest run is refused fast at conftest (names DATABASE_URL, points at sqlite, nothing collected, no artifacts); with DATABASE_URL set, 349 tests collect"
+      },
+      "ac3": {
+        "verdict": "PASS",
+        "command": "docs/issues/t25.md ## Verification commands, AC-3 bash block (full backend suite via backend/.venv/Scripts/python.exe -m pytest -q -p no:randomly with ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=<32+ chars> STAFF_PIN=0000 TZ=UTC: rc 0, >= 347 passed, exactly 2 xfailed, 0 failed; ruff check . clean; zero new untracked files post-run; no tq_test_*.db left; tracked backend/test.db restored via git checkout). Run verbatim from the worktree root.",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "PASS AC-3: 347 passed, 2 xfailed, 0 failed + ruff clean + zero new untracked files + no tq_test_*.db left (test.db restored)"
+      },
+      "ac4": {
+        "verdict": "PASS",
+        "command": "docs/issues/t25.md ## Verification commands, AC-4 bash block (Arm a: no /tmp/ reference in backend/tests/conftest.py; Arm b: pre-existing tq_b06_pytest.db copies removed at /tmp and C:/tmp, then the three landmine modules tests/test_public_board.py tests/test_public_waitlist.py tests/test_rate_limit_t23.py run green with the AC-3 env and no tq_b06_pytest.db (or -journal/-wal/-shm sidecars) exists in either location; the four dead module-level setdefault lines stay in place). Run verbatim from the worktree root.",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "PASS AC-4: conftest carries no /tmp reference, the landmine modules run green, and no tq_b06_pytest.db exists in /tmp or C:/tmp after the run (pre-existing copies cleaned)"
+      }
+    },
+    "test_summary": {
+      "total": 349,
+      "passed": 347,
+      "failed": 0
+    },
+    "failure_type": null,
+    "lint_report": {
+      "errors": 0,
+      "warnings": 0
+    },
+    "test_quality_warnings": [],
+    "dod_verified": {
+      "all_ac_pass": true,
+      "backend_floor_green": true,
+      "only_files_list_changed": true,
+      "test_db_still_tracked": true,
+      "conventional_commit": true,
+      "d_class_decision_recorded": true
+    },
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands"
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/state/outputs/t25_verifier_verify_issue.json"
+    ],
+    "platform_issue": 80,
+    "output_path": "docs/state/outputs/t25_verifier_verify_issue.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-09T00:46:31Z",
+  "retry_count": 0
+}

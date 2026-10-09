@@ -1,0 +1,39 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t25",
+  "role": "verifier",
+  "phase": "verify_post_merge",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "merge_verification",
+    "smoke_tests": {
+      "total": 3,
+      "passed": 3,
+      "failed": 0
+    },
+    "merge_sha": "619970b4695b68ea0d4881168fd1642cd7227311",
+    "regressions_detected": [],
+    "notes": [
+      "s1 (frontend tsc --noEmit): rc=0 PASS - run in pre-restart attempt on the same detached tree @ 619970b; result stands (idempotent).",
+      "s2 (frontend npm run lint): rc=0 PASS - run in pre-restart attempt on the same detached tree @ 619970b; result stands (idempotent).",
+      "s3 (backend app.main import smoke): rc=0 PASS - run in this post-restart attempt; printed 'backend app import OK'.",
+      "Regression diff vs pre_merge 2ff2130: exactly 3 files changed, 83 insertions(+), 1 deletion(-) - .gitignore +11, backend/tests/conftest.py +13/-1, docs/state/outputs/t25_builder_implement.json +60. No extra files; no regressions.",
+      "conftest guard verified present at merge sha: refuses DATABASE_URL-less pytest runs via SystemExit before collection; .gitignore covers test.db, *.db, *.db-journal, *.db-wal, *.db-shm, .env.local, .env.*.local.",
+      "[VENV_UNAVAILABLE] UV_PROJECT_ENVIRONMENT and PYTHONPATH were both empty; used the per-worktree backend/.venv junction (CPython 3.12.15) directly - expected WARN, not a failure.",
+      "backend/test.db restored via `git checkout -- backend/test.db` after s3; worktree tracked-clean, nothing committed.",
+      "Post-merge comment posted on platform issue #80 (rc=0)."
+    ]
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/state/outputs/t25_verifier_verify_post_merge.json"
+    ],
+    "platform_issue": 80,
+    "output_path": "docs/state/outputs/t25_verifier_verify_post_merge.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-09T03:44:58Z",
+  "retry_count": 0
+}

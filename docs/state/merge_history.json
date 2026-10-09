@@ -1,5 +1,14 @@
 {
   "schema_version": "1.0",
-  "updated_at": "2026-10-05T00:00:00Z",
-  "entries": []
+  "updated_at": "2026-10-09T03:52:00Z",
+  "entries": [
+    {
+      "issue_id": "t25",
+      "merge_sha": "619970b4695b68ea0d4881168fd1642cd7227311",
+      "pre_merge_sha": "2ff2130a05f4076e1e153fe6ca668c7bce17c48d",
+      "timestamp": "2026-10-09T01:28:56Z",
+      "merge_type": "clean",
+      "test_suite": "full"
+    }
+  ]
 }

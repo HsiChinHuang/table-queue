@@ -1,22 +1,22 @@
 # Status
 
-Updated: 2026-10-09T03:37:10Z
+Updated: 2026-10-09T03:53:00Z
 
 ## Active slots
 
 | Slot | Issue | Role | Phase | Spawn | Last Activity |
 |---|---|---|---|---|---|
-| slot_0 | t25 | verifier | verify_post_merge | e24310eb (resumed) | 2026-10-09T03:37:10Z |
+| — | — | — | — | — | — |
 
 ## Merge queue
 
 | Issue | Verifier PASS | Priority | State |
 |---|---|---|---|
-| t25 | 2026-10-09T01:03:30Z | 0 | merged 619970b, step 7 closeout pending (verify_post_merge resume) |
+(empty)
 
 ## Ready issues
 
-FIFO: t26 (#81) → t27 (#82) → t28 (#83) → t29 (#84) → t31 (#86) → t35 (#91) → t36 (#92) → t13 (#68, prio-high, last)
+FIFO: **t26 (#81)** → t27 (#82) → t28 (#83) → t29 (#84) → t31 (#86) → t35 (#91) → t36 (#92) → t13 (#68, prio-high, last)
 
 ## Blocked issues
 
@@ -46,3 +46,8 @@ FIFO: t26 (#81) → t27 (#82) → t28 (#83) → t29 (#84) → t31 (#86) → t35 
 - 168 TRANSITION: state rebuilt from platform (9 open, issue_map + merge_queue)
 - 169 FAIL: e24310eb killed by restart before handoff (s1/s2 rc=0 done)
 - 170 RESUMED: e24310eb rebound slot_0, resume from s3
+- 171 TRANSITION: revive run-id remap e24310eb -> 4bac73d2
+- 172 COMPLETE: 4bac73d2 verify_post_merge t25 PASS (3/3 smokes, no regressions, comment #80 rc=0)
+- 173 REQ_MODIFIED: operator 6dc39bd removed t25 .gitignore lines -> t25 AC-1 block will FAIL on current main (drift, not regression)
+- 174 TRANSITION: t25 closeout done (history/index/closed/backlog/snapshot), merge_cp deleted
+- 175 SLOT_RELEASED: slot_0 idle; platform #80 close PENDING (last step)

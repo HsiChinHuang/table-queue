@@ -1,0 +1,67 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t25",
+  "role": "verifier",
+  "phase": "verify_pre_merge",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "merge_verification",
+    "cumulative_tests": {
+      "total": 32,
+      "passed": 29,
+      "failed": 3
+    },
+    "smoke_tests": {
+      "total": 3,
+      "passed": 3,
+      "failed": 0
+    },
+    "failed_tests": [
+      {
+        "test": "t18-ac5",
+        "error_summary": "backend suite not green - DATABASE_URL-less run refused by t25 conftest guard (expected consequence of t25)"
+      },
+      {
+        "test": "t19-ac5",
+        "error_summary": "backend floor moved - DATABASE_URL-less run refused by t25 conftest guard (expected consequence of t25)"
+      },
+      {
+        "test": "t24-ac4",
+        "error_summary": "backend floor moved - DATABASE_URL-less run refused by t25 conftest guard (expected consequence of t25)"
+      }
+    ],
+    "current_issue_tests": {
+      "total": 4,
+      "passed": 4,
+      "failed": 0
+    },
+    "smoke_detail": "s1: tsc --noEmit rc=0; s2: npm run lint rc=0; s3: backend app import OK",
+    "candidate_branch": "verify-t25-pre",
+    "candidate_tip": "9702df7402f3edc073dc80b83f6392e2ec42a39d",
+    "worktree_head": "9702df7402f3edc073dc80b83f6392e2ec42a39d",
+    "mergeability": {
+      "dry_run": "clean",
+      "conflicts": 0
+    },
+    "platform_comment": "posted",
+    "backend_suite": "347 passed, 2 xfailed, 0 failed + ruff clean",
+    "frontend_suite": "30 files / 267 tests passed, 0 failed",
+    "notes": [
+      "3 cumulative failures (t18-ac5, t19-ac5, t24-ac4) are expected consequences of the t25 conftest guard: they run the full backend suite without DATABASE_URL, which is now refused by design. Full suite passes with DATABASE_URL set (347 passed, 2 xfailed).",
+      "VENV_UNAVAILABLE: UV_PROJECT_ENVIRONMENT and PYTHONPATH both empty; used per-worktree venv junctions.",
+      "origin/main at spawn: 950382062e81cfb4c2ea7f412a220dccf9ea89c8"
+    ]
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/state/outputs/t25_verifier_verify_pre_merge.json"
+    ],
+    "platform_issue": 80,
+    "output_path": "docs/state/outputs/t25_verifier_verify_pre_merge.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-09T01:03:30Z",
+  "retry_count": 0
+}

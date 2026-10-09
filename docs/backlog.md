@@ -11,7 +11,7 @@ Adopted 2026-10-06 (framework commit 34591cc). 15 open platform issues (HsiChinH
 | t19 | Store contention is a contract outcome: busy/locked maps to a retryable code, WAL or documented single-writer, no silent 500 | - | 74 | closed |
 | t22 | eslint flat config for eslint 9: author it, get the codebase lint-clean, retire the D-03 AC-6 inversion | - | 77 | closed |
 | t24 | SQLite-only reality vs PostgreSQL affordance: add the driver and exercise the path, or remove the claim | - | 79 | closed |
-| t25 | Repository artifact hygiene: gitignore DB sidecars and local dot-env files; no DB artifacts left in the tree | - | 80 | defined |
+| t25 | Repository artifact hygiene: gitignore DB sidecars and local dot-env files; no DB artifacts left in the tree | - | 80 | closed |
 | t26 | Security headers on every response class plus CSP, HSTS-ready, cache policy | - | 81 | defined |
 | t27 | CI from nothing: lint+test+audit workflows on push, frontend build smoke, secret-scan on PRs | - | 82 | defined |
 | t28 | ready.py readiness tool: closed-set by issue-map intersect platform-state, never by title parse | - | 83 | defined |
