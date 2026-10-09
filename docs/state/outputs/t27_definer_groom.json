@@ -1,0 +1,57 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t27",
+  "role": "definer",
+  "phase": "groom",
+  "status": "BLOCKER",
+  "reached_state": "unchanged",
+  "evidence": {
+    "evidence_type": "grooming",
+    "ac_hash": "sha256:d6a57e8426599c2311e00032ce8f8cd5e2131c50f755680bdc5a22037e1fe169",
+    "ac_hash_input": "concatenated 5 AC lead lines (lines starting '- **ac') of docs/issues/t27.md",
+    "ac_count": 5,
+    "verification_commands": {
+      "ac1": "test -f .github/workflows/ci.yml && grep -q \"push\" .github/workflows/ci.yml && grep -qi \"ruff\" .github/workflows/ci.yml && grep -qi \"pytest\" .github/workflows/ci.yml && grep -q \"TZ\" .github/workflows/ci.yml && grep -qi \"tsc\" .github/workflows/ci.yml && grep -qi \"eslint\" .github/workflows/ci.yml && grep -qi \"vitest\" .github/workflows/ci.yml && grep -qi \"npm run build\" .github/workflows/ci.yml && (grep -qE 'node-version: *\"?20\"?' .github/workflows/ci.yml || (grep -q \"node-version-file\" .github/workflows/ci.yml && grep -qx \"20\" .nvmrc)) && node -e \"require('js-yaml').load(require('fs').readFileSync('.github/workflows/ci.yml','utf8'))\" && echo PASS",
+      "ac2": "test -f .github/workflows/audit.yml && grep -qi \"pull_request\" .github/workflows/audit.yml && grep -qi \"npm audit\" .github/workflows/audit.yml && grep -qi \"pip-audit\" .github/workflows/audit.yml && grep -qi \"gitleaks\" .github/workflows/audit.yml && node -e \"require('js-yaml').load(require('fs').readFileSync('.github/workflows/audit.yml','utf8'))\" && echo PASS",
+      "ac3": "grep -q \"pip-audit\" backend/pyproject.toml && grep -qi \"pip-audit\" README.md && echo PASS",
+      "ac4": "! grep -rniE \"ghp_[A-Za-z0-9]{20,}|gho_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|BEGIN [A-Z ]*PRIVATE KEY|JWT_SECRET[[:space:]]*[:=]|STAFF_PIN[[:space:]]*[:=]|api[_-]?key\" .github/workflows/ && echo PASS",
+      "ac5": "manual"
+    },
+    "sections_filled": [
+      "context",
+      "acceptance_criteria",
+      "out_of_scope",
+      "definition_of_done"
+    ],
+    "contract_first_applied": true,
+    "platform_sync_note": "LOCAL GROOM COMPLETE but platform body sync FAILED (see error). docs/issues/t27.md rewritten concisely (5535 bytes; pre-groom local file was 1332 bytes, not the ~197KB the task stated). Labels intentionally NOT transitioned: state stays 'defined' because Gate 1 requires a successful body sync. One-line factual comment posted on platform #82."
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/issues/t27.md",
+      "docs/state/outputs/t27_definer_groom.json"
+    ],
+    "platform_issue": 82,
+    "output_path": "docs/state/outputs/t27_definer_groom.json"
+  },
+  "error": {
+    "error_type": "environment_error",
+    "error_code": "PLATFORM_BODY_SYNC_FAILED",
+    "message": "Platform body sync for issue 82 failed at child-process launch: Windows 'command line too long' (命令列太長, CP950). Body is 5535 bytes (1 leading space + full docs/issues/t27.md); full command line 5586 bytes. Failed 3x (initial + 2 retries).",
+    "context": {
+      "reason": "platform_body_sync_failed",
+      "exact_command": "npx tsx scripts/platform.ts issue update 82 --body \" $(cat docs/issues/t27.md)\"   (body = one leading space + full file content, per known parseFlags quirk rejecting values starting with '--')",
+      "body_bytes": 5535,
+      "command_line_bytes": 5586,
+      "error_output": "命令列太長。 (command line too long) - exit 1, no JSON returned",
+      "diagnosis": "Controlled test: a 5536-byte PURE-ASCII body syncs with exit 0, while the 5535-byte body containing 13 non-ASCII chars (10 em-dash, 1 en-dash, 2 arrow) fails to launch. Effective CreateProcessA launch limit on this host is ~5.5KB for this invocation path, below the documented ~8KB. Per task directive, no workaround was attempted (no --body-file exists in current CLI).",
+      "retries": 2,
+      "platform_comment": "One-line BLOCKER note posted on issue 82 at 2026-10-09T07:32:19Z"
+    },
+    "retryable": false,
+    "suggested_action": "escalate_to_human"
+  },
+  "next_action": null,
+  "timestamp": "2026-10-09T07:33:00Z",
+  "retry_count": 0
+}
