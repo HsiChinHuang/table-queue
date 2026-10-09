@@ -1,0 +1,41 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t28",
+  "role": "definer",
+  "phase": "groom",
+  "status": "COMPLETE",
+  "reached_state": "groomed",
+  "evidence": {
+    "evidence_type": "grooming",
+    "ac_hash": "sha256:d39e669497f9410e64188c1301f0355a0817b2824a9727c3458d615818aac0ee",
+    "ac_count": 5,
+    "verification_commands": {
+      "ac1": "test -f docs/tooling/ready-contract.md && grep -q \"closed-set\" docs/tooling/ready-contract.md && grep -q \"_docs/issue-map.json\" docs/tooling/ready-contract.md && grep -q \"UNKNOWN-deps\" docs/tooling/ready-contract.md && grep -qi \"never\" docs/tooling/ready-contract.md",
+      "ac2": "grep -q \"B-15\" docs/tooling/ready-contract.md && grep -q \"#47\" docs/tooling/ready-contract.md && grep -q \"F-16\" docs/tooling/ready-contract.md && grep -q \"#48\" docs/tooling/ready-contract.md && grep -q \"P0-16\" docs/tooling/ready-contract.md && grep -q \"#49\" docs/tooling/ready-contract.md && grep -q \"P0-13\" docs/tooling/ready-contract.md && grep -q \"#46\" docs/tooling/ready-contract.md && grep -q \"../.tq-orchestrator/ready.py\" docs/tooling/ready-contract.md && grep -qi \"deferred\" docs/tooling/ready-contract.md",
+      "ac3": "python3 tests/ready_contract/ready_fixture.py --case closed-bare-title",
+      "ac4": "python3 tests/ready_contract/ready_fixture.py --case dep-gap",
+      "ac5": "python3 tests/ready_contract/ready_fixture.py --case all"
+    },
+    "sections_filled": [
+      "context",
+      "acceptance_criteria",
+      "out_of_scope",
+      "definition_of_done"
+    ],
+    "contract_first_applied": true
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/issues/t28.md",
+      "docs/tooling/ready-contract.md",
+      "tests/ready_contract/ready_fixture.py",
+      "docs/state/outputs/t28_definer_groom.json"
+    ],
+    "platform_issue": 83,
+    "output_path": "docs/state/outputs/t28_definer_groom.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-09T12:00:12Z",
+  "retry_count": 1
+}
