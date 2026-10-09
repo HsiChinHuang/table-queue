@@ -1,0 +1,60 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t25",
+  "role": "builder",
+  "phase": "implement",
+  "status": "COMPLETE",
+  "reached_state": "built",
+  "evidence": {
+    "evidence_type": "build",
+    "branch": "issue/t25-repo-artifact-hygiene",
+    "branch_sha": "85dc47034eaf7109313bc4a7ed52ccf0f8cb6999",
+    "ac_mapping": {
+      "ac1": {
+        "commit": "85dc47034eaf7109313bc4a7ed52ccf0f8cb6999",
+        "test": "docs/issues/t25.md ## Verification commands, AC-1 bash block (root .gitignore carries all seven whole lines - backend/test.db, *.db, *.db-journal, *.db-wal, *.db-shm, .env.local, .env.*.local - and git check-ignore -q --no-index exits 0 for all seven probe paths; pre-existing .env entry stays). Run verbatim from the worktree root after the orchestrator's one-word block fix (9998695): PASS AC-1: .gitignore covers backend/test.db, *.db, *.db-journal, *.db-wal, *.db-shm, .env.local and .env.*.local - all seven check-ignore probes are ignored (rc=0).",
+        "verdict": "PASS"
+      },
+      "ac2": {
+        "commit": "85dc47034eaf7109313bc4a7ed52ccf0f8cb6999",
+        "test": "docs/issues/t25.md ## Verification commands, AC-2 bash block (Arm A: env -u DATABASE_URL timeout 60 pytest from backend/ exits non-zero fast at conftest import - message names DATABASE_URL and states the sqlite URL shape, nothing collected, no new untracked files, no tq_test_*.db; Arm B positive control: with DATABASE_URL=sqlite:///./test.db, pytest --collect-only -q exits 0 and collects >= 300 tests). Run verbatim: PASS AC-2: a DATABASE_URL-less pytest run is refused fast at conftest (names DATABASE_URL, points at sqlite, nothing collected, no artifacts); with DATABASE_URL set, 349 tests collect (rc=0).",
+        "verdict": "PASS"
+      },
+      "ac3": {
+        "commit": "85dc47034eaf7109313bc4a7ed52ccf0f8cb6999",
+        "test": "docs/issues/t25.md ## Verification commands, AC-3 bash block (full backend suite via backend/.venv/Scripts/python.exe -m pytest -q -p no:randomly with ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=<32+ chars> STAFF_PIN=0000 TZ=UTC: rc 0, >= 347 passed, exactly 2 xfailed, 0 failed; ruff check . clean; zero new untracked files post-run; no tq_test_*.db left; tracked backend/test.db restored via git checkout). Run verbatim: PASS AC-3: 347 passed, 2 xfailed, 0 failed + ruff clean + zero new untracked files + no tq_test_*.db left (test.db restored) (rc=0, ~74s).",
+        "verdict": "PASS"
+      },
+      "ac4": {
+        "commit": "85dc47034eaf7109313bc4a7ed52ccf0f8cb6999",
+        "test": "docs/issues/t25.md ## Verification commands, AC-4 bash block (Arm a: no /tmp/ reference in backend/tests/conftest.py; Arm b: pre-existing tq_b06_pytest.db copies removed at /tmp and C:/tmp, then the three landmine modules tests/test_public_board.py tests/test_public_waitlist.py tests/test_rate_limit_t23.py run green with the AC-3 env and no tq_b06_pytest.db (or -journal/-wal/-shm sidecars) exists in either location; the four dead module-level setdefault lines stay in place). Run verbatim: PASS AC-4: conftest carries no /tmp reference, the landmine modules run green, and no tq_b06_pytest.db exists in /tmp or C:/tmp after the run (pre-existing copies cleaned) (rc=0).",
+        "verdict": "PASS"
+      }
+    },
+    "test_summary": {
+      "total": 349,
+      "passed": 347,
+      "failed": 0
+    },
+    "lint_status": "CLEAN",
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands",
+    "ac_run": "All 4 AC blocks run verbatim (extracted unmodified from the synced docs/issues/t25.md at 9998695) at 2026-10-09T00:3xZ in the worktree: 4/4 PASS, rc=0 each. AC-3 full suite: 347 passed, 2 xfailed, 0 failed, 3 warnings in ~74s (groom baseline 347/2 held exactly) + ruff 'All checks passed!'. No dedicated test module was added: the issue Files list is exactly .gitignore + backend/tests/conftest.py (2-file limit), so the four AC bash blocks are the tests; the AC-2 refusal contract (fast non-zero exit before collection, message naming DATABASE_URL + sqlite shape, no artifacts) and the AC-3/AC-4 green runs are the executable coverage.",
+    "notes": "[WARN] AC-1 block probe 7 was a definer defect (index-aware check-ignore can never report tracked test.db as ignored); orchestrator one-word fix --no-index committed 9998695 (t22 precedent bcb0280/7b1fc54); block re-run verbatim PASS rc=0. The branch was spawned at c95ae0f and fast-forwarded (merge --ff-only) to e1a859a, then to 9998695 (the fixed AC-1 block) before implementing - no unique commits existed on the branch. backend/test.db (tracked artifact) was restored via git checkout before committing so it is not in the commit; the committed tree changes exactly .gitignore and backend/tests/conftest.py. The D-class decision (refusal over tmp-only writes) and the test.db-stays-tracked follow-up are recorded in the commit body per the DoD. The worktree .env (pre-staged by the orchestrator for scripts/platform.ts auth) remains untracked and is not committed.",
+    "warnings": [
+      "AC-1 block probe 7 (git check-ignore -q -- backend/test.db) could never exit 0 while the DoD requires backend/test.db to stay tracked: git check-ignore consults the index by default and treats tracked paths as non-ignored (git 2.55.0.windows.3, proven: --no-index flips rc 1 -> 0, matched by .gitignore:10:*.db). Escalated to the supervisor; the orchestrator applied the one-word --no-index fix to the block on main (9998695, t22 precedent bcb0280/7b1fc54) and re-verified PASS against this implementation before the final verbatim run."
+    ]
+  },
+  "artifacts": {
+    "files_written": [
+      ".gitignore",
+      "backend/tests/conftest.py",
+      "docs/state/outputs/t25_builder_implement.json"
+    ],
+    "platform_issue": 80,
+    "output_path": "docs/state/outputs/t25_builder_implement.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-09T00:34:18Z",
+  "retry_count": 0
+}
