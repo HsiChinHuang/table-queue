@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-10-09T03:53:00Z
+Updated: 2026-10-09T03:59:30Z
 
 ## Active slots
 
@@ -50,4 +50,5 @@ FIFO: **t26 (#81)** → t27 (#82) → t28 (#83) → t29 (#84) → t31 (#86) → 
 - 172 COMPLETE: 4bac73d2 verify_post_merge t25 PASS (3/3 smokes, no regressions, comment #80 rc=0)
 - 173 REQ_MODIFIED: operator 6dc39bd removed t25 .gitignore lines -> t25 AC-1 block will FAIL on current main (drift, not regression)
 - 174 TRANSITION: t25 closeout done (history/index/closed/backlog/snapshot), merge_cp deleted
-- 175 SLOT_RELEASED: slot_0 idle; platform #80 close PENDING (last step)
+- 175 SLOT_RELEASED: slot_0 idle; worktrees/branches cleaned, remote branch deleted
+- 176 TRANSITION: platform #80 CLOSED LAST (labels [enhancement,closed], state closed) - t25 pipeline COMPLETE; next FIFO t26 (#81) groom
