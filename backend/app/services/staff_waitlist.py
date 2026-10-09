@@ -43,6 +43,7 @@ from typing import Any
 from uuid import UUID
 
 from pydantic import ValidationError
+from sqlalchemy import func
 from sqlalchemy.exc import OperationalError as SQLAlchemyOperationalError
 
 from app.errors import STORE_BUSY_MESSAGE, AppError, is_store_busy
@@ -303,22 +304,23 @@ def _queue_order():
     return WaitlistEntry.sort_order.asc(), WaitlistEntry.created_at.asc()
 
 
-def queue_rows(
+def _filtered_query(
     db: Any,
     statuses: tuple[WaitlistStatus, ...],
     *,
     day: str | None,
-    search: str | None = None,
     party_size: int | None = None,
-) -> list[WaitlistEntry]:
-    """Return this branch's queue rows in order, before paging.
+):
+    """Return the un-ordered, un-paged query for this branch's queue rows.
 
     ``day`` is the business date the read is scoped to - see :func:`_queue_day` for why a staff list
     is a day's list - and ``None`` means the branch cannot name a day, which answers no rows at all
     rather
     than guessing at every day in the table. The status group, the day and the party size are SQL
     predicates; ``search`` is not, because a three-digit tail is a comparison over normalized digits
-    (see :func:`_matches_search`) and no column stores that.
+    (see :func:`_matches_search`) and no column stores that. Callers own the ordering, the paging
+    and the terminal step: the list path bounds the SELECT in SQL (:func:`list_waitlist`), and the
+    reorder path takes the full set (:func:`queue_rows`).
     """
     clause = _day_clause(day)
     query = db.query(WaitlistEntry).filter(
@@ -329,7 +331,28 @@ def queue_rows(
         query = query.filter(clause)
     if party_size is not None:
         query = query.filter(WaitlistEntry.party_size == party_size)
-    rows = query.order_by(*_queue_order()).all()
+    return query
+
+
+def queue_rows(
+    db: Any,
+    statuses: tuple[WaitlistStatus, ...],
+    *,
+    day: str | None,
+    search: str | None = None,
+    party_size: int | None = None,
+) -> list[WaitlistEntry]:
+    """Return this branch's queue rows in order, before paging - the full set.
+
+    This is the reorder's fetch (R-B07-1): it deliberately materialises every matching row, because
+    a reorder that only saw a page of the queue would mistake a page for a set. The list path does
+    not come through here; it bounds its own SELECT in SQL (:func:`list_waitlist`).
+    """
+    rows = (
+        _filtered_query(db, statuses, day=day, party_size=party_size)
+        .order_by(*_queue_order())
+        .all()
+    )
     if search:
         rows = [row for row in rows if _matches_search(row, search)]
     return rows
@@ -353,7 +376,11 @@ def list_waitlist(
     Python-side tiebreak is a rule the contract never wrote.
     And
     ``total`` is the count of rows the filter matched, not the count of the page, so ``limit=1``
-    answers one item and the full total (AC-4).
+    answers one item and the full total (AC-4). On the no-search path both facts are the
+    database's: the page is a ``LIMIT``/``OFFSET`` slice of the ordered SELECT and ``total`` is a
+    ``COUNT`` over the same filter (t31), so answering a page costs the page, not the day. The
+    search path keeps its Python-side matching (no column stores the normalized phone tail) and
+    pages the matches in Python, but still answers the match count as ``total``.
 
     The lazy no-show of section 4.10 runs last, over the rows this page still needs (see the module
     docstring for why a mid-request commit is the bug), so a ``CALLED`` row past its hold reads back
@@ -378,9 +405,22 @@ def list_waitlist(
     # ...and because that transition commits on the caller's session, the read that follows has to
     # start from a session that is capable of reading. See _begin_readable.
     _begin_readable(db)
-    rows = queue_rows(db, statuses, day=_queue_day(db, clock), search=search, party_size=party_size)
-    total = len(rows)
-    page = rows[max(offset, 0) : max(offset, 0) + max(limit, 0)]
+    query = _filtered_query(
+        db, statuses, day=_queue_day(db, clock), party_size=party_size
+    )
+    if not search:
+        # SQL paging (t31): one bounded SELECT for the page and one COUNT for the total, both over
+        # the same filter. The day's full row set is never materialised to answer a page, and an
+        # offset past the end answers an empty page with the unchanged total rather than a guess.
+        total = query.with_entities(func.count(WaitlistEntry.id)).scalar()
+        page = query.order_by(*_queue_order()).limit(limit).offset(offset).all()
+    else:
+        # The search match is a Python-side rule (see _matches_search), so the page and the total
+        # are the limit/offset slice of the matched rows rather than a SQL slice of them.
+        rows = query.order_by(*_queue_order()).all()
+        rows = [row for row in rows if _matches_search(row, search)]
+        total = len(rows)
+        page = rows[offset : offset + limit]
     return {"items": [_entry_payload(db, row, now) for row in page], "total": total}
 
 

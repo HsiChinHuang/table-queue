@@ -1,0 +1,68 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t31",
+  "role": "builder",
+  "phase": "implement",
+  "status": "COMPLETE",
+  "reached_state": "built",
+  "evidence": {
+    "evidence_type": "build",
+    "branch": "issue/t31-waitlist-sql-paging",
+    "branch_sha": "f0f74b382945a223d4e2ba2a5ac589b60a099f25",
+    "ac_mapping": {
+      "ac1": {
+        "commit": "6d1725361e6922d412f422931191a08fffd2ef32",
+        "test": "cd backend && ... python -c \"GET /api/v1/staff/waitlist?limit=0 -> 422 naming limit; ?limit=-1 and ?offset=-5 -> 422; ?limit=1 -> 200 with exactly 1 item (ac1)\"",
+        "verdict": "PASS"
+      },
+      "ac2": {
+        "commit": "6d1725361e6922d412f422931191a08fffd2ef32",
+        "test": "cd backend && ... python -c \"200-row fixture: limit=10&offset=0 = full-list prefix; offset=total-3 = full-list tail (3 items); offset=total -> items [] with total unchanged; queue order holds in pages (ac2)\"",
+        "verdict": "PASS"
+      },
+      "ac3": {
+        "commit": "6d1725361e6922d412f422931191a08fffd2ef32",
+        "test": "cd backend && ... python -c \"total identical for limit=1&offset=0 / limit=50&offset=100 / limit=1&offset=500; status=ALL total >= ACTIVE total; party_size=2 total strictly between 0 and unfiltered (ac3)\"",
+        "verdict": "PASS"
+      },
+      "ac4": {
+        "commit": "6d1725361e6922d412f422931191a08fffd2ef32",
+        "test": "cd backend && ... python -c \"limit=10&offset=20: captured engine SQL shows a COUNT over the filter and the bounded page SELECT over WAITLIST_ENTRIES with LIMIT/OFFSET carrying bound params 10 and 20 (ac4, fixed command from main b72b0ca)\"",
+        "verdict": "PASS"
+      },
+      "ac5": {
+        "commit": "6d1725361e6922d412f422931191a08fffd2ef32",
+        "test": "cd backend && ... python -c \"list body exactly {items,total} with all WaitlistEntryResponse fields; POST reorder over every id of the full default list -> 200 returning that exact order (ac5)\"",
+        "verdict": "PASS"
+      },
+      "ac6": {
+        "commit": "6d1725361e6922d412f422931191a08fffd2ef32",
+        "test": "cd backend && ... python -c \"search=Fix: total == 200; limit=10 = prefix of filtered list; offset=195 -> last 5 matches with total still 200 (ac6)\"",
+        "verdict": "PASS"
+      }
+    },
+    "test_summary": {
+      "total": 390,
+      "passed": 388,
+      "failed": 0
+    },
+    "lint_status": "CLEAN",
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands",
+    "notes": "retry_count=1: the first attempt (WAL 255-257) wrote a BLOCKER SPEC_DEFECT handoff - the original ac4 verification command selected lim[0] (the first LIMIT statement in the engine capture), which on this codebase is always an auth/_queue_day probe (settings LIMIT 1 OFFSET 0 read, token-generation LIMIT 1, _queue_day .first() probe), so it could never match the page SELECT on any implementation; the run then timed out while parked awaiting the decision. The definer fixed ONLY the ac4 command on main (b72b0ca, WAL 255-258: select the page SELECT by table+OFFSET+bounds 10/20); ac_hash unchanged, AC section untouched. The implementation (commit 6d17253) was NOT redone: this run merged origin/main into the branch, re-ran all 6 spec verification commands verbatim (main-venv path substitution only; throwaway /tmp/t31ac.db) - all 6 exit 0 - and re-confirmed the floors. Floors: full backend suite 388 passed / 2 xfailed / 0 failed (375 pre-existing + 13 new in tests/test_t31_waitlist_sql_paging.py), ruff check . clean, frontend tsc --noEmit + eslint clean from the main frozen frontend (no frontend changes), backend/test.db restored via git checkout -- and never committed. Platform #86: groomed removed, built added, one summary comment posted.",
+    "memory_applied": []
+  },
+  "artifacts": {
+    "files_written": [
+      "backend/app/routers/staff_waitlist.py",
+      "backend/app/services/staff_waitlist.py",
+      "backend/tests/test_t31_waitlist_sql_paging.py",
+      "docs/state/outputs/t31_builder_implement.json"
+    ],
+    "platform_issue": 86,
+    "output_path": "docs/state/outputs/t31_builder_implement.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-09T22:02:03Z",
+  "retry_count": 1
+}
