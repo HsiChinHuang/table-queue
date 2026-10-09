@@ -6,11 +6,22 @@ calls ``get_settings()`` at import time. Every ``os.environ.setdefault`` call th
 the ``pytest`` and ``app.main`` imports below. The previous order - ``from app.main import
 limiter`` above the ``setdefault`` calls - made pytest die during conftest collection with a
 pydantic ``ValidationError`` for ``database_url`` / ``jwt_secret`` / ``staff_pin``.
+
+``DATABASE_URL`` itself is no longer defaulted (t25, audit D-7/O-4): the old
+``sqlite:///./test.db`` setdefault silently pointed the import-time engine at a file inside the
+tree, which is how the tracked ``backend/test.db`` came to exist. A missing value is now refused
+at conftest import - before any test is collected - with an actionable error naming the variable
+and the supported sqlite URL shape.
 """
 
 import os
 
-os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
+if not os.environ.get("DATABASE_URL"):
+    raise SystemExit(
+        "DATABASE_URL is not set: the test suite refuses to run without it. Set a sqlite "
+        "URL first, e.g. DATABASE_URL=sqlite:///./test.db (relative to backend/) or "
+        "DATABASE_URL=sqlite:////absolute/path/to/test.db."
+    )
 os.environ.setdefault("JWT_SECRET", "tq-test-jwt-secret-value-0123456789abcdef")
 os.environ.setdefault("STAFF_PIN", "1234")
 os.environ.setdefault("ENV", "development")

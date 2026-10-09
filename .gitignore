@@ -4,6 +4,17 @@
 .env
 
 # ============================================================
+# SQLite artifacts and local dot-env files (t25: never commit)
+# ============================================================
+backend/test.db
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.env.local
+.env.*.local
+
+# ============================================================
 # Local config (example is committed)
 # ============================================================
 docs/config.yaml
