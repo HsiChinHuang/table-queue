@@ -1,0 +1,87 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t29",
+  "role": "verifier",
+  "phase": "verify_issue",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "verification",
+    "ac_results": {
+      "ac1": {
+        "verdict": "PASS",
+        "command": "cd backend && ENV=development DATABASE_URL=sqlite:////tmp/t29ac.db JWT_SECRET=t29repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -c \"from app.schemas import CreateTableRequest as C, UpdateTableRequest as U ... assert bounds ... print('ac1 ok')\"",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "Schema introspection confirms sort_order ge=0 le=9223372036854775807 on both Create and Update; capacity ge=1 le=20; label min_length=1 max_length=10"
+      },
+      "ac2": {
+        "verdict": "PASS",
+        "command": "cd backend && rm -f /tmp/t29ac.db && ENV=development DATABASE_URL=sqlite:////tmp/t29ac.db JWT_SECRET=t29repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -c \"... POST/PATCH sort_order=9223372036854775808 -> 422 naming sort_order ... print('ac2 ok')\"",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "Both create and update return 422 VALIDATION_ERROR with sort_order in error.details.fields"
+      },
+      "ac3": {
+        "verdict": "PASS",
+        "command": "cd backend && rm -f /tmp/t29ac.db && ENV=development DATABASE_URL=sqlite:////tmp/t29ac.db JWT_SECRET=t29repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -c \"... GET /api/v1/staff/waitlist?limit=-1 and ?offset=-5 -> 422 ... print('ac3 ok')\"",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "Negative limit and offset both return 422"
+      },
+      "ac4": {
+        "verdict": "PASS",
+        "command": "cd backend && rm -f /tmp/t29ac.db && ENV=development DATABASE_URL=sqlite:////tmp/t29ac.db JWT_SECRET=t29repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -c \"... GET /api/v1/public/branches/99999999999999999999 (unauth) -> 422 ... print('ac4 ok')\"",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "Unauthenticated branch_id overflow returns 422, not 500"
+      },
+      "ac5": {
+        "verdict": "PASS",
+        "command": "cd backend && rm -f /tmp/t29ac.db && ENV=development DATABASE_URL=sqlite:////tmp/t29ac.db JWT_SECRET=t29repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -c \"... POST sort_order=9223372036854775807 -> 201, capacity=20 -> 201 ... print('ac5 ok')\"",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "SQLite INTEGER max and domain-max capacity are in-domain (201)"
+      },
+      "ac6": {
+        "verdict": "PASS",
+        "command": "cd backend && ENV=development DATABASE_URL=sqlite:////tmp/t29ac.db JWT_SECRET=t29repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -c \"from app.services.tables import _reject_int ... _reject_int(9223372036854775808) raises AppError 422 ... print('ac6 ok')\"",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "_reject_int is a range guard raising AppError with status_code 422"
+      }
+    },
+    "test_summary": {
+      "total": 376,
+      "passed": 374,
+      "failed": 0
+    },
+    "failure_type": null,
+    "lint_report": {
+      "errors": 0,
+      "warnings": 0
+    },
+    "test_quality_warnings": [],
+    "dod_verified": {
+      "CreateTableRequest.sort_order and UpdateTableRequest.sort_order declare explicit ge/le sized to SQLite INTEGER": true,
+      "UpdateTableRequest matches CreateTableRequest: capacity ge=1 le=20, label min_length=1 max_length=10": true,
+      "branch_id path params on public routes and limit/offset query params on staff waitlist declare explicit ge/le": true,
+      "app.services.tables._reject_int range-checks and returns 422": true,
+      "All six verification commands exit 0": true,
+      "No out-of-domain integer is persisted; no overflow reaches the 500 handler": true,
+      "backend/test.db is not committed": true
+    },
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands"
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/state/outputs/t29_verifier_verify_issue.json"
+    ],
+    "platform_issue": 84,
+    "output_path": "docs/state/outputs/t29_verifier_verify_issue.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-09T17:11:00Z",
+  "retry_count": 0
+}

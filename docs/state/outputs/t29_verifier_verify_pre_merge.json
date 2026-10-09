@@ -1,0 +1,59 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t29",
+  "role": "verifier",
+  "phase": "verify_pre_merge",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "merge_verification",
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands",
+    "cumulative_tests": {
+      "total": 19,
+      "passed": 17,
+      "failed": 1
+    },
+    "smoke_tests": {
+      "total": 4,
+      "passed": 4,
+      "failed": 0
+    },
+    "failed_tests": [
+      {
+        "test": "t25 AC-1 (.gitignore DB sidecar / dot-env coverage)",
+        "error_summary": "KNOWN expected-fail (WAL 173): .gitignore missing backend/test.db, *.db*, .env.*.local lines. Pre-existing drift, NOT a t29 regression (t29 touches no .gitignore)."
+      }
+    ],
+    "ac_results": {
+      "ac1": { "verdict": "PASS", "exit_code": 0 },
+      "ac2": { "verdict": "PASS", "exit_code": 0 },
+      "ac3": { "verdict": "PASS", "exit_code": 0 },
+      "ac4": { "verdict": "PASS", "exit_code": 0 },
+      "ac5": { "verdict": "PASS", "exit_code": 0 },
+      "ac6": { "verdict": "PASS", "exit_code": 0 }
+    },
+    "floors": {
+      "backend_suite": "374 passed, 2 xfailed, 0 failed (TZ=UTC, sqlite:///./test.db; test.db restored via git checkout)",
+      "ruff": "All checks passed (ruff check .)",
+      "frontend_tsc": "npx tsc --noEmit exit 0",
+      "frontend_lint": "npm run lint (eslint .) exit 0"
+    },
+    "merge_check": {
+      "method": "git merge-tree --write-tree --messages origin/main verify-t29-pre@088a3ce",
+      "result": "CLEAN (no conflicts, exit 0)",
+      "note": "Branch is not a fast-forward: origin/main has 3 orchestrator bookkeeping commits (WAL 241/242-243/244) touching only docs/state/{seq.txt,snapshot.json,status.md}; no file overlap with t29 (backend/* + docs/state/outputs/t29_builder_implement.json). Merge would produce a conflict-free merge commit."
+    },
+    "notes": "Cumulative tally 17P/1F-known/1manual of 19 merge_test_index blocks. The 1 known-fail (t25 AC-1) is pre-existing .gitignore drift (WAL 173), not a t29 regression. The 1 manual (t27 AC-5) is a manual review step, not auto-runnable. t26 blocks run via project venv (junction backend/.venv) with the standard test env; the raw 'uv run' form needs --project backend + DATABASE_URL on this host layout (conftest from t25 refuses DATABASE_URL-less runs). All 6 t29 ACs pass; all floors pass; dry-run merge is CLEAN. Platform comment posted on #84 (VERIFIER-PASS 2026-10-09T17:45:23Z); labels left unchanged (stay 'verified' until merge closeout)."
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/state/outputs/t29_verifier_verify_pre_merge.json"
+    ],
+    "platform_issue": 84,
+    "output_path": "docs/state/outputs/t29_verifier_verify_pre_merge.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-09T17:49:46Z",
+  "retry_count": 0
+}

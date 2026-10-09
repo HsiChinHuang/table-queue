@@ -1,0 +1,43 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t29",
+  "role": "verifier",
+  "phase": "verify_post_merge",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "merge_verification",
+    "smoke_tests": {
+      "total": 3,
+      "passed": 3,
+      "failed": 0
+    },
+    "merge_sha": "9afadc6793f0f5ab78569444973632c3d04f3a52",
+    "regressions_detected": [],
+    "verification_commands_source": "docs/issues/t29.md#verification-commands",
+    "ac_reconfirm": {
+      "total": 6,
+      "passed": 6,
+      "failed": 0
+    },
+    "diff_files": [
+      "backend/app/routers/public.py",
+      "backend/app/routers/staff_waitlist.py",
+      "backend/app/schemas.py",
+      "backend/app/services/tables.py",
+      "backend/tests/test_t29_int_bounds.py",
+      "docs/state/outputs/t29_builder_implement.json"
+    ]
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/state/outputs/t29_verifier_verify_post_merge.json"
+    ],
+    "platform_issue": 84,
+    "output_path": "docs/state/outputs/t29_verifier_verify_post_merge.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-09T18:15:18Z",
+  "retry_count": 0
+}

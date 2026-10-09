@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "updated_at": "2026-10-09T13:59:00Z",
+  "updated_at": "2026-10-10T02:20:00Z",
   "entries": [
     {
       "issue_id": "t25",
@@ -31,6 +31,14 @@
       "merge_sha": "8e4b1429ba5eb1b64a4c12a7b3c605e89c2f05dc",
       "pre_merge_sha": "1ff55eaa82deb0fe999a45d3ed9e673ef0377364",
       "timestamp": "2026-10-09T13:42:54Z",
+      "merge_type": "clean",
+      "test_suite": "full"
+    },
+    {
+      "issue_id": "t29",
+      "merge_sha": "9afadc6793f0f5ab78569444973632c3d04f3a52",
+      "pre_merge_sha": "c3ddf5184efb05a2b8d8db2b791ebf7e7403ed1c",
+      "timestamp": "2026-10-09T17:56:19Z",
       "merge_type": "clean",
       "test_suite": "full"
     }
