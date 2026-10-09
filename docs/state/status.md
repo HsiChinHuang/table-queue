@@ -6,7 +6,8 @@ Updated: 2026-10-09T08:12:00Z
 
 | Slot | Issue | Role | Phase | Spawn | Last Activity |
 |---|---|---|---|---|---|
-| slot_0 | t31 | builder | implement (resumed) | 1fef8e30 | 2026-10-10T06:22:00Z |
+| slot_0 | t31 | builder | implement (done) | 1fef8e30 | 2026-10-10T07:42:00Z |
+| slot_1 | t31 | verifier | verify_issue | dc20e53a | 2026-10-10T07:42:00Z |
 
 ## Merge queue
 
