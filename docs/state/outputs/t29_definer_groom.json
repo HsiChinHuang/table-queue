@@ -1,0 +1,40 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t29",
+  "role": "definer",
+  "phase": "groom",
+  "status": "COMPLETE",
+  "reached_state": "groomed",
+  "evidence": {
+    "evidence_type": "grooming",
+    "ac_hash": "sha256:33fb622f34e96219e1e17f4961ce8cd96247be3010ade11f1d8dfa0a886560e9",
+    "ac_count": 6,
+    "verification_commands": {
+      "ac1": "  cd backend && ENV=development DATABASE_URL=sqlite:////tmp/t29ac.db JWT_SECRET=t29repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -c \"\n  from app.schemas import CreateTableRequest as C, UpdateTableRequest as U\n  def conds(s):\n      out=[]\n      def rec(x):\n          if isinstance(x,dict):\n              for k,v in x.items():\n                  if k in ('minimum','maximum','minLength','maxLength'): out.append((k,v))\n                  rec(v)\n          elif isinstance(x,list):\n              for v in x: rec(v)\n      rec(s); return dict(out)\n  cs=conds(C.model_json_schema()['properties']['sort_order'])\n  assert 'minimum' in cs and 'maximum' in cs, ('CreateTableRequest.sort_order unbounded', cs)\n  us=conds(U.model_json_schema()['properties']['sort_order'])\n  assert 'minimum' in us and 'maximum' in us, ('UpdateTableRequest.sort_order unbounded', us)\n  uc=conds(U.model_json_schema()['properties']['capacity'])\n  assert uc.get('minimum')==1 and uc.get('maximum')==20, ('UpdateTableRequest.capacity', uc)\n  ul=conds(U.model_json_schema()['properties']['label'])\n  assert ul.get('minLength')==1 and ul.get('maxLength')==10, ('UpdateTableRequest.label', ul)\n  print('ac1 ok')\n  \"\n  ",
+      "ac2": "  cd backend && rm -f /tmp/t29ac.db && ENV=development DATABASE_URL=sqlite:////tmp/t29ac.db JWT_SECRET=t29repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -c \"\n  import pathlib;pathlib.Path('/tmp/t29ac.db').unlink(missing_ok=True)\n  from fastapi.testclient import TestClient\n  from app.main import app\n  from app import seed\n  from app.database import SessionLocal\n  db=SessionLocal();seed.seed_data(reset=True);db.close()\n  c=TestClient(app,raise_server_exceptions=False)\n  t=c.post('/api/v1/auth/login',json={'pin':'0000'}).json()['access_token']\n  H={'Authorization':'Bearer '+t}\n  r1=c.post('/api/v1/admin/tables',headers=H,json={'label':'T1','capacity':2,'sort_order':9223372036854775808})\n  assert r1.status_code==422, ('create sort_order overflow', r1.status_code)\n  assert 'sort_order' in (r1.json().get('error',{}).get('details',{}).get('fields',{}) or {}), ('create detail field', r1.text)\n  id=c.post('/api/v1/admin/tables',headers=H,json={'label':'T9','capacity':2}).json()['id']\n  r3=c.patch('/api/v1/admin/tables/'+id,headers=H,json={'sort_order':9223372036854775808})\n  assert r3.status_code==422, ('update sort_order overflow', r3.status_code)\n  print('ac2 ok')\n  \"\n  ",
+      "ac3": "  cd backend && rm -f /tmp/t29ac.db && ENV=development DATABASE_URL=sqlite:////tmp/t29ac.db JWT_SECRET=t29repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -c \"\n  import pathlib;pathlib.Path('/tmp/t29ac.db').unlink(missing_ok=True)\n  from fastapi.testclient import TestClient\n  from app.main import app\n  from app import seed\n  from app.database import SessionLocal\n  db=SessionLocal();seed.seed_data(reset=True);db.close()\n  c=TestClient(app,raise_server_exceptions=False)\n  t=c.post('/api/v1/auth/login',json={'pin':'0000'}).json()['access_token']\n  H={'Authorization':'Bearer '+t}\n  r1=c.get('/api/v1/staff/waitlist?limit=-1',headers=H)\n  assert r1.status_code==422, ('negative limit', r1.status_code)\n  r2=c.get('/api/v1/staff/waitlist?offset=-5',headers=H)\n  assert r2.status_code==422, ('negative offset', r2.status_code)\n  print('ac3 ok')\n  \"\n  ",
+      "ac4": "  cd backend && rm -f /tmp/t29ac.db && ENV=development DATABASE_URL=sqlite:////tmp/t29ac.db JWT_SECRET=t29repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -c \"\n  import pathlib;pathlib.Path('/tmp/t29ac.db').unlink(missing_ok=True)\n  from fastapi.testclient import TestClient\n  from app.main import app\n  from app import seed\n  from app.database import SessionLocal\n  db=SessionLocal();seed.seed_data(reset=True);db.close()\n  c=TestClient(app,raise_server_exceptions=False)\n  r=c.get('/api/v1/public/branches/99999999999999999999')\n  assert r.status_code==422, ('branch_id overflow (unauth)', r.status_code)\n  print('ac4 ok')\n  \"\n  ",
+      "ac5": "  cd backend && rm -f /tmp/t29ac.db && ENV=development DATABASE_URL=sqlite:////tmp/t29ac.db JWT_SECRET=t29repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -c \"\n  import pathlib;pathlib.Path('/tmp/t29ac.db').unlink(missing_ok=True)\n  from fastapi.testclient import TestClient\n  from app.main import app\n  from app import seed\n  from app.database import SessionLocal\n  db=SessionLocal();seed.seed_data(reset=True);db.close()\n  c=TestClient(app,raise_server_exceptions=False)\n  t=c.post('/api/v1/auth/login',json={'pin':'0000'}).json()['access_token']\n  H={'Authorization':'Bearer '+t}\n  r1=c.post('/api/v1/admin/tables',headers=H,json={'label':'M1','capacity':2,'sort_order':9223372036854775807})\n  assert r1.status_code==201, ('sort_order SQLite-max should be in-domain', r1.text)\n  r2=c.post('/api/v1/admin/tables',headers=H,json={'label':'M2','capacity':20})\n  assert r2.status_code==201, ('capacity domain-max should be in-domain', r2.text)\n  print('ac5 ok')\n  \"\n  ",
+      "ac6": "  cd backend && ENV=development DATABASE_URL=sqlite:////tmp/t29ac.db JWT_SECRET=t29repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -c \"\n  from app.services.tables import _reject_int\n  from app.errors import AppError\n  e=None\n  try:\n      _reject_int(9223372036854775808)\n  except AppError as ex:\n      e=ex\n  assert e is not None and e.status_code==422, ('_reject_int range guard', getattr(e,'status_code',None))\n  print('ac6 ok')\n  \"\n  "
+    },
+    "sections_filled": [
+      "context",
+      "acceptance_criteria",
+      "out_of_scope",
+      "definition_of_done"
+    ],
+    "contract_first_applied": true
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/issues/t29.md",
+      "docs/state/outputs/t29_definer_groom.json"
+    ],
+    "platform_issue": 84,
+    "output_path": "docs/state/outputs/t29_definer_groom.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-09T15:42:26Z",
+  "retry_count": 0
+}
