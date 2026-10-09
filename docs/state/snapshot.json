@@ -1,8 +1,19 @@
 {
   "schema_version": "2.0",
-  "updated_at": "2026-10-09T07:11:00Z",
+  "updated_at": "2026-10-09T07:21:00Z",
   "last_seq": 167,
-  "slots": [],
+  "slots": [
+    {
+      "slot_id": "slot_0",
+      "issue_id": "t27",
+      "role": "definer",
+      "phase": "groom",
+      "run_id": "d75ed1b2-528f-48da-a196-7a30d2ae9997",
+      "spawn_at": "2026-10-09T07:21:00Z",
+      "last_activity_at": "2026-10-09T07:21:00Z",
+      "worktree_path": null
+    }
+  ],
   "merge_queue": [],
   "active_issues": [
     "t13",

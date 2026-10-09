@@ -1,12 +1,12 @@
 # Status
 
-Updated: 2026-10-09T07:18:00Z
+Updated: 2026-10-09T07:21:00Z
 
 ## Active slots
 
 | Slot | Issue | Role | Phase | Spawn | Last Activity |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| slot_0 | t27 | definer | groom | d75ed1b2 | 2026-10-09T07:21:00Z |
 
 ## Merge queue
 
@@ -65,3 +65,4 @@ FIFO: t27 (#82) → t28 (#83) → t29 (#84) → t31 (#86) → t35 (#91) → t36 
 - 188 SPAWN: t26 verifier verify_post_merge (094a10ab, .worktrees/verify-8191d61)
 - 189-191 COMPLETE+closeout: post_merge PASS (3/3 smokes, gate4 PASS); closeout steps 1-8 done; #81 close PENDING LAST
 - 192 TRANSITION: platform #81 CLOSED LAST - t26 COMPLETE; next FIFO t27 (#82) groom
+- 193 SPAWN: t27 definer groom (d75ed1b2, slot_0)
