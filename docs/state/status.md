@@ -6,7 +6,7 @@ Updated: 2026-10-09T08:12:00Z
 
 | Slot | Issue | Role | Phase | Spawn | Last Activity |
 |---|---|---|---|---|---|
-| slot_0 | t29 | verifier | verify_post_merge | 67463d5a | 2026-10-10T02:01:00Z |
+| slot_0 | (idle) | - | - | - | - |
 
 ## Merge queue
 
@@ -98,3 +98,4 @@ FIFO: t27 (#82) → t28 (#83) → t29 (#84) → t31 (#86) → t35 (#91) → t36 
 - 241 SPAWN verify_issue (5c96e3c7) -> COMPLETE; 242-243 handoff anomaly (wrong worktree + verify wt deleted) recovered in place; gate3 PASS 6/6
 - 244 SPAWN pre_merge (5351e6c2) -> COMPLETE PASS (17P/1F-known/1manual, dry-run clean)
 - 245-247 MERGE 9afadc6 (374/2xf/0, pushed) + SPAWN post_merge (67463d5a, .worktrees/verify-9afadc6 detached)
+- 248-250 t29 closeout 9 steps + #84 CLOSED LAST (merge 9afadc6; 5/5 handoffs; stale wt dirs cleaned)
