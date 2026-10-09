@@ -14,7 +14,14 @@
       "worktree_path": ".worktrees/verify-t27"
     }
   ],
-  "merge_queue": [],
+  "merge_queue": [
+    {
+      "issue_id": "t27",
+      "verifier_pass_at": "2026-10-09T09:41:26Z",
+      "priority": 0,
+      "depends_merged": false
+    }
+  ],
   "active_issues": [
     "t13",
     "t27",
