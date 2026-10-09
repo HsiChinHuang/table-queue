@@ -1,12 +1,12 @@
 # Status
 
-Updated: 2026-10-09T03:59:30Z
+Updated: 2026-10-09T04:01:00Z
 
 ## Active slots
 
 | Slot | Issue | Role | Phase | Spawn | Last Activity |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| slot_0 | t26 | definer | groom | daa202d5 | 2026-10-09T04:01:00Z |
 
 ## Merge queue
 
@@ -16,7 +16,7 @@ Updated: 2026-10-09T03:59:30Z
 
 ## Ready issues
 
-FIFO: **t26 (#81)** → t27 (#82) → t28 (#83) → t29 (#84) → t31 (#86) → t35 (#91) → t36 (#92) → t13 (#68, prio-high, last)
+FIFO: t27 (#82) → t28 (#83) → t29 (#84) → t31 (#86) → t35 (#91) → t36 (#92) → t13 (#68, prio-high, last)  [t26 in groom] t27 (#82) → t28 (#83) → t29 (#84) → t31 (#86) → t35 (#91) → t36 (#92) → t13 (#68, prio-high, last)
 
 ## Blocked issues
 
@@ -51,4 +51,5 @@ FIFO: **t26 (#81)** → t27 (#82) → t28 (#83) → t29 (#84) → t31 (#86) → 
 - 173 REQ_MODIFIED: operator 6dc39bd removed t25 .gitignore lines -> t25 AC-1 block will FAIL on current main (drift, not regression)
 - 174 TRANSITION: t25 closeout done (history/index/closed/backlog/snapshot), merge_cp deleted
 - 175 SLOT_RELEASED: slot_0 idle; worktrees/branches cleaned, remote branch deleted
-- 176 TRANSITION: platform #80 CLOSED LAST (labels [enhancement,closed], state closed) - t25 pipeline COMPLETE; next FIFO t26 (#81) groom
+- 176 TRANSITION: platform #80 CLOSED LAST - t25 COMPLETE
+- 177 SPAWN: t26 definer groom (daa202d5, slot_0)
