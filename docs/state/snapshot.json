@@ -1,20 +1,17 @@
 {
   "schema_version": "2.0",
-  "updated_at": "2026-10-10T08:00:00Z",
+  "updated_at": "2026-10-10T08:38:00Z",
   "last_seq": 167,
-  "slots": [
+  "slots": [],
+  "merge_queue": [
     {
-      "slot_id": "slot_0",
       "issue_id": "t31",
-      "role": "verifier",
-      "phase": "verify_pre_merge",
-      "run_id": "180548ac-fee6-43ba-8c0b-36357dc8f043",
-      "spawn_at": "2026-10-10T08:00:00Z",
-      "last_activity_at": "2026-10-10T08:00:00Z",
-      "worktree_path": ".worktrees/verify-t31-pre"
+      "branch": "issue/t31-waitlist-sql-paging",
+      "branch_sha": "290afca",
+      "verifier_pass": "2026-10-09T23:28:08Z",
+      "state": "merging"
     }
   ],
-  "merge_queue": [],
   "active_issues": [
     "t13",
     "t28",
