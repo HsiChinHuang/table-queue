@@ -1,8 +1,25 @@
 {
   "schema_version": "2.0",
-  "updated_at": "2026-10-05T00:00:00Z",
-  "last_seq": 0,
+  "updated_at": "2026-10-09T03:35:00Z",
+  "last_seq": 167,
   "slots": [],
-  "merge_queue": [],
-  "active_issues": []
+  "merge_queue": [
+    {
+      "issue_id": "t25",
+      "verifier_pass_at": "2026-10-09T01:03:30Z",
+      "priority": 0,
+      "depends_merged": true
+    }
+  ],
+  "active_issues": [
+    "t13",
+    "t25",
+    "t26",
+    "t27",
+    "t28",
+    "t29",
+    "t31",
+    "t35",
+    "t36"
+  ]
 }
