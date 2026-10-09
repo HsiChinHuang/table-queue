@@ -103,14 +103,14 @@ class CreateTableRequest(BaseModel):
     label: str = Field(..., min_length=1, max_length=10)
     capacity: int = Field(..., ge=1, le=20)
     section: str | None = Field(default=None, max_length=50)
-    sort_order: int | None = None
+    sort_order: int | None = Field(default=None, ge=0, le=9223372036854775807)
 
 
 class UpdateTableRequest(BaseModel):
-    label: str | None = None
-    capacity: int | None = None
+    label: str | None = Field(default=None, min_length=1, max_length=10)
+    capacity: int | None = Field(default=None, ge=1, le=20)
     section: str | None = Field(default=None, max_length=50)
-    sort_order: int | None = None
+    sort_order: int | None = Field(default=None, ge=0, le=9223372036854775807)
     is_active: bool | None = None
 
 

@@ -68,8 +68,8 @@ def list_waitlist(
     status: str = Query(default="ACTIVE", description="ACTIVE | CLOSED | ALL"),
     search: str | None = Query(default=None, description="Name or phone last 3 digits"),
     party_size: int | None = Query(default=None, ge=1, le=20),
-    limit: int = Query(default=100),
-    offset: int = Query(default=0),
+    limit: int = Query(default=100, ge=0),
+    offset: int = Query(default=0, ge=0),
 ) -> Any:
     """GET /api/v1/staff/waitlist: the queue, ordered by ``sort_order`` then ``created_at``.
 

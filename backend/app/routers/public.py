@@ -62,9 +62,9 @@ from __future__ import annotations
 import inspect
 from collections.abc import Callable
 from functools import wraps
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Path, Query, Request
 
 from app.dependencies import DbSession, get_now
 from app.errors import AppError
@@ -105,7 +105,10 @@ router = APIRouter()
 
 
 @router.get("/api/v1/public/branches/{branch_id}", response_model=PublicBranchResponse)
-def get_public_branch(branch_id: int, db: DbSession) -> PublicBranchResponse:
+def get_public_branch(
+    branch_id: Annotated[int, Path(ge=1, le=9223372036854775807)],
+    db: DbSession,
+) -> PublicBranchResponse:
     """GET /api/v1/public/branches/{branch_id}: what a guest sees before joining (4.1 step 2).
 
     The first route on the router, which is what AC-1 asserts, and un-limited: section 9 budgets
@@ -122,7 +125,10 @@ def get_public_branch(branch_id: int, db: DbSession) -> PublicBranchResponse:
     "/api/v1/public/branches/{branch_id}/board",
     response_model=BoardResponse,
 )
-def get_public_board(branch_id: int, db: DbSession) -> BoardResponse:
+def get_public_board(
+    branch_id: Annotated[int, Path(ge=1, le=9223372036854775807)],
+    db: DbSession,
+) -> BoardResponse:
     """GET /api/v1/public/branches/{branch_id}/board: the lobby board, three recent calls at
     most.
 
@@ -137,7 +143,10 @@ def get_public_board(branch_id: int, db: DbSession) -> BoardResponse:
 
 
 def join_waitlist(
-    request: Request, branch_id: int, payload: JoinWaitlistRequest, db: DbSession
+    request: Request,
+    branch_id: Annotated[int, Path(ge=1, le=9223372036854775807)],
+    payload: JoinWaitlistRequest,
+    db: DbSession,
 ) -> WaitlistEntryResponse:
     """POST /api/v1/branches/{branch_id}/waitlist: join the queue (section 4.1).
 

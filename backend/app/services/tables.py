@@ -86,6 +86,14 @@ CAPACITY_MIN, CAPACITY_MAX = 1, 20
 SECTION_MAX = 50
 """``CreateTableRequest.section`` / ``UpdateTableRequest.section`` max_length."""
 
+SORT_ORDER_MIN, SORT_ORDER_MAX = 0, 9223372036854775807
+"""``sort_order`` bounds: ge=0, le=SQLite INTEGER max (9223372036854775807).
+
+Mirrors the schema-level ``ge``/``le`` on ``CreateTableRequest.sort_order`` and
+``UpdateTableRequest.sort_order`` so a value that slips the schema still cannot reach the DB
+as an ``OverflowError`` 500 (t29 AC-6).
+"""
+
 DEFAULT_SORT_ORDER = 0
 """The sort order a POST that omits the optional field writes.
 
@@ -210,8 +218,16 @@ def _reject_section(section: Any) -> bool:
 
 
 def _reject_int(value: Any) -> bool:
-    """Reject a sort_order that is not a whole number. Returns whether it was rejected."""
+    """Reject a sort_order that is not a whole number in the SQLite INTEGER range.
+
+    Returns whether it was rejected. A range guard, not just an ``isinstance`` check: a value
+    beyond SQLite INTEGER max (``9223372036854775807``) is a valid Python ``int`` that would
+    otherwise reach ``db.commit()`` and 500 with ``OverflowError``, so the service refuses it
+    with a 422 as belt-and-braces behind the schema-level ``ge``/``le`` (t29 AC-6).
+    """
     if not isinstance(value, int) or isinstance(value, bool):
+        raise _reject()
+    if value < SORT_ORDER_MIN or value > SORT_ORDER_MAX:
         raise _reject()
     return True
 
