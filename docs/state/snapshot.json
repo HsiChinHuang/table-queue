@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "last_seq": 159,
+  "last_seq": 160,
   "updated_at": "2026-10-07T15:47:13.453Z",
   "slots": [
     {
@@ -8,7 +8,8 @@
       "phase": "verifier_verify_post_merge",
       "run_id": "e24310eb-998d-4687-a648-16a6e893fdd9",
       "spawn_at": "2026-10-09T01:32:32Z",
-      "worktree_path": ".worktrees/verify-619970b"
+      "worktree_path": ".worktrees/verify-619970b",
+      "run_state": "running_post_merge_verification"
     }
   ],
   "merge_queue": [],
