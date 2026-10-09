@@ -6,7 +6,7 @@ Updated: 2026-10-09T08:12:00Z
 
 | Slot | Issue | Role | Phase | Spawn | Last Activity |
 |---|---|---|---|---|---|
-| slot_0 | t28 | definer | groom | 90840b33 | 2026-10-09T10:46:00Z |
+| slot_0 | t28 | definer | groom | 77bb9dd5 | 2026-10-09T11:50:00Z |
 
 ## Merge queue
 
@@ -77,3 +77,5 @@ FIFO: t27 (#82) → t28 (#83) → t29 (#84) → t31 (#86) → t35 (#91) → t36 
 - 207 SPAWN: t27 verifier verify_post_merge (7c0a84c7, .worktrees/verify-c20191f)
 - 208-213 COMPLETE+closeout: gate4 PASS (3/3 smokes); closeout 1-8; handoff mishandling RECOVERED (211-212); #82 CLOSED LAST - t27 COMPLETE; next t28 (#83)
 - 214 SPAWN: t28 definer groom (90840b33, slot_0)
+- 215 FAIL: 90840b33 timeout (no handoff, t28.md still stub)
+- 216-217 RESUMED->77bb9dd5 (run-id remap)
