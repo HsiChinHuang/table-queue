@@ -6,7 +6,7 @@ Updated: 2026-10-09T08:12:00Z
 
 | Slot | Issue | Role | Phase | Spawn | Last Activity |
 |---|---|---|---|---|---|
-| slot_0 | t27 | verifier | verify_pre_merge | 34a66a3d | 2026-10-09T09:17:00Z |
+| slot_0 | t27 | verifier | verify_post_merge | 7c0a84c7 | 2026-10-09T09:50:00Z |
 
 ## Merge queue
 
@@ -73,3 +73,5 @@ FIFO: t27 (#82) → t28 (#83) → t29 (#84) → t31 (#86) → t35 (#91) → t36 
 - 202 SPAWN: t27 verifier verify_issue (7734b4d4, slot_0, reuses .worktrees/t27)
 - 203 COMPLETE: verify_issue PASS (ac1-4 PASS, ac5 SKIP); gate3 PASS
 - 204 SPAWN: t27 verifier verify_pre_merge (34a66a3d, .worktrees/verify-t27 @ 4c2d3c7)
+- 205-206 MERGE: c20191fa (ae1e6a9 + 4c2d3c7), main full suite green, pushed
+- 207 SPAWN: t27 verifier verify_post_merge (7c0a84c7, .worktrees/verify-c20191f)
