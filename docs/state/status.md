@@ -6,7 +6,7 @@ Updated: 2026-10-09T08:12:00Z
 
 | Slot | Issue | Role | Phase | Spawn | Last Activity |
 |---|---|---|---|---|---|
-| slot_0 | t31 | definer | groom | 5ac853b6 | 2026-10-10T03:08:00Z |
+| slot_0 | t31 | builder | implement | 9dfb5d42 | 2026-10-10T04:15:00Z |
 
 ## Merge queue
 
@@ -99,3 +99,5 @@ FIFO: t27 (#82) → t28 (#83) → t29 (#84) → t31 (#86) → t35 (#91) → t36 
 - 244 SPAWN pre_merge (5351e6c2) -> COMPLETE PASS (17P/1F-known/1manual, dry-run clean)
 - 245-247 MERGE 9afadc6 (374/2xf/0, pushed) + SPAWN post_merge (67463d5a, .worktrees/verify-9afadc6 detached)
 - 248-250 t29 closeout 9 steps + #84 CLOSED LAST (merge 9afadc6; 5/5 handoffs; stale wt dirs cleaned)
+- 251 SPAWN t31 definer (5ac853b6) -> COMPLETE (19.7KB spec, 6 ACs); 252-253 gate1 PASS (non-vacuity: limit=0 200 wrong-total + no-COUNT pre-fix)
+- 254 SPAWN: t31 builder implement (9dfb5d42, .worktrees/t31 issue/t31-waitlist-sql-paging)
