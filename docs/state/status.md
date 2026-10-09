@@ -6,7 +6,7 @@ Updated: 2026-10-09T08:12:00Z
 
 | Slot | Issue | Role | Phase | Spawn | Last Activity |
 |---|---|---|---|---|---|
-| slot_0 | t29 | definer | groom | 873af0ae | 2026-10-09T15:14:00Z |
+| slot_0 | t29 | builder | implement | a24a520e | 2026-10-09T15:47:00Z |
 
 ## Merge queue
 
@@ -92,3 +92,5 @@ FIFO: t27 (#82) → t28 (#83) → t29 (#84) → t31 (#86) → t35 (#91) → t36 
 - 232 #83 CLOSED LAST - t28 COMPLETE
 - 233 SPAWN: t29 definer groom (221567ed, slot_0)
 - 234-235 221567ed TIMED OUT (repro-heavy, no handoff) -> RESUMED 873af0ae (remap)
+- 236-237 873af0ae groom COMPLETE (6 ACs, #84 groomed) + gate1 PASS (non-vacuity: pre-fix 500 OverflowError confirmed)
+- 238 SPAWN: t29 builder implement (a24a520e, .worktrees/t29 issue/t29-int-bounds)
