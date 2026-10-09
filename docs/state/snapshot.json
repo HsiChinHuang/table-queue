@@ -1,13 +1,13 @@
 {
   "schema_version": "2.0",
-  "last_seq": 154,
+  "last_seq": 155,
   "updated_at": "2026-10-07T15:47:13.453Z",
   "slots": [
     {
       "slot": 0,
       "phase": "verifier_verify_pre_merge",
       "run_id": "be97c62c-d894-451c-816b-a0b97a5daf89",
-      "run_state": "complete_pass_awaiting_orchestrator_block_fix_and_merge",
+      "run_state": "block_fix_done_32_of_32_awaiting_transactional_merge",
       "spawn_at": "2026-10-09T00:49:51Z",
       "worktree_path": ".worktrees/verify-t25"
     }
