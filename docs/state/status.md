@@ -1,12 +1,12 @@
 # Status
 
-Updated: 2026-10-09T05:49:00Z
+Updated: 2026-10-09T06:50:00Z
 
 ## Active slots
 
 | Slot | Issue | Role | Phase | Spawn | Last Activity |
 |---|---|---|---|---|---|
-| slot_0 | t26 | verifier | verify_pre_merge | d5086b36 | 2026-10-09T05:49:00Z |
+| slot_0 | t26 | verifier | verify_post_merge | 094a10ab | 2026-10-09T06:50:00Z |
 
 ## Merge queue
 
@@ -60,3 +60,6 @@ FIFO: t27 (#82) → t28 (#83) → t29 (#84) → t31 (#86) → t35 (#91) → t36 
 - 183 SPAWN: t26 verifier verify_issue (c30d4d08, slot_0, worktree .worktrees/t26)
 - 184 COMPLETE: verify_issue PASS (5/5 AC, DoD 4/4, gate3 PASS); /tmp-loop steer recovery
 - 185 SPAWN: t26 verifier verify_pre_merge (d5086b36, slot_0, worktree .worktrees/verify-t26)
+- pre-merge PASS: 5/5 AC, smokes 3/3, cumulative 3P/1F (t25 AC-1 known drift), dry-run clean
+- 186-187 MERGE_OK+COMPLETE: t26 merged 8191d61, main floors green, pushed
+- 188 SPAWN: t26 verifier verify_post_merge (094a10ab, .worktrees/verify-8191d61)

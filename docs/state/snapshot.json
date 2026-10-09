@@ -1,20 +1,27 @@
 {
   "schema_version": "2.0",
-  "updated_at": "2026-10-09T05:49:00Z",
+  "updated_at": "2026-10-09T06:50:00Z",
   "last_seq": 167,
   "slots": [
     {
       "slot_id": "slot_0",
       "issue_id": "t26",
       "role": "verifier",
-      "phase": "verify_pre_merge",
-      "run_id": "d5086b36-7383-4f9d-8869-4662e607d2ae",
-      "spawn_at": "2026-10-09T05:49:00Z",
-      "last_activity_at": "2026-10-09T05:49:00Z",
-      "worktree_path": ".worktrees/verify-t26"
+      "phase": "verify_post_merge",
+      "run_id": "094a10ab-3b19-4e29-9d9b-64801ba7008d",
+      "spawn_at": "2026-10-09T06:50:00Z",
+      "last_activity_at": "2026-10-09T06:50:00Z",
+      "worktree_path": ".worktrees/verify-8191d61"
     }
   ],
-  "merge_queue": [],
+  "merge_queue": [
+    {
+      "issue_id": "t26",
+      "verifier_pass_at": "2026-10-09T06:16:04Z",
+      "priority": 0,
+      "depends_merged": false
+    }
+  ],
   "active_issues": [
     "t13",
     "t26",
