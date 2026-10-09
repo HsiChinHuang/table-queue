@@ -6,7 +6,7 @@ Updated: 2026-10-09T08:12:00Z
 
 | Slot | Issue | Role | Phase | Spawn | Last Activity |
 |---|---|---|---|---|---|
-| slot_0 | t28 | definer | groom | 77bb9dd5 | 2026-10-09T11:50:00Z |
+| slot_0 | t28 | builder | implement | 0116aff9 | 2026-10-09T12:20:00Z |
 
 ## Merge queue
 
@@ -79,3 +79,5 @@ FIFO: t27 (#82) → t28 (#83) → t29 (#84) → t31 (#86) → t35 (#91) → t36 
 - 214 SPAWN: t28 definer groom (90840b33, slot_0)
 - 215 FAIL: 90840b33 timeout (no handoff, t28.md still stub)
 - 216-217 RESUMED->77bb9dd5 (run-id remap)
+- 218-219 groom COMPLETE + gate1 PASS (5 ACs re-run green; py3.13 stdlib-only exception logged)
+- 220 SPAWN: t28 builder implement (0116aff9, .worktrees/t28; adopts definer artifacts onto branch)
