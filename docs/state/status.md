@@ -1,12 +1,12 @@
 # Status
 
-Updated: 2026-10-09T06:50:00Z
+Updated: 2026-10-09T07:16:00Z
 
 ## Active slots
 
 | Slot | Issue | Role | Phase | Spawn | Last Activity |
 |---|---|---|---|---|---|
-| slot_0 | t26 | verifier | verify_post_merge | 094a10ab | 2026-10-09T06:50:00Z |
+| — | — | — | — | — | — |
 
 ## Merge queue
 
@@ -63,3 +63,4 @@ FIFO: t27 (#82) → t28 (#83) → t29 (#84) → t31 (#86) → t35 (#91) → t36 
 - pre-merge PASS: 5/5 AC, smokes 3/3, cumulative 3P/1F (t25 AC-1 known drift), dry-run clean
 - 186-187 MERGE_OK+COMPLETE: t26 merged 8191d61, main floors green, pushed
 - 188 SPAWN: t26 verifier verify_post_merge (094a10ab, .worktrees/verify-8191d61)
+- 189-191 COMPLETE+closeout: post_merge PASS (3/3 smokes, gate4 PASS); closeout steps 1-8 done; #81 close PENDING LAST

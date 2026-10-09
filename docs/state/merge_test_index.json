@@ -17,6 +17,26 @@
     {
       "issue_id": "t25",
       "command": "root=$(git rev-parse --show-toplevel 2>/dev/null) || root=.\ncd \"$root\" || { echo \"FAIL AC-4: cannot cd to the repo root\"; exit 1; }\n[ -f backend/tests/conftest.py ] || { echo \"FAIL AC-4: not run from the TableQueue repo root (backend/tests/conftest.py missing)\"; exit 1; }\n[ -x backend/.venv/Scripts/python.exe ] || { echo \"FAIL AC-4: not measured - backend/.venv/Scripts/python.exe is missing (create the suite venv: cd backend && uv sync)\"; exit 1; }\nout=\"backend/.scratch/_t25ac4.out\"\nmkdir -p backend/.scratch; rm -f \"$out\"\nfinish() {\n  rm -f \"$out\"\n  rmdir backend/.scratch 2>/dev/null\n  rm -rf backend/.pytest_cache\n  git checkout -- backend/test.db 2>/dev/null\n  exit \"$1\"\n}\n# Arm (a): conftest carries no /tmp reference.\nif grep -n \"/tmp/\" backend/tests/conftest.py > \"$out\" 2>&1; then\n  cat \"$out\"\n  echo \"FAIL AC-4: backend/tests/conftest.py carries a /tmp/ reference (the refusal/default must not point at a /tmp database)\"\n  finish 1\nfi\n# Arm (b) cleanup: remove any pre-existing landmine file at both /tmp resolutions.\nfor d in /tmp \"C:/tmp\"; do\n  rm -f \"$d/tq_b06_pytest.db\" \"$d/tq_b06_pytest.db-journal\" \"$d/tq_b06_pytest.db-wal\" \"$d/tq_b06_pytest.db-shm\" 2>/dev/null\ndone\n# Arm (b): the landmine modules run green and do not materialize the /tmp file.\n( cd backend && ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=\"t25ac4-secret-0123456789-abcdefghijklmnopqrstuvwxyz\" STAFF_PIN=0000 TZ=UTC .venv/Scripts/python.exe -m pytest tests/test_public_board.py tests/test_public_waitlist.py tests/test_rate_limit_t23.py -q -p no:randomly > ../\"$out\" 2>&1 )\nrc=$?\nif [ $rc -ne 0 ]; then\n  tail -5 \"$out\"\n  echo \"FAIL AC-4: the landmine test modules are not green (rc=$rc) - the conftest change must not break them\"\n  finish 1\nfi\nfound=\"\"\nfor d in /tmp \"C:/tmp\"; do\n  if [ -e \"$d/tq_b06_pytest.db\" ]; then found=\"$found $d/tq_b06_pytest.db\"; fi\ndone\nif [ -n \"$found\" ]; then\n  echo \"FAIL AC-4: the run materialized the audited landmine file:$found - the module-level setdefaults must stay inert\"\n  finish 1\nfi\necho \"PASS AC-4: conftest carries no /tmp reference, the landmine modules run green, and no tq_b06_pytest.db exists in /tmp or C:/tmp after the run (pre-existing copies cleaned)\"\nfinish 0\n"
+    },
+    {
+      "issue_id": "t26",
+      "command": "uv run pytest backend/tests/test_middleware.py::test_error_response_carries_security_headers"
+    },
+    {
+      "issue_id": "t26",
+      "command": "uv run pytest backend/tests/test_middleware.py::test_csp_on_html_responses"
+    },
+    {
+      "issue_id": "t26",
+      "command": "uv run pytest backend/tests/test_middleware.py::test_request_id_bounded"
+    },
+    {
+      "issue_id": "t26",
+      "command": "uv run pytest backend/tests/test_middleware.py::test_cache_control_no_store"
+    },
+    {
+      "issue_id": "t26",
+      "command": "uv run pytest backend/tests/test_middleware.py::test_hsts_gated"
     }
   ]
 }
