@@ -1,0 +1,67 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t28",
+  "role": "builder",
+  "phase": "implement",
+  "status": "COMPLETE",
+  "reached_state": "built",
+  "evidence": {
+    "evidence_type": "build",
+    "branch": "issue/t28-ready-contract",
+    "branch_sha": "e65ef08af9bc5ca46136f6e905f1b8d0a7c6be12",
+    "ac_mapping": {
+      "ac1": {
+        "commit": "e65ef08",
+        "test": "test -f docs/tooling/ready-contract.md && grep -q \"closed-set\" docs/tooling/ready-contract.md && grep -q \"_docs/issue-map.json\" docs/tooling/ready-contract.md && grep -q \"UNKNOWN-deps\" docs/tooling/ready-contract.md && grep -qi \"never\" docs/tooling/ready-contract.md",
+        "verdict": "PASS"
+      },
+      "ac2": {
+        "commit": "e65ef08",
+        "test": "grep -q \"B-15\" docs/tooling/ready-contract.md && grep -q \"#47\" docs/tooling/ready-contract.md && grep -q \"F-16\" docs/tooling/ready-contract.md && grep -q \"#48\" docs/tooling/ready-contract.md && grep -q \"P0-16\" docs/tooling/ready-contract.md && grep -q \"#49\" docs/tooling/ready-contract.md && grep -q \"P0-13\" docs/tooling/ready-contract.md && grep -q \"#46\" docs/tooling/ready-contract.md && grep -q \"../.tq-orchestrator/ready.py\" docs/tooling/ready-contract.md && grep -qi \"deferred\" docs/tooling/ready-contract.md",
+        "verdict": "PASS"
+      },
+      "ac3": {
+        "commit": "e65ef08",
+        "test": "python3 tests/ready_contract/ready_fixture.py --case closed-bare-title",
+        "verdict": "PASS"
+      },
+      "ac4": {
+        "commit": "e65ef08",
+        "test": "python3 tests/ready_contract/ready_fixture.py --case dep-gap",
+        "verdict": "PASS"
+      },
+      "ac5": {
+        "commit": "e65ef08",
+        "test": "python3 tests/ready_contract/ready_fixture.py --case all",
+        "verdict": "PASS"
+      }
+    },
+    "test_summary": {
+      "total": 362,
+      "passed": 360,
+      "failed": 0
+    },
+    "lint_status": "CLEAN",
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands",
+    "notes": [
+      "All 5 verification commands from docs/issues/t28.md #Verification commands exit 0 from the worktree root (git-bash, system python3, stdlib-only fixture).",
+      "Independent review: fixture closed-bare-title case includes the negative control (identical map/state, mutated titles => identical classification, asserted via result_mutated == result); dep-gap case reports UNKNOWN-deps for C only while B=READY and D=WAITING evaluate in the same run, exit 0. Contract doc is normative: closed-set = _docs/issue-map.json ids whose mapped platform number is state=closed; NEVER title parse; dep-gap => per-issue UNKNOWN-deps with no whole-run abort; 4-reopen regression table (B-15 #47, F-16 #48, P0-16 #49, P0-13 #46); location note ../.tq-orchestrator/ready.py + absent-on-host/deferred note. No defects found; artifacts committed as-is.",
+      "Anomaly (not a defect, flagged for orchestrator): the definer's untracked artifacts (docs/tooling/ready-contract.md, tests/ready_contract/ready_fixture.py) were swept into main by the spawn commit e65ef08. The worktree branched from main already contained them, so no copy was needed and no artifact-modifying commit was made on the branch; this handoff commit is the only branch-specific commit.",
+      "Floors: backend full suite in worktree via main-venv python (360 passed, 2 xfailed, 0 failed, 75s); backend ruff 'All checks passed'; frontend npx tsc --noEmit rc=0 and npx eslint . rc=0 (run from main frontend, frozen shared node_modules; diff does not touch frontend/). backend/test.db restored after the suite (md5 verified, git status clean).",
+      "Fixture lives at top-level tests/ready_contract/ (outside backend pytest collection and backend ruff scope by design; AC commands use system python3 = stdlib only)."
+    ]
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/tooling/ready-contract.md",
+      "tests/ready_contract/ready_fixture.py",
+      "docs/state/outputs/t28_builder_implement.json"
+    ],
+    "platform_issue": 83,
+    "output_path": "docs/state/outputs/t28_builder_implement.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-09T12:20:10Z",
+  "retry_count": 0
+}
