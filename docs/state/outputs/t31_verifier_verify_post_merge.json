@@ -1,0 +1,59 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t31",
+  "role": "verifier",
+  "phase": "verify_post_merge",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "merge_verification",
+    "merge_sha": "4876506a44cd6d60cbe831b4a3b40b57c9c4ff85",
+    "smoke_tests": {
+      "total": 6,
+      "passed": 6,
+      "failed": 0
+    },
+    "regressions_detected": [],
+    "head_check": {
+      "head_sha": "4876506a44cd6d60cbe831b4a3b40b57c9c4ff85",
+      "parents": ["44e66175d85cabd1cc1e41878db58f496f16624a", "290afca8cc285d0c7debbf83693824ce3bdd1fb3"],
+      "message_contains_issues_t31": true,
+      "message_contains_verifier_pass": true
+    },
+    "regression_diff": {
+      "range": "44e66175d85cabd1cc1e41878db58f496f16624a..HEAD",
+      "files": [
+        "backend/app/routers/staff_waitlist.py",
+        "backend/app/services/staff_waitlist.py",
+        "backend/tests/test_t31_waitlist_sql_paging.py",
+        "docs/state/outputs/t31_builder_implement.json"
+      ],
+      "file_count": 4,
+      "unexpected_files": []
+    },
+    "ac_results": {
+      "ac1": "pass",
+      "ac2": "pass",
+      "ac3": "pass",
+      "ac4": "pass",
+      "ac5": "pass",
+      "ac6": "pass"
+    },
+    "floors": {
+      "backend_pytest": "388 passed, 2 xfailed, 0 failed",
+      "backend_ruff": "All checks passed",
+      "frontend_tsc": "clean (no output)",
+      "frontend_lint": "clean (no errors)"
+    },
+    "frontend_note": "Merge brought no frontend files; frontend floors run from main repo for completeness."
+  },
+  "artifacts": {
+    "files_written": ["docs/state/outputs/t31_verifier_verify_post_merge.json"],
+    "platform_issue": 86,
+    "output_path": "docs/state/outputs/t31_verifier_verify_post_merge.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-09T23:50:10Z",
+  "retry_count": 0
+}

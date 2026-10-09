@@ -1,0 +1,78 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t31",
+  "role": "verifier",
+  "phase": "verify_pre_merge",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "merge_verification",
+    "cumulative_tests": {
+      "total": 25,
+      "passed": 18,
+      "failed": 7
+    },
+    "smoke_tests": {
+      "total": 4,
+      "passed": 4,
+      "failed": 0
+    },
+    "failed_tests": [
+      {
+        "test": "t25 AC-1 (.gitignore check)",
+        "error_summary": "KNOWN DRIFT (a): user reverted .gitignore change; all 7 patterns missing by design"
+      },
+      {
+        "test": "t29 AC-1 (schema bounds)",
+        "error_summary": "KNOWN DRIFT (b): IndentationError from 2-space-indented python -c lines in spec formatting"
+      },
+      {
+        "test": "t29 AC-2 (sort_order overflow)",
+        "error_summary": "KNOWN DRIFT (b): IndentationError from 2-space-indented python -c lines in spec formatting"
+      },
+      {
+        "test": "t29 AC-3 (negative limit/offset)",
+        "error_summary": "KNOWN DRIFT (b): IndentationError from 2-space-indented python -c lines in spec formatting"
+      },
+      {
+        "test": "t29 AC-4 (branch_id overflow)",
+        "error_summary": "KNOWN DRIFT (b): IndentationError from 2-space-indented python -c lines in spec formatting"
+      },
+      {
+        "test": "t29 AC-5 (SQLite max in-domain)",
+        "error_summary": "KNOWN DRIFT (b): IndentationError from 2-space-indented python -c lines in spec formatting"
+      },
+      {
+        "test": "t29 AC-6 (_reject_int)",
+        "error_summary": "KNOWN DRIFT (b): IndentationError from 2-space-indented python -c lines in spec formatting"
+      }
+    ],
+    "known_drift_notes": "All 7 failures are documented known drift, NOT t31 regressions. (a) t25 AC-1: user reverted .gitignore. (b) t29 blocks: 2-space indent in python -c causes IndentationError; underlying functionality verified intact (AC-1 and AC-3 re-run without indent both pass).",
+    "merge_dry_run": {
+      "method": "git merge-tree $(merge-base) origin/main origin/issue/t31-waitlist-sql-paging",
+      "result": "clean",
+      "conflicts": 0,
+      "merged_files": [
+        "backend/app/routers/staff_waitlist.py",
+        "backend/app/services/staff_waitlist.py"
+      ]
+    },
+    "floors": {
+      "backend_pytest": "388 passed, 2 xfailed, 0 failed",
+      "ruff": "All checks passed",
+      "frontend_tsc": "clean (exit 0)",
+      "frontend_lint": "clean (exit 0)"
+    }
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/state/outputs/t31_verifier_verify_pre_merge.json"
+    ],
+    "platform_issue": 86,
+    "output_path": "docs/state/outputs/t31_verifier_verify_pre_merge.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-09T23:24:08Z",
+  "retry_count": 0
+}

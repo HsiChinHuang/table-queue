@@ -16,7 +16,7 @@ Adopted 2026-10-06 (framework commit 34591cc). 15 open platform issues (HsiChinH
 | t27 | CI from nothing: lint+test+audit workflows on push, frontend build smoke, secret-scan on PRs | - | 82 | closed |
 | t28 | ready.py readiness tool: closed-set by issue-map intersect platform-state, never by title parse | - | 83 | closed |
 | t29 | Integer and length bounds live in schemas: no overflow-500, no out-of-domain values persisted | - | 84 | closed |
-| t31 | Staff waitlist list paginates in SQL instead of materialising the full result | - | 86 | defined |
+| t31 | Staff waitlist list paginates in SQL instead of materialising the full result | - | 86 | closed |
 | t35 | T35 test-infra: drvfs SQLite flake between test_log_hygiene and test_db_atomicity (disk I/O error in setup) | - | 91 | defined |
 | t36 | T36 test-infra: test_rate_limit_t23.py XFF tests order-dependent shared limiter state (flake) | - | 92 | defined |
 

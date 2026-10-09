@@ -1,0 +1,85 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t31",
+  "role": "verifier",
+  "phase": "verify_issue",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "verification",
+    "ac_results": {
+      "ac1": {
+        "verdict": "PASS",
+        "command": "cd backend && rm -f /tmp/t31ac.db && ENV=development DATABASE_URL=sqlite:////tmp/t31ac.db JWT_SECRET=t31repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -c \"...limit=0 -> 422 naming limit; limit=-1 -> 422; offset=-5 -> 422; limit=1 -> 200 with 1 item...\"",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "ac1 ok"
+      },
+      "ac2": {
+        "verdict": "PASS",
+        "command": "cd backend && rm -f /tmp/t31ac.db && ENV=development DATABASE_URL=sqlite:////tmp/t31ac.db JWT_SECRET=t31repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -c \"...200-row fixture: limit=10&offset=0 = prefix; offset=total-3 = tail (3 items); offset=total -> empty; queue order holds...\"",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "ac2 ok"
+      },
+      "ac3": {
+        "verdict": "PASS",
+        "command": "cd backend && rm -f /tmp/t31ac.db && ENV=development DATABASE_URL=sqlite:////tmp/t31ac.db JWT_SECRET=t31repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -c \"...total stable across paging; ALL >= ACTIVE; party_size=2 narrows...\"",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "ac3 ok"
+      },
+      "ac4": {
+        "verdict": "PASS",
+        "command": "cd backend && rm -f /tmp/t31ac.db && ENV=development DATABASE_URL=sqlite:////tmp/t31ac.db JWT_SECRET=t31repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -c \"...limit=10&offset=20: engine SQL capture shows COUNT + bounded SELECT over WAITLIST_ENTRIES with LIMIT/OFFSET params 10/20...\"",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "ac4 ok"
+      },
+      "ac5": {
+        "verdict": "PASS",
+        "command": "cd backend && rm -f /tmp/t31ac.db && ENV=development DATABASE_URL=sqlite:////tmp/t31ac.db JWT_SECRET=t31repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -c \"...body exactly {items,total} with all fields; reorder over full active set -> 200 returning exact order...\"",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "ac5 ok"
+      },
+      "ac6": {
+        "verdict": "PASS",
+        "command": "cd backend && rm -f /tmp/t31ac.db && ENV=development DATABASE_URL=sqlite:////tmp/t31ac.db JWT_SECRET=t31repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -c \"...search=Fix: total==200; limit=10 = prefix; offset=195 -> last 5 with total still 200...\"",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "ac6 ok"
+      }
+    },
+    "test_summary": {
+      "total": 390,
+      "passed": 388,
+      "failed": 0
+    },
+    "failure_type": null,
+    "lint_report": {
+      "errors": 0,
+      "warnings": 0
+    },
+    "test_quality_warnings": [],
+    "dod_verified": {
+      "all_six_acs_pass_via_verification_commands": true,
+      "existing_suite_stays_green": true,
+      "limit_0_answers_422_not_200_empty": true,
+      "no_response_shape_change": true,
+      "backend_test_db_untouched": true
+    },
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands"
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/state/outputs/t31_verifier_verify_issue.json"
+    ],
+    "platform_issue": 86,
+    "output_path": "docs/state/outputs/t31_verifier_verify_issue.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-09T22:54:00Z",
+  "retry_count": 0
+}
