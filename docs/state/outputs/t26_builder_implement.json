@@ -1,0 +1,67 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t26",
+  "role": "builder",
+  "phase": "implement",
+  "status": "COMPLETE",
+  "reached_state": "built",
+  "evidence": {
+    "evidence_type": "build",
+    "branch": "issue/t26-security-headers",
+    "branch_sha": "0f0e2a4d81a0b45c75f4d57ada336dc0616c8e0b",
+    "ac_mapping": {
+      "ac1": {
+        "commit": "0f0e2a4d81a0b45c75f4d57ada336dc0616c8e0b",
+        "test": "uv run pytest backend/tests/test_middleware.py::test_error_response_carries_security_headers",
+        "verdict": "PASS"
+      },
+      "ac2": {
+        "commit": "0f0e2a4d81a0b45c75f4d57ada336dc0616c8e0b",
+        "test": "uv run pytest backend/tests/test_middleware.py::test_csp_on_html_responses",
+        "verdict": "PASS"
+      },
+      "ac3": {
+        "commit": "0f0e2a4d81a0b45c75f4d57ada336dc0616c8e0b",
+        "test": "uv run pytest backend/tests/test_middleware.py::test_request_id_bounded",
+        "verdict": "PASS"
+      },
+      "ac4": {
+        "commit": "0f0e2a4d81a0b45c75f4d57ada336dc0616c8e0b",
+        "test": "uv run pytest backend/tests/test_middleware.py::test_cache_control_no_store",
+        "verdict": "PASS"
+      },
+      "ac5": {
+        "commit": "0f0e2a4d81a0b45c75f4d57ada336dc0616c8e0b",
+        "test": "uv run pytest backend/tests/test_middleware.py::test_hsts_gated",
+        "verdict": "PASS"
+      }
+    },
+    "test_summary": {
+      "total": 354,
+      "passed": 352,
+      "failed": 0
+    },
+    "lint_status": "CLEAN",
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands",
+    "ac_run": "All 5 AC commands from docs/issues/t26.md ## Verification commands run from the worktree root with DATABASE_URL=sqlite:///./test.db (JWT_SECRET satisfied by the conftest 32+-char default): 5/5 PASS, 1 passed each, rc=0. Root cause closed for AC-1: FastAPI parks a registered Exception handler on the outermost ServerErrorMiddleware (outside all user middleware), so the old 500 never crossed HeadersMiddleware - reproduced pre-fix (probe: 500 with none of the four headers); the new ErrorEnvelopeMiddleware (pure ASGI, registered inside HeadersMiddleware) renders the same contract envelope via app.errors.render_unhandled_exception, so the 500 travels out through the headers layer. Full suite: 352 passed, 2 xfailed, 0 failed in ~75s (groom baseline 349/2 grew by the 5 new tests). ruff check .: All checks passed.",
+    "notes": "Command fidelity: the pytest invocations are the issue's verbatim commands; the only addition is the interpreter pin 'uv run --python <frozen suite venv python>' because the repo has no root pyproject (uv run in no-project mode cannot discover pytest otherwise) and the suite venv at backend/.venv is the frozen junction target - it was used strictly read-only (no install, no sync; uv no-project mode writes nothing to it). Pre-fix probe confirmed the audit finding (500 carried no X-Request-ID/nosniff/DENY/Referrer-Policy). DB hygiene: the run created an untracked test.db at the worktree root (DATABASE_URL relative to CWD); it was removed after the runs and tracked backend/test.db was never modified (git status clean of it). No existing test_middleware.py test was weakened: test_request_id_generated_and_echoed and test_security_headers_present pass unchanged (9/9 in the file). HSTS flag defaults to False so default behaviour is byte-identical for the header set except the new CSP-on-HTML and no-store-on-/api/v1-JSON stamps the ACs require.",
+    "warnings": [
+      "uv run pytest <issue command> cannot execute as literally typed from the worktree root (no root-level pyproject; uv no-project mode has no pytest on PATH); executed with the interpreter pinned to the frozen suite venv via uv run --python, pytest args verbatim"
+    ]
+  },
+  "artifacts": {
+    "files_written": [
+      "backend/app/config.py",
+      "backend/app/errors.py",
+      "backend/app/main.py",
+      "backend/tests/test_middleware.py",
+      "docs/state/outputs/t26_builder_implement.json"
+    ],
+    "platform_issue": 81,
+    "output_path": "docs/state/outputs/t26_builder_implement.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-09T04:46:47Z",
+  "retry_count": 0
+}

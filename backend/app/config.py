@@ -187,6 +187,18 @@ class Settings(BaseSettings):
         description="Log every SQL statement and its bound parameters (off unless asked for)",
     )
 
+    # HSTS (t26 AC-5): the ``Strict-Transport-Security`` header is emitted on every response
+    # only when a deployment opts in. Off by default, so behaviour is unchanged until a
+    # deployment behind a TLS-terminating proxy enables it; the flag is read per request
+    # through ``get_settings()``, never hardcoded on.
+    hsts_enabled: bool = Field(
+        default=False,
+        description=(
+            "Emit the Strict-Transport-Security header on every response; off by default, "
+            "enable behind a TLS-terminating proxy"
+        ),
+    )
+
     # App version
     app_version: str = Field(default="0.1.0", description="Application version")
 

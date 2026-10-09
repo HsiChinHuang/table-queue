@@ -356,6 +356,20 @@ def _handle_generic_exception(request: Request, exc: Exception) -> JSONResponse:
     )
 
 
+def render_unhandled_exception(request: Request, exc: Exception) -> JSONResponse:
+    """Render the contract 500 for an exception that escaped the router unhandled (t26 AC-1).
+
+    One renderer, two callers: the registered generic ``Exception`` handler and the
+    error-envelope middleware in ``app.main``. FastAPI parks a registered ``Exception``
+    handler on the outermost server-error layer, outside every user middleware, so a 500
+    rendered there never passes through the headers middleware and loses the security
+    headers - the gap this issue closes. The middleware sits inside the headers layer and
+    renders the same envelope here, so a forced 500 answers with the contract body and the
+    headers whichever layer caught it.
+    """
+    return _handle_generic_exception(request, exc)
+
+
 def register_error_handlers(app: FastAPI) -> None:
     """Register global exception handlers used by the B‑04 tests.
 
