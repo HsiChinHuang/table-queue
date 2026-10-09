@@ -47,7 +47,7 @@
       "failed": 0
     },
     "lint_status": "CLEAN",
-    "verification_commands_source": "docs/issues/t29.md#verification-commands",
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands",
     "notes": "All six spec verification commands run verbatim from the worktree with the main frozen venv (C:/Users/tw097/Desktop/261003_ai_test/table-queue/backend/.venv/Scripts/python.exe) substituted for the spec's ./.venv path; each printed its 'acN ok' and exited 0. Full backend suite: 374 passed, 2 xfailed, 0 failed (includes 12 new tests in tests/test_t29_int_bounds.py). ruff check . CLEAN. Frontend floors from the main frozen frontend: tsc --noEmit exit 0, eslint exit 0 (no frontend changes). backend/test.db was touched by the suite and restored via git checkout --; it is not committed. party_size bounds untouched; no section/is_active/reorder changes.",
     "memory_applied": []
   },
