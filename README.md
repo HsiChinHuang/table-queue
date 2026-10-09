@@ -240,6 +240,15 @@ make lint
 make format
 ```
 
+Dependency audit
+
+```bash
+cd backend && .venv/bin/python -m pip_audit
+cd frontend && npm audit
+```
+
+`pip-audit` is part of the backend dev dependency group (`backend/pyproject.toml`), so `uv sync` puts it into `backend/.venv` alongside pytest and ruff. CI runs both audits plus a gitleaks secret scan on every pull request (`.github/workflows/audit.yml`), and lint/test/build on every push (`.github/workflows/ci.yml`).
+
 ### Exit codes and pipes
 
 Documented make invocations are run bare and their exit code is asserted directly (`cmd > /tmp/tq-run.log 2>&1; echo "rc=$?"`). Wrapping one in a pipe to `head` or `tail` is a documentation bug: the pipe reports the consumer's status, so a red target looks green. The same rule covers the manual equivalents below and in `_docs/commands.md`.
