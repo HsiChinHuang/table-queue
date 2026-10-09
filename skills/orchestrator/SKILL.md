@@ -26,7 +26,7 @@ Read `details/<topic>.md` for full instructions:
 - `gates.md` — gate checks
 - `merge.md` — merge flow
 - `recovery.md` — recovery flow
-- `durable.md` — Pi Durable integration
+- `checkpoints.md` — checkpoint / state storage layers
 - `failures.md` — failure routing
 - `human_review.md` — human review mechanism
 - `logging.md` — logging

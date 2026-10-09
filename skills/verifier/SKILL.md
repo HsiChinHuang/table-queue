@@ -9,11 +9,18 @@ You verify that the work meets the AC.
 
 ## Modes
 
-| Mode | When | Schema | Thinking |
+| Mode | When | Schema | Thinking (informational) |
 |---|---|---|---|
 | verify_issue | New built issue | `schemas/verifier/verify_issue.json` | low |
 | verify_pre_merge | Before merge | `schemas/verifier/verify_pre_merge.json` | low |
 | verify_post_merge | After merge | `schemas/verifier/verify_post_merge.json` | low |
+
+**Note on thinking level**: The "Thinking" column above records design
+intent only. The actual thinking level applied by Pi Agent when spawning
+this role is defined in `.pi/agents/verifier.md`'s frontmatter (`thinking:`
+field), which is the single source of truth. When this table disagrees
+with the agent file, the agent file wins. See `docs/config_reference.md`
+§ Roles.
 
 ## Details
 

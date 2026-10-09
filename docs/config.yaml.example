@@ -63,59 +63,50 @@ slots:
 
 # ============================================================
 # Roles
+#
+# Thinking level is NOT configured here. The single source of truth
+# is `.pi/agents/<role>.md`'s frontmatter (`thinking:` field), which
+# Pi Agent applies when spawning subagents. See `docs/config_reference.md`
+# § Roles for details.
 # ============================================================
 roles:
   definer:
-    default_thinking: high
     max_retries: 3
     timeout_minutes: 60
     phases:
       survey:
-        thinking: high
         max_retries: 2
         timeout_base_minutes: 15
         timeout_per_issue_minutes: 2
       review_plan:
-        thinking: high
         max_retries: 2
       groom:
-        thinking: medium
         max_retries: 3
       re_groom:
-        thinking: medium
         max_retries: 3
 
   builder:
-    default_thinking: high
     max_retries: 5
     timeout_minutes: 120
     phases:
       implement:
-        thinking: high
         max_retries: 5
       fix_qa:
-        thinking: high
         max_retries: 5
       fix_merge:
-        thinking: medium
         max_retries: 3
       fix_regression:
-        thinking: high
         max_retries: 3
 
   verifier:
-    default_thinking: low
     max_retries: 3
     timeout_minutes: 60
     phases:
       verify_issue:
-        thinking: low
         max_retries: 3
       verify_pre_merge:
-        thinking: low
         max_retries: 2
       verify_post_merge:
-        thinking: low
         max_retries: 2
 
 
@@ -332,3 +323,6 @@ api:
 #             roles.definer.phases.survey.timeout_per_issue_minutes: 2
 # 2026-10-07: batch C1 — added venv.enabled and venv.cleanup_after_days
 # 2026-10-07: removed approval.* mechanism (always full-auto)
+# 2026-10-09: removed roles.*.default_thinking and
+#             roles.*.phases.*.thinking; thinking is now defined solely
+#             in .pi/agents/<role>.md

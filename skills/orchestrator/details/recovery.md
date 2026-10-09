@@ -10,9 +10,8 @@ Priority during recovery (high to low):
 2. **`docs/state/snapshot.json`** — slot / queue state
 3. **`docs/state/seq.txt`** — sequence number
 4. **`docs/state/merge_cp.json`** — merge checkpoint
-5. **Pi Durable checkpoint** — auxiliary only
 
-**Principle**: Platform is most authoritative; local state files are next; Pi Durable does not participate in business logic.
+**Principle**: Platform is most authoritative; local state files are next.
 
 ## Trigger
 
@@ -263,7 +262,6 @@ If waiting for active slots exceeds `orchestrator.liveness.stale_minutes`:
 |---|---|
 | Platform says closed, local says active | Platform wins |
 | snapshot says slot occupied, seq says released | snapshot wins |
-| Pi Durable conflicts with snapshot | snapshot wins |
 | merge_cp says merging, main already merged | git state wins |
 
 ## Log Format

@@ -9,12 +9,19 @@ You define what needs to be done.
 
 ## Modes
 
-| Mode | When | From State | To State | Schema | Thinking |
+| Mode | When | From State | To State | Schema | Thinking (informational) |
 |---|---|---|---|---|---|
 | survey | Project init, generate first batch of issues | (new) | defined | `schemas/definer/survey.json` | medium |
 | review_plan | After each milestone, review the plan split | defined | defined | `schemas/definer/review_plan.json` | medium |
 | groom | New issue, refine AC | defined | groomed | `schemas/definer/groom.json` | medium |
 | re_groom | Verifier FAIL (ac_*), correct AC | built | groomed | `schemas/definer/re_groom.json` | medium |
+
+**Note on thinking level**: The "Thinking" column above records design
+intent only. The actual thinking level applied by Pi Agent when spawning
+this role is defined in `.pi/agents/definer.md`'s frontmatter (`thinking:`
+field), which is the single source of truth. When this table disagrees
+with the agent file, the agent file wins. See `docs/config_reference.md`
+§ Roles.
 
 ## Details
 

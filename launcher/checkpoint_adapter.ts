@@ -1,5 +1,5 @@
-// launcher/durable_adapter.ts
-// Pi Durable checkpoint integration
+// launcher/checkpoint_adapter.ts
+// Launcher checkpoint integration.
 
 import * as fs from 'fs';
 
@@ -28,7 +28,7 @@ export class DoubleInstanceError extends Error {
  * Returns null if the file does not exist or cannot be parsed.
  * Throws DoubleInstanceError if another Orchestrator is running.
  */
-export async function checkDurableCheckpoint(): Promise<Checkpoint | null> {
+export async function readCheckpoint(): Promise<Checkpoint | null> {
   if (!fs.existsSync(CHECKPOINT_PATH)) {
     return null;
   }
@@ -88,7 +88,7 @@ export async function markCompleted(): Promise<void> {
  * Save a checkpoint with the given values.
  * Used by other modules to persist state.
  */
-export async function saveDurableCheckpoint(
+export async function saveCheckpoint(
   lastSeq: number,
   completed: boolean
 ): Promise<void> {

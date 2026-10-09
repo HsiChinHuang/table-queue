@@ -5,10 +5,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { loadConfig } from './config_loader.js';
 import {
-  checkDurableCheckpoint,
+  readCheckpoint,
   updateOrchestratorPid,
   markCompleted,
-} from './durable_adapter.js';
+} from './checkpoint_adapter.js';
 import { ExitReason, getBackoffSeconds } from './restart_handler.js';
 import { logger } from './logger.js';
 import { spawn, type ChildProcess } from 'child_process';
@@ -60,10 +60,10 @@ async function main(): Promise<void> {
   let restartAttempts = 0;
 
   for (;;) {
-    // Check Pi Durable checkpoint
+    // Check launcher checkpoint
     let checkpoint;
     try {
-      checkpoint = await checkDurableCheckpoint();
+      checkpoint = await readCheckpoint();
     } catch (err) {
       // Double-instance guard triggered
       logger.error((err as Error).message);

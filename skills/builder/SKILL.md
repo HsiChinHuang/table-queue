@@ -9,12 +9,19 @@ You write code that satisfies the AC.
 
 ## Modes
 
-| Mode | When | Schema | Thinking |
+| Mode | When | Schema | Thinking (informational) |
 |---|---|---|---|
 | implement | New groomed issue | `schemas/builder/implement.json` | medium |
 | fix_qa | Verifier FAIL (implementation / test_env / test_quality) | `schemas/builder/fix_qa.json` | medium |
 | fix_merge | Merge conflict | `schemas/builder/fix_merge.json` | medium |
 | fix_regression | Post-merge regression | `schemas/builder/fix_regression.json` | medium |
+
+**Note on thinking level**: The "Thinking" column above records design
+intent only. The actual thinking level applied by Pi Agent when spawning
+this role is defined in `.pi/agents/builder.md`'s frontmatter (`thinking:`
+field), which is the single source of truth. When this table disagrees
+with the agent file, the agent file wins. See `docs/config_reference.md`
+§ Roles.
 
 ## Details
 

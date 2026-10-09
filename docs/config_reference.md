@@ -26,7 +26,7 @@ Complete reference for every key in `docs/config.yaml`.
 
 | Key | Status | Used by |
 |---|---|---|
-| `launcher.auto_restart` | Implemented | `launcher/index.ts`, `launcher/config_loader.ts`, `durable.md` |
+| `launcher.auto_restart` | Implemented | `launcher/index.ts`, `launcher/config_loader.ts`, `checkpoints.md` |
 | `launcher.max_restart_attempts` | Implemented | `launcher/index.ts`, `launcher/config_loader.ts` |
 | `launcher.backoff_seconds` | Implemented | `launcher/restart_handler.ts` (`DEFAULT_POLICY`) |
 | `launcher.reset_on_scheduled_restart` | Implemented | `launcher/restart_handler.ts` (`shouldResetCounter`) |
@@ -86,17 +86,29 @@ missing or invalid, the script falls back to 30 days.
 
 | Key | Status | Used by |
 |---|---|---|
-| `roles.<role>.default_thinking` | Referenced | `config.yaml` only; the actual thinking level per phase is defined below |
 | `roles.<role>.max_retries` | Implemented | `gates.md`, `failures.md` |
 | `roles.<role>.timeout_minutes` | Implemented | `failures.md` |
-| `roles.<role>.phases.<phase>.thinking` | Referenced | `config.yaml`; spawn code should pass to Pi Agent |
 | `roles.<role>.phases.<phase>.max_retries` | Implemented | `gates.md`, `failures.md` |
 | `roles.definer.phases.survey.timeout_base_minutes` | Implemented | `lifecycle.md` Step 7 (dynamic timeout for survey) |
 | `roles.definer.phases.survey.timeout_per_issue_minutes` | Implemented | `lifecycle.md` Step 7 (dynamic timeout for survey) |
 
 **Note**: `<role>` in `{definer, builder, verifier}`. `<phase>` in `{survey, review_plan, groom, re_groom, implement, fix_qa, fix_merge, fix_regression, verify_issue, verify_pre_merge, verify_post_merge}`.
 
-**Note**: `roles.<role>.default_thinking` is the fallback when a phase-specific `thinking` is not set.
+**Note on thinking level**: Thinking level is **NOT** a config key.
+It is defined in `.pi/agents/<role>.md`'s frontmatter (`thinking:` field),
+which is the single source of truth applied by Pi Agent when spawning
+subagents. The `skills/<role>/SKILL.md` mode tables list design intent
+as informational only; when they disagree with `.pi/agents/<role>.md`,
+the agent file wins.
+
+Current values:
+
+| Role | `.pi/agents/<role>.md` thinking | Applies to |
+|---|---|---|
+| definer | `high` | survey, review_plan, groom, re_groom |
+| builder | `high` | implement, fix_qa, fix_merge, fix_regression |
+| verifier | `low` | verify_issue, verify_pre_merge, verify_post_merge |
+| orchestrator | (N/A — main agent, no file) | runs at Pi Agent default |
 
 **Note on survey timeout**: `survey` uses a dynamic timeout:
 
@@ -302,7 +314,7 @@ a toggle.
 
 | Status | Count |
 |---|---|
-| **Implemented** | ~69 |
+| **Implemented** | ~68 |
 | **Referenced** | ~50 |
 | **Reserved** | 9 |
 
