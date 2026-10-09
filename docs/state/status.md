@@ -1,12 +1,12 @@
 # Status
 
-Updated: 2026-10-09T07:21:00Z
+Updated: 2026-10-09T08:03:00Z
 
 ## Active slots
 
 | Slot | Issue | Role | Phase | Spawn | Last Activity |
 |---|---|---|---|---|---|
-| slot_0 | t27 | definer | groom | d75ed1b2 | 2026-10-09T07:21:00Z |
+| slot_0 | t27 | definer | groom (finalize) | 7a320eb0 | 2026-10-09T08:03:00Z |
 
 ## Merge queue
 
@@ -66,3 +66,4 @@ FIFO: t27 (#82) → t28 (#83) → t29 (#84) → t31 (#86) → t35 (#91) → t36 
 - 189-191 COMPLETE+closeout: post_merge PASS (3/3 smokes, gate4 PASS); closeout steps 1-8 done; #81 close PENDING LAST
 - 192 TRANSITION: platform #81 CLOSED LAST - t26 COMPLETE; next FIFO t27 (#82) groom
 - 193 SPAWN: t27 definer groom (d75ed1b2, slot_0)
+- 194-197 BLOCKER(handled)+RESUMED: sync via wide-API launch rc=0 byte-identical; labels groomed; run remapped d75ed1b2->7a320eb0 (finalizing handoff)
