@@ -6,7 +6,7 @@ Updated: 2026-10-09T08:12:00Z
 
 | Slot | Issue | Role | Phase | Spawn | Last Activity |
 |---|---|---|---|---|---|
-| slot_0 | t27 | builder | implement | (pending spawn) | — |
+| slot_0 | t27 | builder | implement | 165c630b | 2026-10-09T08:15:00Z |
 
 ## Merge queue
 
@@ -68,3 +68,4 @@ FIFO: t27 (#82) → t28 (#83) → t29 (#84) → t31 (#86) → t35 (#91) → t36 
 - 193 SPAWN: t27 definer groom (d75ed1b2, slot_0)
 - 194-197 BLOCKER(handled)+RESUMED: sync via wide-API launch rc=0 byte-identical; labels groomed; run remapped d75ed1b2->7a320eb0
 - 198-199 COMPLETE+gate1 PASS: t27 groomed (ac_hash d6a57e84); stale comment corrected
+- 200 SPAWN: t27 builder implement (165c630b, slot_0, worktree .worktrees/t27)
