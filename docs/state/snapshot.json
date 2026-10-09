@@ -1,14 +1,14 @@
 {
   "schema_version": "2.0",
-  "last_seq": 150,
+  "last_seq": 153,
   "updated_at": "2026-10-07T15:47:13.453Z",
   "slots": [
     {
       "slot": 0,
-      "phase": "verifier_verify_issue",
-      "run_id": "a2957ff0-9a2e-4ca1-9568-435212e23ac7",
-      "spawn_at": "2026-10-09T00:39:19Z",
-      "worktree_path": ".worktrees/t25"
+      "phase": "verifier_verify_pre_merge",
+      "run_id": "be97c62c-d894-451c-816b-a0b97a5daf89",
+      "spawn_at": "2026-10-09T00:49:51Z",
+      "worktree_path": ".worktrees/verify-t25"
     }
   ],
   "merge_queue": [],
