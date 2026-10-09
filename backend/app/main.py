@@ -28,7 +28,7 @@ from starlette.routing import Match
 
 from app.config import get_settings
 from app.database import Base, engine
-from app.errors import register_error_handlers
+from app.errors import register_error_handlers, render_unhandled_exception
 from app.logging_config import configure_logging
 from app.routers import admin as admin_router
 from app.routers import auth as auth_router
@@ -373,14 +373,41 @@ app.add_middleware(MountedRouteLimiterMiddleware)
 
 
 # Request-ID and security-header middleware.
-def _add_security_headers(response: Response) -> None:
+
+# t26 AC-3: the echoed request id is bounded. A caller-supplied id longer than this, or one
+# that is empty/whitespace, is replaced by a server-minted UUID4 instead of being reflected.
+MAX_REQUEST_ID_LENGTH = 128
+
+# t26 AC-2: report-only CSP on HTML responses. Report-only is the accepted first step - it is
+# measured without blocking anything, and promotion to a blocking policy is a follow-up.
+CSP_REPORT_ONLY = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'"
+
+# t26 AC-5: the HSTS value a deployment advertises once ``settings.hsts_enabled`` is on.
+HSTS_VALUE = "max-age=31536000; includeSubDomains"
+
+def _add_security_headers(request: Request, response: Response) -> None:
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    content_type = response.headers.get("content-type", "")
+    # AC-2: HTML responses carry the (report-only) CSP; non-HTML responses do not.
+    if content_type.startswith("text/html"):
+        response.headers["Content-Security-Policy-Report-Only"] = CSP_REPORT_ONLY
+    # AC-4: JSON from the API surfaces (staff, admin and every /api/v1 endpoint) is never
+    # cacheable; responses outside /api/v1 (the /health probe) keep their own policy.
+    if request.url.path.startswith("/api/v1") and content_type.startswith("application/json"):
+        response.headers["Cache-Control"] = "no-store"
+    # AC-5: HSTS is a config flag, read per request so a deployment opts in without a code
+    # change; off by default, so an unset environment answers exactly as before.
+    if get_settings().hsts_enabled:
+        response.headers["Strict-Transport-Security"] = HSTS_VALUE
 
 def _ensure_request_id(request: Request, response: Response) -> None:
     rid = request.headers.get("X-Request-ID")
-    if not rid:
+    # AC-3: echo a supplied id only when it is non-blank and within the bound; anything
+    # longer (the 3000-char reflection the audit measured) or empty/whitespace is replaced
+    # by a server-minted UUID4, which is itself within the bound.
+    if not rid or not rid.strip() or len(rid) > MAX_REQUEST_ID_LENGTH:
         rid = str(uuid.uuid4())
     response.headers["X-Request-ID"] = rid
 
@@ -399,9 +426,38 @@ class HeadersMiddleware(BaseHTTPMiddleware):
     ) -> Response:
         response = await call_next(request)
         _ensure_request_id(request, response)
-        _add_security_headers(response)
+        _add_security_headers(request, response)
         return response
 
+
+class ErrorEnvelopeMiddleware:
+    """Catch unhandled route exceptions INSIDE the headers layer (t26 AC-1).
+
+    FastAPI moves a registered ``Exception`` handler onto the outermost server-error layer,
+    outside every user middleware, so a 500 rendered there never passes through
+    ``HeadersMiddleware`` and answers without the security headers - the bypass the phase-5
+    audit measured. This middleware is registered inside ``HeadersMiddleware`` and renders
+    the same contract envelope (``render_unhandled_exception`` in ``app.errors``) for
+    anything the router lets escape, so the 500 still travels out through the headers layer
+    on its way to the client. The registered handler stays as the last-resort layer for an
+    exception raised by the middleware itself.
+
+    Pure ASGI, for the same reason ``AccessLogMiddleware`` is: it never copies the request,
+    so nothing between here and the router changes shape.
+    """
+
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+        try:
+            await self.app(scope, receive, send)
+        except Exception as exc:
+            response = render_unhandled_exception(Request(scope), exc)
+            await response(scope, receive, send)
 
 # ---------------------------------------------------------------------------
 # Access log (T21, audit A-14): the app owns the access line.
@@ -503,7 +559,10 @@ def _reachable_paths(app_: FastAPI) -> set[str]:
 # Registered here, after the line above, so it ends up INSIDE the limiter's boundary: decorator
 # registration and this call both prepend onto the same list and only the sequence matters. See the
 # note above the rate-limit registration - a header middleware in front of the limiter costs every
-# shared rate limit in the process half of its budget.
+# shared rate limit in the process half of its budget. The error-envelope middleware is registered
+# first of the pair, so it lands INSIDE the headers layer: a forced 500 is rendered there and
+# still receives the request id and the security headers on its way out (t26 AC-1).
+app.add_middleware(ErrorEnvelopeMiddleware)
 app.add_middleware(HeadersMiddleware)
 
 # T21: the access line is app-owned (see AccessLogMiddleware above for why it is pure ASGI and
