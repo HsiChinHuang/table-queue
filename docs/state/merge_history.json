@@ -17,6 +17,14 @@
       "timestamp": "2026-10-09T06:44:29Z",
       "merge_type": "clean",
       "test_suite": "full"
+    },
+    {
+      "issue_id": "t27",
+      "merge_sha": "c20191fa551c7ef47056db16ba19a3a5f79636ed",
+      "pre_merge_sha": "ae1e6a93a91bcd45fbda48e46cdfdbd713f11030",
+      "timestamp": "2026-10-09T10:15:36Z",
+      "merge_type": "clean",
+      "test_suite": "full"
     }
   ]
 }

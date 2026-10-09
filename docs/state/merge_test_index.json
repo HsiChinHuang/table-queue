@@ -37,6 +37,26 @@
     {
       "issue_id": "t26",
       "command": "uv run pytest backend/tests/test_middleware.py::test_hsts_gated"
+    },
+    {
+      "issue_id": "t27",
+      "command": "test -f .github/workflows/ci.yml && grep -q \"push\" .github/workflows/ci.yml && grep -qi \"ruff\" .github/workflows/ci.yml && grep -qi \"pytest\" .github/workflows/ci.yml && grep -q \"TZ\" .github/workflows/ci.yml && grep -qi \"tsc\" .github/workflows/ci.yml && grep -qi \"eslint\" .github/workflows/ci.yml && grep -qi \"vitest\" .github/workflows/ci.yml && grep -qi \"npm run build\" .github/workflows/ci.yml && (grep -qE 'node-version: *\"?\"20\"?\"' .github/workflows/ci.yml || (grep -q \"node-version-file\" .github/workflows/ci.yml && grep -qx \"20\" .nvmrc)) && node -e \"require('js-yaml').load(require('fs').readFileSync('.github/workflows/ci.yml','utf8'))\" && echo PASS"
+    },
+    {
+      "issue_id": "t27",
+      "command": "test -f .github/workflows/audit.yml && grep -qi \"pull_request\" .github/workflows/audit.yml && grep -qi \"npm audit\" .github/workflows/audit.yml && grep -qi \"pip-audit\" .github/workflows/audit.yml && grep -qi \"gitleaks\" .github/workflows/audit.yml && node -e \"require('js-yaml').load(require('fs').readFileSync('.github/workflows/audit.yml','utf8'))\" && echo PASS"
+    },
+    {
+      "issue_id": "t27",
+      "command": "grep -q \"pip-audit\" backend/pyproject.toml && grep -qi \"pip-audit\" README.md && echo PASS"
+    },
+    {
+      "issue_id": "t27",
+      "command": "! grep -rniE \"ghp_[A-Za-z0-9]{20,}|gho_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|BEGIN [A-Z ]*PRIVATE KEY|JWT_SECRET[[:space:]]*[:=]|STAFF_PIN[[:space:]]*[:=]|api[_-]?key\" .github/workflows/ && echo PASS"
+    },
+    {
+      "issue_id": "t27",
+      "command": "manual"
     }
   ]
 }

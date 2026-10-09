@@ -1,0 +1,66 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t27",
+  "role": "builder",
+  "phase": "implement",
+  "status": "COMPLETE",
+  "reached_state": "built",
+  "evidence": {
+    "evidence_type": "build",
+    "branch": "issue/t27-ci-from-nothing",
+    "branch_sha": "4c2d3c7c39bbfef19917ebbfb388f1db45eea8be",
+    "ac_mapping": {
+      "ac1": {
+        "commit": "4c2d3c7c39bbfef19917ebbfb388f1db45eea8be",
+        "test": "test -f .github/workflows/ci.yml && grep -q \"push\" .github/workflows/ci.yml && grep -qi \"ruff\" .github/workflows/ci.yml && grep -qi \"pytest\" .github/workflows/ci.yml && grep -q \"TZ\" .github/workflows/ci.yml && grep -qi \"tsc\" .github/workflows/ci.yml && grep -qi \"eslint\" .github/workflows/ci.yml && grep -qi \"vitest\" .github/workflows/ci.yml && grep -qi \"npm run build\" .github/workflows/ci.yml && (grep -qE 'node-version: *\"?20\"?' .github/workflows/ci.yml || (grep -q \"node-version-file\" .github/workflows/ci.yml && grep -qx \"20\" .nvmrc)) && node -e \"require('js-yaml').load(require('fs').readFileSync('.github/workflows/ci.yml','utf8'))\" && echo PASS",
+        "verdict": "PASS"
+      },
+      "ac2": {
+        "commit": "4c2d3c7c39bbfef19917ebbfb388f1db45eea8be",
+        "test": "test -f .github/workflows/audit.yml && grep -qi \"pull_request\" .github/workflows/audit.yml && grep -qi \"npm audit\" .github/workflows/audit.yml && grep -qi \"pip-audit\" .github/workflows/audit.yml && grep -qi \"gitleaks\" .github/workflows/audit.yml && node -e \"require('js-yaml').load(require('fs').readFileSync('.github/workflows/audit.yml','utf8'))\" && echo PASS",
+        "verdict": "PASS"
+      },
+      "ac3": {
+        "commit": "4c2d3c7c39bbfef19917ebbfb388f1db45eea8be",
+        "test": "grep -q \"pip-audit\" backend/pyproject.toml && grep -qi \"pip-audit\" README.md && echo PASS",
+        "verdict": "PASS"
+      },
+      "ac4": {
+        "commit": "4c2d3c7c39bbfef19917ebbfb388f1db45eea8be",
+        "test": "! grep -rniE \"ghp_[A-Za-z0-9]{20,}|gho_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|BEGIN [A-Z ]*PRIVATE KEY|JWT_SECRET[[:space:]]*[:=]|STAFF_PIN[[:space:]]*[:=]|api[_-]?key\" .github/workflows/ && echo PASS",
+        "verdict": "PASS"
+      },
+      "ac5": {
+        "commit": "4c2d3c7c39bbfef19917ebbfb388f1db45eea8be",
+        "test": "manual",
+        "verdict": "MANUAL"
+      }
+    },
+    "test_summary": {
+      "total": 362,
+      "passed": 360,
+      "failed": 0
+    },
+    "lint_status": "CLEAN",
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands",
+    "notes": "ac1-ac4 verification commands run verbatim from the worktree root (js-yaml resolved via NODE_PATH to the frozen repo-root node_modules; command text unchanged) and all printed PASS. New suite module backend/tests/test_t27_ci_workflows.py (8 tests) mirrors the AC checks in-repo and passes. Floors: backend full suite 360 passed / 2 xfailed / 0 failed (ENV=development, throwaway sqlite DATABASE_URL, TZ=UTC, frozen backend venv); ruff check CLEAN (ruff format --check is NOT clean on 35 pre-existing main files - pre-existing, untouched by this diff; the new file is format-clean); frontend tsc --noEmit PASS, eslint . PASS, vitest --run 267/267 passed, vite build + T15 mock-leak grep clean (run in the main checkout because this diff touches no frontend files and the frozen node_modules must not be symlinked into the worktree). Underlying audit commands run locally: npm audit exits 1 (1 high transitive vuln: source-map-js via tailwindcss) and pip-audit exits 1 (ecdsa PYSEC-2026-1325 x2, python-jose CVE-2026-85394) - both pre-existing on main, surfaced by the new CI, and explicitly out of scope ('Fixing lint/test/build failures that CI surfaces - each is its own issue'), so the two audit jobs will be RED on the first main run until separate fix issues land. gitleaks is not installed on this host; the workflow uses gitleaks/gitleaks-action@v2 on the runner. ac5 is platform-side/manual and was NOT verified. CI YAML itself cannot be executed on this host; structure verified via js-yaml parse + grep + the in-repo test module. Worktree ends tracked-clean apart from this handoff; tracked backend/test.db restored via git checkout after pytest runs; scratch (worktree scratch venv, caches) removed."
+  },
+  "artifacts": {
+    "files_written": [
+      ".nvmrc",
+      ".github/workflows/ci.yml",
+      ".github/workflows/audit.yml",
+      "backend/pyproject.toml",
+      "backend/uv.lock",
+      "backend/tests/test_t27_ci_workflows.py",
+      "README.md",
+      "docs/state/outputs/t27_builder_implement.json"
+    ],
+    "platform_issue": 82,
+    "output_path": "docs/state/outputs/t27_builder_implement.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-09T08:42:44Z",
+  "retry_count": 0
+}

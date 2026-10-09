@@ -1,0 +1,100 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t27",
+  "role": "verifier",
+  "phase": "verify_pre_merge",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "merge_verification",
+    "cumulative_tests": {
+      "total": 9,
+      "passed": 8,
+      "failed": 1
+    },
+    "smoke_tests": {
+      "total": 3,
+      "passed": 3,
+      "failed": 0
+    },
+    "failed_tests": [
+      {
+        "test": "t25 AC-1 (.gitignore DB-sidecar block)",
+        "error_summary": "t25 AC-1 .gitignore DB-sidecar: documented contract drift (WAL 173) - framework commit 6dc39bd removed the lines post-merge; NOT a t27 regression (candidate did not touch .gitignore)"
+      }
+    ],
+    "current_issue_tests": {
+      "total": 5,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 1,
+      "source": "docs/issues/t27.md ## Verification commands (ac1-ac4 run verbatim, all PASS; ac5 = platform-side/manual green-on-main, SKIP/declared, not faked locally)"
+    },
+    "cumulative_breakdown": {
+      "t25": {
+        "total": 4,
+        "passed": 3,
+        "failed": 1,
+        "detail": {
+          "AC-1 .gitignore DB-sidecar": "FAIL (known documented contract drift WAL 173; framework commit 6dc39bd removed the lines post-merge; lines already absent at base a064d85; candidate 4c2d3c7 did not modify .gitignore - empty diff a064d85..4c2d3c7)",
+          "AC-2 conftest DATABASE_URL refusal": "PASS (362 tests collect with DATABASE_URL set; refused fast without it)",
+          "AC-3 backend floor": "PASS (360 passed, 2 xfailed, 0 failed + ruff clean + no new untracked + no tq_test_*.db)",
+          "AC-4 no /tmp reference": "PASS (conftest has no /tmp ref; landmine modules green; no tq_b06_pytest.db in /tmp or C:/tmp)"
+        }
+      },
+      "t26": {
+        "total": 5,
+        "passed": 5,
+        "failed": 0,
+        "detail": {
+          "test_error_response_carries_security_headers": "PASS",
+          "test_csp_on_html_responses": "PASS",
+          "test_request_id_bounded": "PASS",
+          "test_cache_control_no_store": "PASS",
+          "test_hsts_gated": "PASS"
+        }
+      }
+    },
+    "smoke_detail": [
+      { "name": "frontend tsc --noEmit", "command": "cd frontend && npx tsc --noEmit", "rc": 0 },
+      { "name": "frontend npm run lint", "command": "cd frontend && npm run lint", "rc": 0 },
+      { "name": "backend app import (sqlite URL)", "command": "cd backend && ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=<32+ char secret> STAFF_PIN=0000 TZ=UTC .venv/Scripts/python.exe -c \"import sys; sys.path.insert(0,'.'); import app.main; print('backend app import OK')\"", "rc": 0, "note": "printed 'backend app import OK'" }
+    ],
+    "candidate_branch": "verify-t27-pre",
+    "candidate_tip": "4c2d3c7c39bbfef19917ebbfb388f1db45eea8be",
+    "candidate_base": "a064d85479db02b4686b86e38e89351c6ff103f0",
+    "worktree_head": "4c2d3c7c39bbfef19917ebbfb388f1db45eea8be",
+    "mergeability": {
+      "origin_main": "ae1e6a93a91bcd45fbda48e46cdfdbd713f11030",
+      "merge_base": "a064d85479db02b4686b86e38e89351c6ff103f0",
+      "dry_run": "git merge-tree --write-tree origin/main 4c2d3c7 -> rc=0, resulting tree 9a3ab403b60a3c8ed038698fb7f4a488329f4188 (clean, 0 conflicts)",
+      "conflicts": 0,
+      "note": "origin/main (ae1e6a9) is 2 commits ahead of base a064d85 and only touched docs/state/* (seq.txt, snapshot.json, status.md); candidate touched .github/workflows/*, .nvmrc, README.md, backend/pyproject.toml, backend/tests/test_t27_ci_workflows.py, backend/uv.lock - no overlap, clean merge."
+    },
+    "platform_comment": {
+      "posted": true,
+      "platform_issue": 82,
+      "verdict": "PASS",
+      "created_at": "2026-10-09T09:41:14Z",
+      "note": "full multi-line MERGE VERDICT posted via `node <main-root>/node_modules/tsx/dist/cli.mjs scripts/platform.ts issue comment 82 --body \"$(cat body)\"` run from the main root (platform.ts resolves .env relative to cwd; npx tsx truncates multi-line --body on this host). Full body confirmed in the API response (rc=0)."
+    },
+    "notes": [
+      "[VENV_UNAVAILABLE] UV_PROJECT_ENVIRONMENT and PYTHONPATH were both empty (expected for this run); the per-worktree backend/.venv (frozen junction) and frontend/node_modules (frozen junction) were used directly. No uv sync / npm install / venv creation was run (targets FROZEN). WARN, not a failure.",
+      "t26 blocks use `uv run pytest backend/tests/test_middleware.py::<test>`; interpreted as the worktree .venv `python -m pytest tests/test_middleware.py::<test>` run from backend/ with the conftest-required env (ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=<32+ char> STAFF_PIN=0000 TZ=UTC), because the t25 conftest refuses to run without DATABASE_URL. All 5 PASS.",
+      "t25 AC-1 failure is the KNOWN documented contract drift (WAL 173): operator framework commit 6dc39bd removed the .gitignore DB-sidecar lines post-merge. Verified NOT a t27 regression: the lines are absent at base a064d85 and the candidate 4c2d3c7 did not modify .gitignore (empty diff a064d85..4c2d3c7). Recorded in failed_tests for transparency; does not block the PASS verdict (same treatment as t25's expected-consequence failures).",
+      "ac5 (green on main after merge) is platform-side/manual and was recorded as SKIP/declared, not faked locally.",
+      "Worktree left tracked-clean apart from this handoff: scratch (.scratch_verify/, .scratch_comment_body.txt) removed, backend/.pytest_cache and backend/.scratch cleaned by the t25 blocks, backend/test.db restored (git checkout -- backend/test.db in each t25 block finish()); git status --porcelain empty."
+    ]
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/state/outputs/t27_verifier_verify_pre_merge.json"
+    ],
+    "platform_issue": 82,
+    "output_path": "docs/state/outputs/t27_verifier_verify_pre_merge.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-09T09:41:26Z",
+  "retry_count": 0
+}

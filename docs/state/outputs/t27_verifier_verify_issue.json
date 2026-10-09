@@ -1,0 +1,80 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t27",
+  "role": "verifier",
+  "phase": "verify_issue",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "verification",
+    "ac_results": {
+      "ac1": {
+        "verdict": "PASS",
+        "command": "test -f .github/workflows/ci.yml && grep -q \"push\" .github/workflows/ci.yml && grep -qi \"ruff\" .github/workflows/ci.yml && grep -qi \"pytest\" .github/workflows/ci.yml && grep -q \"TZ\" .github/workflows/ci.yml && grep -qi \"tsc\" .github/workflows/ci.yml && grep -qi \"eslint\" .github/workflows/ci.yml && grep -qi \"vitest\" .github/workflows/ci.yml && grep -qi \"npm run build\" .github/workflows/ci.yml && (grep -qE 'node-version: *\"?20\"?' .github/workflows/ci.yml || (grep -q \"node-version-file\" .github/workflows/ci.yml && grep -qx \"20\" .nvmrc)) && node -e \"require('js-yaml').load(require('fs').readFileSync('.github/workflows/ci.yml','utf8'))\" && echo PASS",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "ci.yml exists, parses as YAML (js-yaml), triggers on push; jobs cover backend ruff check, pytest under two pinned TZ clocks (UTC, Asia/Taipei), frontend tsc --noEmit / eslint / vitest / npm run build; Node 20 pinned via actions/setup-node node-version-file: .nvmrc (.nvmrc == '20')."
+      },
+      "ac2": {
+        "verdict": "PASS",
+        "command": "test -f .github/workflows/audit.yml && grep -qi \"pull_request\" .github/workflows/audit.yml && grep -qi \"npm audit\" .github/workflows/audit.yml && grep -qi \"pip-audit\" .github/workflows/audit.yml && grep -qi \"gitleaks\" .github/workflows/audit.yml && node -e \"require('js-yaml').load(require('fs').readFileSync('.github/workflows/audit.yml','utf8'))\" && echo PASS",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "audit.yml exists, parses as YAML (js-yaml), triggers on pull_request; jobs cover npm audit (frontend), pip-audit (backend), gitleaks secret scan (gitleaks-action@v2, fetch-depth 0)."
+      },
+      "ac3": {
+        "verdict": "PASS",
+        "command": "grep -q \"pip-audit\" backend/pyproject.toml && grep -qi \"pip-audit\" README.md && echo PASS",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "pip-audit>=2.7.0 present in backend/pyproject.toml [dependency-groups].dev; README.md dev section documents pip-audit (line 250) and the audit workflow."
+      },
+      "ac4": {
+        "verdict": "PASS",
+        "command": "! grep -rniE \"ghp_[A-Za-z0-9]{20,}|gho_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|BEGIN [A-Z ]*PRIVATE KEY|JWT_SECRET[[:space:]]*[:=]|STAFF_PIN[[:space:]]*[:=]|api[_-]?key\" .github/workflows/ && echo PASS",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "No secret material in .github/workflows/. The only secret reference is GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} (the standard runner token, not a hardcoded credential); no ghp_/gho_/github_pat_ tokens, no PRIVATE KEY blocks, no JWT_SECRET/STAFF_PIN/api_key assignments."
+      },
+      "ac5": {
+        "verdict": "SKIP",
+        "command": "manual",
+        "exit_code": null,
+        "output_path": null,
+        "note": "Platform-side/manual: 'both workflows run and ALL jobs pass on the latest main commit' requires the merge to main plus a platform CI run, which cannot be executed on this host (no CI runner; CI YAML structure verified instead via js-yaml parse + grep + the 8 in-repo tests). Declared 'manual' in ## Verification commands; marked SKIP per gate3 (PASS|SKIP allowed), NOT faked as PASS. Note: the two audit jobs (npm audit, pip-audit) are expected to be RED on the first main run due to pre-existing vulns on main (see residualRisks) - a documented out-of-scope condition, not a t27 defect."
+      }
+    },
+    "test_summary": {
+      "total": 362,
+      "passed": 360,
+      "failed": 0
+    },
+    "failure_type": null,
+    "lint_report": {
+      "errors": 0,
+      "warnings": 0
+    },
+    "test_quality_warnings": [],
+    "dod_verified": {
+      "workflows_exist_and_valid_yaml": true,
+      "ac1_ac4_exit_0_locally": true,
+      "ac5_green_on_latest_main": false,
+      "pip_audit_in_dev_group_and_readme": true,
+      "no_secret_material_in_workflows": true,
+      "platform_issue_body_synced_and_label_transitioned": true
+    },
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands",
+    "notes": "Verified independently in the builder worktree .worktrees/t27 @ 4c2d3c7 (branch issue/t27-ci-from-nothing, base a064d85). Verification commands ac1-ac4 run verbatim from the worktree root (js-yaml resolved via NODE_PATH to the frozen repo-root node_modules; command text unchanged) - all exit 0. Structural claims independently confirmed: ci.yml + audit.yml parse as YAML; triggers push (ci) vs pull_request (audit) match spec; Node 20 pin present (.nvmrc=='20' + actions/setup-node node-version-file); 8 in-repo tests in backend/tests/test_t27_ci_workflows.py pass (frozen backend venv, ENV=development, throwaway sqlite DATABASE_URL, TZ=UTC); pip-audit in backend dev group; README documents it; uv.lock additions-only (git diff main...HEAD -- backend/uv.lock = 516 insertions, 0 deletions). Regression floors: backend full suite 360 passed / 2 xfailed / 0 failed (frozen backend venv); ruff check CLEAN (0 errors / 0 warnings); frontend tsc --noEmit exit 0 and eslint . exit 0 (run in main checkout; diff touches no frontend/ files). Honest availability checks: gitleaks NOT FOUND on this host (workflow uses gitleaks-action@v2 on the runner); npm audit exit 1 (1 high: source-map-js via tailwindcss) and pip-audit exit 1 (ecdsa 0.19.2 PYSEC-2026-1325 x2, python-jose 3.5.0 CVE-2026-85394) - both pre-existing on main, documented out-of-scope ('Fixing lint/test/build failures that CI surfaces - each is its own issue'), so the two audit jobs will be RED on the first main run until separate fix issues land. backend/test.db restored via git checkout after pytest; scratch pip-audit venv removed; worktree tracked-clean apart from the builder handoff and this verifier handoff. Platform #82: verdict comment posted (1245 bytes, single line); label built removed and verified added (final labels: enhancement, verified)."
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/state/outputs/t27_verifier_verify_issue.json"
+    ],
+    "platform_issue": 82,
+    "output_path": "docs/state/outputs/t27_verifier_verify_issue.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-09T09:11:33Z",
+  "retry_count": 0
+}
