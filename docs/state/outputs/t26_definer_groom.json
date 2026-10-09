@@ -1,0 +1,40 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t26",
+  "role": "definer",
+  "phase": "groom",
+  "status": "COMPLETE",
+  "reached_state": "groomed",
+  "evidence": {
+    "evidence_type": "grooming",
+    "ac_hash": "sha256:f2325a5d05dcd51c8a453ba39a2ddb8c65dd5604bdfc7ace8d667b4442ed7bbf",
+    "ac_count": 5,
+    "verification_commands": {
+      "ac1": "uv run pytest backend/tests/test_middleware.py::test_error_response_carries_security_headers",
+      "ac2": "uv run pytest backend/tests/test_middleware.py::test_csp_on_html_responses",
+      "ac3": "uv run pytest backend/tests/test_middleware.py::test_request_id_bounded",
+      "ac4": "uv run pytest backend/tests/test_middleware.py::test_cache_control_no_store",
+      "ac5": "uv run pytest backend/tests/test_middleware.py::test_hsts_gated"
+    },
+    "sections_filled": [
+      "context",
+      "acceptance_criteria",
+      "out_of_scope",
+      "definition_of_done"
+    ],
+    "contract_first_applied": true,
+    "platform_sync_note": "issue update 81 returned number 81 (exit 0); body synced via a single leading space prepended to the full file because scripts/platform.ts parseFlags rejects any --body value that starts with '--' (the frontmatter '---'). Platform body is therefore ' ' + full local file, not byte-identical."
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/issues/t26.md",
+      "docs/state/outputs/t26_definer_groom.json"
+    ],
+    "platform_issue": 81,
+    "output_path": "docs/state/outputs/t26_definer_groom.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-09T04:25:07Z",
+  "retry_count": 0
+}

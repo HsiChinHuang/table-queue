@@ -1,12 +1,12 @@
 # Status
 
-Updated: 2026-10-09T04:01:00Z
+Updated: 2026-10-09T04:29:00Z
 
 ## Active slots
 
 | Slot | Issue | Role | Phase | Spawn | Last Activity |
 |---|---|---|---|---|---|
-| slot_0 | t26 | definer | groom | daa202d5 | 2026-10-09T04:01:00Z |
+| slot_0 | t26 | builder | implement | 1246460d | 2026-10-09T04:29:00Z |
 
 ## Merge queue
 
@@ -53,3 +53,6 @@ FIFO: t27 (#82) → t28 (#83) → t29 (#84) → t31 (#86) → t35 (#91) → t36 
 - 175 SLOT_RELEASED: slot_0 idle; worktrees/branches cleaned, remote branch deleted
 - 176 TRANSITION: platform #80 CLOSED LAST - t25 COMPLETE
 - 177 SPAWN: t26 definer groom (daa202d5, slot_0)
+- 178 COMPLETE: groom done (5 ACs, 4.1KB), handoff valid
+- 179 TRANSITION: header-case fix + gate1 PASS; logged definer --body leading-space workaround
+- 180 SPAWN: t26 builder implement (1246460d, slot_0)
