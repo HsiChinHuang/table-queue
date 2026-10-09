@@ -6,7 +6,7 @@ Updated: 2026-10-09T08:12:00Z
 
 | Slot | Issue | Role | Phase | Spawn | Last Activity |
 |---|---|---|---|---|---|
-| slot_0 | t28 | verifier | verify_issue | bac3a98f | 2026-10-09T12:40:00Z |
+| slot_0 | t28 | verifier | verify_pre_merge | d9a88986 | 2026-10-09T13:12:00Z |
 
 ## Merge queue
 
@@ -83,3 +83,5 @@ FIFO: t27 (#82) → t28 (#83) → t29 (#84) → t31 (#86) → t35 (#91) → t36 
 - 220 SPAWN: t28 builder implement (0116aff9, .worktrees/t28; adopts definer artifacts onto branch)
 - 221-222 ANOMALY (e65ef08 git add -A swept artifacts into main) ACCEPTED+documented; gate2 PASS, floors green
 - 223 SPAWN: t28 verifier verify_issue (bac3a98f, .worktrees/t28 @ e97d00f)
+- 224-225 verify_issue PASS (5/5 AC, floors green) + gate3 PASS, #83 verified
+- 226 SPAWN: t28 verifier verify_pre_merge (d9a88986, .worktrees/verify-t28 @ e97d00f)
