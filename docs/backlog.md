@@ -14,7 +14,7 @@ Adopted 2026-10-06 (framework commit 34591cc). 15 open platform issues (HsiChinH
 | t25 | Repository artifact hygiene: gitignore DB sidecars and local dot-env files; no DB artifacts left in the tree | - | 80 | closed |
 | t26 | Security headers on every response class plus CSP, HSTS-ready, cache policy | - | 81 | closed |
 | t27 | CI from nothing: lint+test+audit workflows on push, frontend build smoke, secret-scan on PRs | - | 82 | closed |
-| t28 | ready.py readiness tool: closed-set by issue-map intersect platform-state, never by title parse | - | 83 | defined |
+| t28 | ready.py readiness tool: closed-set by issue-map intersect platform-state, never by title parse | - | 83 | closed |
 | t29 | Integer and length bounds live in schemas: no overflow-500, no out-of-domain values persisted | - | 84 | defined |
 | t31 | Staff waitlist list paginates in SQL instead of materialising the full result | - | 86 | defined |
 | t35 | T35 test-infra: drvfs SQLite flake between test_log_hygiene and test_db_atomicity (disk I/O error in setup) | - | 91 | defined |

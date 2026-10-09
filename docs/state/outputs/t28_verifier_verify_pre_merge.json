@@ -1,0 +1,74 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t28",
+  "role": "verifier",
+  "phase": "verify_pre_merge",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "merge_verification",
+    "cumulative_tests": { "total": 14, "passed": 12, "failed": 1 },
+    "smoke_tests": { "total": 3, "passed": 3, "failed": 0 },
+    "failed_tests": [
+      {
+        "test": "t25 AC-1 (.gitignore DB sidecars / local dot-env)",
+        "error_summary": "KNOWN documented drift (operator .gitignore revert, WAL 173); expected FAIL, NOT a regression. All 7 check-ignore probes unignored."
+      }
+    ],
+    "issue_acs": {
+      "total": 5,
+      "passed": 5,
+      "failed": 0,
+      "detail": {
+        "ac1": "PASS (rc=0) - contract doc pins closed-set algorithm, issue-map source, UNKNOWN-deps, 'never' title",
+        "ac2": "PASS (rc=0) - 4 observed reopens (B-15#47, F-16#48, P0-16#49, P0-13#46) + out-of-repo location + deferred note",
+        "ac3": "PASS (rc=0) - closed-bare-title: 4 closed bare-title issues stay closed; title change is a no-op (system python3 3.13 stdlib-only)",
+        "ac4": "PASS (rc=0) - dep-gap: C=UNKNOWN-deps only; B=READY and D=WAITING still evaluated; no abort",
+        "ac5": "PASS (rc=0) - full offline run: both cases green in one run"
+      }
+    },
+    "smoke_detail": {
+      "s1_tsc_noEmit": "PASS (rc=0)",
+      "s2_npm_run_lint": "PASS (rc=0)",
+      "s3_backend_app_import": "PASS (rc=0) - 'backend app import OK' via worktree .venv junction; test.db hash unchanged (612afc06), never committed"
+    },
+    "cumulative_detail": {
+      "t25_ac1": "FAIL - KNOWN documented drift (operator .gitignore revert, WAL 173); NOT a regression",
+      "t25_ac2": "PASS - DATABASE_URL-less run refused fast at conftest; with DATABASE_URL set, 362 tests collect",
+      "t25_ac3": "PASS - 360 passed, 2 xfailed, 0 failed + ruff clean + zero new untracked + no tq_test_*.db (test.db restored)",
+      "t25_ac4": "PASS - conftest no /tmp ref; landmine modules green; no tq_b06_pytest.db in /tmp or C:/tmp",
+      "t26_middleware": "PASS - 5/5 (error_response_carries_security_headers, csp_on_html_responses, request_id_bounded, cache_control_no_store, hsts_gated)",
+      "t27_ci_yml": "PASS - push trigger + ruff/pytest/TZ/tsc/eslint/vitest/npm run build + node20 pin + valid YAML",
+      "t27_audit_yml": "PASS - pull_request + npm audit/pip-audit/gitleaks + valid YAML",
+      "t27_pip_audit": "PASS - pip-audit in backend/pyproject.toml dev group + README",
+      "t27_no_secrets": "PASS - no token/key/JWT_SECRET/STAFF_PIN/api_key literals in .github/workflows/",
+      "t27_ac5_manual": "NOT RUNNABLE pre-merge - 'manual' placeholder = post-merge step (both workflows green on latest main commit on platform); out of scope for verify_pre_merge"
+    },
+    "dry_run_merge": {
+      "clean": true,
+      "conflicts": 0,
+      "merge_base": "e65ef08af9bc5ca46136f6e905f1b8d0a7c6be12",
+      "main_tip": "1ff55eaa82deb0fe999a45d3ed9e673ef0377364",
+      "candidate_tip": "e97d00fea494f60ddedb9d46655762624aab2b5c",
+      "note": "git merge --no-commit --no-ff issue/t28-ready-contract from MAIN repo: 'Automatic merge went well; stopped before committing'. Aborted; main repo restored to 1ff55eaa (branch main, clean). issue/t28-ready-contract == verify-t28-pre == origin/issue/t28 == e97d00f."
+    },
+    "notes": [
+      "PRE-MERGE ACCEPTANCE (per orchestrator, WAL 221): implementation artifacts (docs/tooling/ready-contract.md, tests/ready_contract/ready_fixture.py) are already on main via spawn commit e65ef08 (an ancestor of this branch); the branch's only new commit is the handoff e97d00f. Artifacts' presence on main is a documented anomaly, NOT a defect.",
+      "Cumulative total=14 = 12 passed + 1 failed (t25 AC-1 known drift) + 1 manual (t27 ac5, post-merge, not runnable pre-merge).",
+      "t25 AC-1 is the ONLY cumulative failure and is the KNOWN documented drift (operator .gitignore revert, WAL 173) - explicitly NOT a regression; it does not fail the verdict.",
+      "t26 'uv run pytest backend/tests/...' index commands cannot resolve from the repo root here (no root pyproject.toml; UV_PROJECT_ENVIRONMENT empty -> [VENV_UNAVAILABLE]). Run as the faithful equivalent the Makefile/t25 use: cd backend && .venv/Scripts/python.exe -m pytest tests/test_middleware.py::<test> with ENV/DATABASE_URL/JWT_SECRET/STAFF_PIN/TZ set (conftest refuses DATABASE_URL-less runs). Same tests, same venv, same assertions - no command-logic change.",
+      "Fixture is stdlib-only (imports: __future__, argparse, sys); offline, no network/platform API - documented exception (system python3 3.13.14).",
+      "Worktree tracked-clean apart from this handoff; backend/test.db hash unchanged (612afc06), never committed; no scratch/.pytest_cache left.",
+      "No platform comment posted: clean PASS with only the already-documented drift (WAL 173) and the already-documented anomaly (WAL 221); nothing new to flag per task instruction ('ONE comment only if you need to flag something')."
+    ]
+  },
+  "artifacts": {
+    "files_written": ["docs/state/outputs/t28_verifier_verify_pre_merge.json"],
+    "platform_issue": 83,
+    "output_path": "docs/state/outputs/t28_verifier_verify_pre_merge.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-09T13:35:56Z",
+  "retry_count": 0
+}

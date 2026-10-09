@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "updated_at": "2026-10-09T03:52:00Z",
+  "updated_at": "2026-10-09T13:59:00Z",
   "tests": [
     {
       "issue_id": "t25",
@@ -57,6 +57,26 @@
     {
       "issue_id": "t27",
       "command": "manual"
+    },
+    {
+      "issue_id": "t28",
+      "command": "test -f docs/tooling/ready-contract.md && grep -q \"closed-set\" docs/tooling/ready-contract.md && grep -q \"_docs/issue-map.json\" docs/tooling/ready-contract.md && grep -q \"UNKNOWN-deps\" docs/tooling/ready-contract.md && grep -qi \"never\" docs/tooling/ready-contract.md"
+    },
+    {
+      "issue_id": "t28",
+      "command": "grep -q \"B-15\" docs/tooling/ready-contract.md && grep -q \"#47\" docs/tooling/ready-contract.md && grep -q \"F-16\" docs/tooling/ready-contract.md && grep -q \"#48\" docs/tooling/ready-contract.md && grep -q \"P0-16\" docs/tooling/ready-contract.md && grep -q \"#49\" docs/tooling/ready-contract.md && grep -q \"P0-13\" docs/tooling/ready-contract.md && grep -q \"#46\" docs/tooling/ready-contract.md && grep -q \"../.tq-orchestrator/ready.py\" docs/tooling/ready-contract.md && grep -qi \"deferred\" docs/tooling/ready-contract.md"
+    },
+    {
+      "issue_id": "t28",
+      "command": "python3 tests/ready_contract/ready_fixture.py --case closed-bare-title"
+    },
+    {
+      "issue_id": "t28",
+      "command": "python3 tests/ready_contract/ready_fixture.py --case dep-gap"
+    },
+    {
+      "issue_id": "t28",
+      "command": "python3 tests/ready_contract/ready_fixture.py --case all"
     }
   ]
 }

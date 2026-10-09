@@ -1,0 +1,81 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t28",
+  "role": "verifier",
+  "phase": "verify_issue",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "verification",
+    "ac_results": {
+      "ac1": {
+        "verdict": "PASS",
+        "command": "test -f docs/tooling/ready-contract.md && grep -q \"closed-set\" docs/tooling/ready-contract.md && grep -q \"_docs/issue-map.json\" docs/tooling/ready-contract.md && grep -q \"UNKNOWN-deps\" docs/tooling/ready-contract.md && grep -qi \"never\" docs/tooling/ready-contract.md",
+        "exit_code": 0,
+        "output_path": null,
+        "note": null
+      },
+      "ac2": {
+        "verdict": "PASS",
+        "command": "grep -q \"B-15\" docs/tooling/ready-contract.md && grep -q \"#47\" docs/tooling/ready-contract.md && grep -q \"F-16\" docs/tooling/ready-contract.md && grep -q \"#48\" docs/tooling/ready-contract.md && grep -q \"P0-16\" docs/tooling/ready-contract.md && grep -q \"#49\" docs/tooling/ready-contract.md && grep -q \"P0-13\" docs/tooling/ready-contract.md && grep -q \"#46\" docs/tooling/ready-contract.md && grep -q \"../.tq-orchestrator/ready.py\" docs/tooling/ready-contract.md && grep -qi \"deferred\" docs/tooling/ready-contract.md",
+        "exit_code": 0,
+        "output_path": null,
+        "note": null
+      },
+      "ac3": {
+        "verdict": "PASS",
+        "command": "python3 tests/ready_contract/ready_fixture.py --case closed-bare-title",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "Negative control verified: identical map/state data with mutated titles produces identical classification (assert result_mutated == result)"
+      },
+      "ac4": {
+        "verdict": "PASS",
+        "command": "python3 tests/ready_contract/ready_fixture.py --case dep-gap",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "C=UNKNOWN-deps only; B=READY and D=WAITING evaluate in same run; exit 0; no whole-run abort"
+      },
+      "ac5": {
+        "verdict": "PASS",
+        "command": "python3 tests/ready_contract/ready_fixture.py --case all",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "Both cases green in one run; stdlib only (argparse, sys); no network/platform API"
+      }
+    },
+    "test_summary": {
+      "total": 362,
+      "passed": 360,
+      "failed": 0
+    },
+    "failure_type": null,
+    "lint_report": {
+      "errors": 0,
+      "warnings": 0
+    },
+    "test_quality_warnings": [],
+    "dod_verified": {
+      "contract_doc_and_fixture_committed": true,
+      "all_5_verification_commands_exit_0": true,
+      "platform_issue_body_synced_labels_transitioned": true
+    },
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands",
+    "notes": [
+      "Anomaly (documented, not a defect): artifacts (docs/tooling/ready-contract.md, tests/ready_contract/ready_fixture.py) were swept into main by spawn commit e65ef08; branch e97d00f only adds the builder handoff JSON. Artifacts verified in place.",
+      "Floors: backend 360 passed / 2 xfailed / 0 failed (73.95s); ruff clean; frontend tsc --noEmit exit 0; frontend eslint exit 0. test.db restored after suite (md5 verified).",
+      "Independent code review: fixture is pure stdlib (argparse, sys, __future__), no network/platform API. closed-bare-title case includes negative control (identical map/state, different titles => asserted identical classification). dep-gap case reports UNKNOWN-deps for gapped issue C only while B=READY and D=WAITING in same run. Contract doc is normative: closed-set via issue-map intersection with platform state, NEVER title parse, per-issue UNKNOWN-deps with no whole-run abort, 4-reopen regression table, location + deferral note."
+    ]
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/state/outputs/t28_verifier_verify_issue.json"
+    ],
+    "platform_issue": 83,
+    "output_path": "docs/state/outputs/t28_verifier_verify_issue.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-09T13:06:34Z",
+  "retry_count": 0
+}
