@@ -1,0 +1,69 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t29",
+  "role": "builder",
+  "phase": "implement",
+  "status": "COMPLETE",
+  "reached_state": "built",
+  "evidence": {
+    "evidence_type": "build",
+    "branch": "issue/t29-int-bounds",
+    "branch_sha": "68a914806d7da858f212034294643ed3e6618e3c",
+    "ac_mapping": {
+      "ac1": {
+        "commit": "68a914806d7da858f212034294643ed3e6618e3c",
+        "test": "cd backend && ENV=development DATABASE_URL=sqlite:////tmp/t29ac.db JWT_SECRET=... STAFF_PIN=0000 TZ=UTC python -c \"introspect CreateTableRequest/UpdateTableRequest model_json_schema bounds (ac1)\"",
+        "verdict": "PASS"
+      },
+      "ac2": {
+        "commit": "68a914806d7da858f212034294643ed3e6618e3c",
+        "test": "cd backend && ... python -c \"POST/PATCH /api/v1/admin/tables with sort_order=9223372036854775808 -> 422 naming sort_order (ac2)\"",
+        "verdict": "PASS"
+      },
+      "ac3": {
+        "commit": "68a914806d7da858f212034294643ed3e6618e3c",
+        "test": "cd backend && ... python -c \"GET /api/v1/staff/waitlist?limit=-1 and ?offset=-5 -> 422 (ac3)\"",
+        "verdict": "PASS"
+      },
+      "ac4": {
+        "commit": "68a914806d7da858f212034294643ed3e6618e3c",
+        "test": "cd backend && ... python -c \"GET /api/v1/public/branches/99999999999999999999 (unauth) -> 422 (ac4)\"",
+        "verdict": "PASS"
+      },
+      "ac5": {
+        "commit": "68a914806d7da858f212034294643ed3e6618e3c",
+        "test": "cd backend && ... python -c \"POST /api/v1/admin/tables with sort_order=9223372036854775807 and capacity=20 -> 201 (ac5)\"",
+        "verdict": "PASS"
+      },
+      "ac6": {
+        "commit": "68a914806d7da858f212034294643ed3e6618e3c",
+        "test": "cd backend && ... python -c \"app.services.tables._reject_int(9223372036854775808) raises AppError status_code 422 (ac6)\"",
+        "verdict": "PASS"
+      }
+    },
+    "test_summary": {
+      "total": 376,
+      "passed": 374,
+      "failed": 0
+    },
+    "lint_status": "CLEAN",
+    "verification_commands_source": "docs/issues/t29.md#verification-commands",
+    "notes": "All six spec verification commands run verbatim from the worktree with the main frozen venv (C:/Users/tw097/Desktop/261003_ai_test/table-queue/backend/.venv/Scripts/python.exe) substituted for the spec's ./.venv path; each printed its 'acN ok' and exited 0. Full backend suite: 374 passed, 2 xfailed, 0 failed (includes 12 new tests in tests/test_t29_int_bounds.py). ruff check . CLEAN. Frontend floors from the main frozen frontend: tsc --noEmit exit 0, eslint exit 0 (no frontend changes). backend/test.db was touched by the suite and restored via git checkout --; it is not committed. party_size bounds untouched; no section/is_active/reorder changes.",
+    "memory_applied": []
+  },
+  "artifacts": {
+    "files_written": [
+      "backend/app/schemas.py",
+      "backend/app/routers/public.py",
+      "backend/app/routers/staff_waitlist.py",
+      "backend/app/services/tables.py",
+      "backend/tests/test_t29_int_bounds.py"
+    ],
+    "platform_issue": 84,
+    "output_path": "docs/state/outputs/t29_builder_implement.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-09T16:19:47Z",
+  "retry_count": 0
+}
