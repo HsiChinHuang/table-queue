@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "updated_at": "2026-10-10T23:55:00Z",
+  "updated_at": "2026-10-10T23:58:00Z",
   "last_seq": 167,
   "slots": [
     {
@@ -8,9 +8,9 @@
       "issue_id": "t13",
       "role": "definer",
       "phase": "groom (surgical re-groom: ac3 driver env fix)",
-      "run_id": "PENDING-RESUME",
-      "spawn_at": "2026-10-10T23:55:00Z",
-      "last_activity_at": "2026-10-10T23:55:00Z",
+      "run_id": "e764d1aa-5c96-4ce7-8646-7e9fa087f8b9",
+      "spawn_at": "2026-10-10T23:58:00Z",
+      "last_activity_at": "2026-10-10T23:58:00Z",
       "worktree_path": null
     }
   ],
