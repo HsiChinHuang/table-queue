@@ -1,20 +1,17 @@
 {
   "schema_version": "2.0",
-  "updated_at": "2026-10-10T18:45:00Z",
+  "updated_at": "2026-10-10T19:45:00Z",
   "last_seq": 167,
-  "slots": [
+  "slots": [],
+  "merge_queue": [
     {
-      "slot_id": "slot_0",
       "issue_id": "t36",
-      "role": "verifier",
-      "phase": "verify_pre_merge (resumed)",
-      "run_id": "f8e0c97e-aa9b-45d8-ad17-7e4a67003be6",
-      "spawn_at": "2026-10-10T18:45:00Z",
-      "last_activity_at": "2026-10-10T18:45:00Z",
-      "worktree_path": ".worktrees/verify-t36-pre"
+      "branch": "issue/t36-rate-limit-xff-isolation",
+      "branch_sha": "1f3d50933c911c61096eb058563ff3b9680c188c",
+      "verifier_pass": "2026-10-10T10:34:27Z",
+      "state": "pushed"
     }
   ],
-  "merge_queue": [],
   "active_issues": [
     "t13",
     "t28",
