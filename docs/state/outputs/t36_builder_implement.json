@@ -1,0 +1,71 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t36",
+  "role": "builder",
+  "phase": "implement",
+  "status": "COMPLETE",
+  "reached_state": "built",
+  "evidence": {
+    "evidence_type": "build",
+    "branch": "issue/t36-rate-limit-xff-isolation",
+    "branch_sha": "0a94620e146a6f3751ad08563973e399a8676012",
+    "ac_mapping": {
+      "ac1": {
+        "commit": "0a94620e146a6f3751ad08563973e399a8676012",
+        "test": "cd backend && for i in 1..10: ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t36baseline-... STAFF_PIN=0000 TZ=UTC <venv python> -m pytest tests/test_auth.py tests/test_rate_limit_t23.py -q -p no:randomly; git checkout -- test.db (ac1: 10 consecutive order runs, each '29 passed')",
+        "verdict": "PASS"
+      },
+      "ac2": {
+        "commit": "0a94620e146a6f3751ad08563973e399a8676012",
+        "test": "cd backend && for i in 1..10: ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t36baseline-... STAFF_PIN=0000 TZ=UTC <venv python> -m pytest tests/test_rate_limit_t23.py -q -p no:randomly; git checkout -- test.db (ac2: 10 consecutive XFF-file runs, each '7 passed')",
+        "verdict": "PASS"
+      },
+      "ac3": {
+        "commit": "0a94620e146a6f3751ad08563973e399a8676012",
+        "test": "cd backend && ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t36baseline-... STAFF_PIN=0000 TZ=UTC <venv python> -m pytest -q -p no:randomly; git checkout -- test.db (ac3: full suite exits 0, '388 passed, 2 xfailed')",
+        "verdict": "PASS"
+      },
+      "ac4": {
+        "commit": "0a94620e146a6f3751ad08563973e399a8676012",
+        "test": "cd backend && grep -nE 'limiter\\._storage *=|limiter\\._limiter *=|limiter\\.enabled *=|trusted_proxies *=' tests/test_rate_limit_t23.py | grep -v 'def |\"\"\"' finds nothing, and grep -q '@pytest.fixture' tests/test_rate_limit_t23.py succeeds (ac4: mechanism removal, FAILS pre-fix)",
+        "verdict": "PASS"
+      },
+      "ac5": {
+        "commit": "0a94620e146a6f3751ad08563973e399a8676012",
+        "test": "cd backend && --collect-only count == 7; run summary '7 passed'; grep -c 'assert ' tests/test_rate_limit_t23.py == 27 >= 27 (ac5: no assertion weakening)",
+        "verdict": "PASS"
+      },
+      "ac6": {
+        "commit": "0a94620e146a6f3751ad08563973e399a8676012",
+        "test": "git status --porcelain backend/app and git diff --name-only HEAD -- backend/app both empty (ac6: test-infra only)",
+        "verdict": "PASS"
+      },
+      "ac7": {
+        "commit": "0a94620e146a6f3751ad08563973e399a8676012",
+        "test": "grep 'does not reproduce' + 'native Windows' + '3/3' + 'app.main.limiter' in docs/issues/t36.md (ac7: scope documented, passes by construction)",
+        "verdict": "PASS"
+      }
+    },
+    "test_summary": {
+      "total": 390,
+      "passed": 388,
+      "failed": 0
+    },
+    "lint_status": "CLEAN",
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands",
+    "notes": "Design: the two test-local contextmanagers (limiter_on_fresh_store, trusted_proxies) performed in-place save/restore mutation of the process-wide app.main.limiter singleton (_storage/_limiter/enabled) and the @lru_cache'd get_settings() instance (trusted_proxies) inside the test body, so teardown correctness depended on the test body's own control flow - the order-dependence mechanism. Replaced with two @pytest.fixture in the same file: fresh_limiter builds a fresh BoundedFrozenClockMemoryStorage + STRATEGIES strategy and installs it via monkeypatch.setattr(limiter, 'enabled'|'_storage'|'_limiter', ...), and set_trusted_proxies returns a callable whose calls are monkeypatch.setattr(get_settings(), 'trusted_proxies', value) - the built-in monkeypatch fixture's teardown restores every value, so no test body does any save/restore bookkeeping. setattr (via monkeypatch) is used for all four attribute writes specifically because the AC-4 grep forbids any literal 'limiter._storage =' / 'limiter._limiter =' / 'limiter.enabled =' / 'trusted_proxies =' line in the file, including inside a helper. Fixture layering with conftest's autouse disable_limiter is correct by teardown order (monkeypatch undoes first, then disable_limiter restores the original flag). The key-function test (which re-points TRUSTED_PROXIES four times in one body) uses the callable form. All 7 spec verification commands run verbatim (only substitution: ./.venv/Scripts/python.exe -> C:/Users/tw097/Desktop/261003_ai_test/table-queue/backend/.venv/Scripts/python.exe): ac1 10/10 order runs green (29 passed each); ac2 10/10 file runs green (7 passed each); ac3 full suite 388 passed, 2 xfailed, exit 0; ac4 grep clean + @pytest.fixture present (FAILS pre-fix); ac5 7 collected, 7 passed, 27 assert lines; ac6 backend/app untouched; ac7 scope documented. Floors: full suite 388 passed / 2 xfailed / 0 failed (doubles as ac3), ruff check . = All checks passed. Frontend floors NOT APPLICABLE (zero frontend files touched). Zero assertion changes; 7 test ids unchanged; conftest.py and backend/app untouched. backend/test.db (tracked) restored via git checkout -- after every run and never committed; the diff touches only backend/tests/test_rate_limit_t23.py. Platform #92: groomed removed, built added, one summary comment posted.",
+    "memory_applied": []
+  },
+  "artifacts": {
+    "files_written": [
+      "backend/tests/test_rate_limit_t23.py",
+      "docs/state/outputs/t36_builder_implement.json"
+    ],
+    "platform_issue": 92,
+    "output_path": "docs/state/outputs/t36_builder_implement.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-10T07:05:35Z",
+  "retry_count": 0
+}
