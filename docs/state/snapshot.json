@@ -1,19 +1,8 @@
 {
   "schema_version": "2.0",
-  "updated_at": "2026-10-10T17:12:00Z",
+  "updated_at": "2026-10-10T17:50:00Z",
   "last_seq": 167,
-  "slots": [
-    {
-      "slot_id": "slot_0",
-      "issue_id": "t36",
-      "role": "builder",
-      "phase": "implement",
-      "run_id": "5fa8c56a-c490-4f05-bc2f-e0057c7aeea9",
-      "spawn_at": "2026-10-10T17:12:00Z",
-      "last_activity_at": "2026-10-10T17:12:00Z",
-      "worktree_path": ".worktrees/t36"
-    }
-  ],
+  "slots": [],
   "merge_queue": [],
   "active_issues": [
     "t13",
