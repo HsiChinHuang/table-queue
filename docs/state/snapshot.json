@@ -1,17 +1,17 @@
 {
   "schema_version": "2.0",
-  "updated_at": "2026-10-11T00:20:00Z",
+  "updated_at": "2026-10-11T00:55:00Z",
   "last_seq": 167,
   "slots": [
     {
       "slot_id": "slot_0",
       "issue_id": "t13",
-      "role": "builder",
-      "phase": "implement (resumed: ac3 + COMPLETE handoff)",
-      "run_id": "6f3d3f4c-366e-49fa-bba9-977f33f6d9a7",
-      "spawn_at": "2026-10-11T00:20:00Z",
-      "last_activity_at": "2026-10-11T00:20:00Z",
-      "worktree_path": ".worktrees/t13"
+      "role": "verifier",
+      "phase": "verify_issue (pending spawn)",
+      "run_id": "PENDING-SPAWN",
+      "spawn_at": "2026-10-11T00:55:00Z",
+      "last_activity_at": "2026-10-11T00:55:00Z",
+      "worktree_path": ".worktrees/verify-t13"
     }
   ],
   "merge_queue": [],
