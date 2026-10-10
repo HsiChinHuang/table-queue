@@ -1,0 +1,70 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t13",
+  "role": "definer",
+  "phase": "groom",
+  "status": "COMPLETE",
+  "reached_state": "groomed",
+  "evidence": {
+    "evidence_type": "grooming",
+    "ac_hash": "sha256:414cb483b42203b6b360a930943f92b7ec42639fb9904ccece638ee46a92a80e",
+    "ac_count": 5,
+    "verification_commands": {
+      "ac1": "two column-0 bash blocks: cd backend && full pytest -q -p no:randomly -rx with env (ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t13groom-0123456789-abcdefghijklmnopqrstuvwxyz STAFF_PIN=0000) on TZ=UTC and TZ=Asia/Taipei; assert rc 0, 'N passed, 2 xfailed', passed>=274, xfail set exactly the two named test_db_atomicity.py NOTRUN xfails; git checkout -- test.db after each run",
+      "ac2": "cd frontend && npx tsc --noEmit (rc 0) && npm run lint (rc 0) && npm test; assert vitest 'Test Files  30 passed (30)' and 'Tests  267 passed (267)' (approved new floors)",
+      "ac3": "single column-0 bash driver: reads docs/state/merge_test_index.json via the backend venv python (heredoc), executes all 44 blocks with the two documented substitutions (relative ./.venv/Scripts/python.exe -> checkout-absolute venv path; 5 t26 uv blocks -> cd backend && <env> uv run pytest tests/test_middleware.py::<test>); the t27 'manual' block counts N/A; asserts total=44, passed>=37, failed<=7, all failures within the 7 documented drifts (1x t25 AC-1 .gitignore by-design revert + 6x t29 IndentationError); restores backend/test.db",
+      "ac4": "two column-0 bash blocks: (backend) cd backend && pytest -q -p no:randomly of the 9 probe test ids (test_auth.py::test_token_secret_enforcement, test_auth.py::test_login_rate_limit, test_config_env.py::test_settings_refuse_an_unnamed_environment, test_config_env.py::test_a_child_process_booting_the_config_agrees_with_the_in_process_refusal, test_middleware.py::test_error_response_carries_security_headers, test_middleware.py::test_csp_on_html_responses, test_t29_int_bounds.py::test_create_sort_order_overflow_is_422_naming_field, test_t29_int_bounds.py::test_update_sort_order_overflow_is_422_naming_field, test_sqlite_contention_t19.py::test_ac1_held_lock_write_answers_typed_503_with_zero_500s) with env, rc 0, test.db restored; (frontend) cd frontend && npx vitest run src/stores/staffStore.test.ts, rc 0",
+      "ac5": "git status --porcelain clean for backend/app, backend/tests, frontend/src, frontend/package.json, frontend/package-lock.json; spec records '30 files / 267 tests' and '388 passed, 2 xfailed'"
+    },
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands",
+    "sections_filled": ["context", "acceptance_criteria", "out_of_scope", "definition_of_done"],
+    "contract_first_applied": true,
+    "ac_list": [
+      "ac1: full backend suite green on BOTH TZ=UTC and TZ=Asia/Taipei, 0 failed, exactly 2 xfailed with the xfail set unchanged (the two test_db_atomicity.py NOTRUN xfails), passed >= 274 (old floor; groom baseline 388); test.db restored after each run",
+      "ac2: frontend at the approved new floors - tsc 0 errors, eslint clean, vitest 30 files / 267 tests (draft's 228/27 superseded post router/vitest major, recorded not failed)",
+      "ac3: 44-block cumulative re-run of docs/state/merge_test_index.json via a single column-0 driver with the two documented substitutions; total=44, passed>=37, failed<=7, every failure within the 7 documented drifts (1x t25 AC-1 .gitignore by-design revert + 6x t29 IndentationError); the t27 'manual' block counted N/A",
+      "ac4: the 8 audit-batch attack probes re-executed green with groom measurements recorded in the AC text (forged-token 401 AUTH_TOKEN_EXPIRED; ENV-unset boot refusal rc=1 'env is required'; PIN-burst [401x5,429,429]; 500 carries x-request-id/nosniff/DENY/strict-origin-when-cross-origin; overflow 422 VALIDATION_ERROR; locked write 503 Retry-After:5 STORE_BUSY in 5.6s then 201 after release; HTML 200 with CSP-Report-Only default-src 'self'...; frontend logout/destroySession 16 passed)",
+      "ac5: no product change (only docs/issues/t13.md and docs/state/outputs/ may differ) and the approved new floors + two-TZ baseline are recorded in the spec"
+    ],
+    "baseline_measurements": {
+      "backend_tz_utc": "388 passed, 2 xfailed, 3 warnings in 83.62s (exit 0)",
+      "backend_tz_asia_taipei": "388 passed, 2 xfailed, 3 warnings in 84.39s (exit 0)",
+      "xfail_set": [
+        "tests/test_db_atomicity.py::test_half_write_table_available_party_still_seated [NOTRUN]",
+        "tests/test_db_atomicity.py::test_half_write_table_occupied_entry_seated_before_the_commit [NOTRUN]"
+      ],
+      "merge_test_index": "parses; exactly 44 blocks (t25x4, t26x5, t27x5, t28x5, t29x6, t31x6, t35x6, t36x7); 1 block is 'manual' (t27)"
+    },
+    "approved_new_frontend_floors": {
+      "tsc": "npx tsc --noEmit exit 0, 0 errors",
+      "lint": "npm run lint (eslint .) exit 0, clean",
+      "vitest": "Test Files 30 passed (30); Tests 267 passed (267); 15.70s",
+      "superseded_draft_numbers": "228 passed / 27 files (pre router/vitest major)"
+    },
+    "probe_measurements": {
+      "p1_forged_token_401": "GET /api/v1/staff/waitlist with forged bearer -> 401, error.code=AUTH_TOKEN_EXPIRED; pytest test_auth.py::test_token_secret_enforcement green",
+      "p2_env_unset_boot_refusal": "child process boot without ENV exits 1: 'env is required: set ENV to one of development/test/production; the environment is never resolved implicitly...'; pytest test_config_env.py (2 tests) green",
+      "p3_pin_burst_429": "7 wrong-PIN logins -> [401,401,401,401,401,429,429]; pytest test_auth.py::test_login_rate_limit green",
+      "p4_headers_on_500": "forced 500 -> x-request-id (uuid), x-content-type-options: nosniff, x-frame-options: DENY, referrer-policy: strict-origin-when-cross-origin; pytest test_middleware.py::test_error_response_carries_security_headers green",
+      "p5_overflow_422": "POST /api/v1/admin/tables sort_order=9223372036854775808 -> 422 VALIDATION_ERROR; pytest test_t29_int_bounds.py (2 overflow tests) green",
+      "p6_locked_typed_retryable": "write under held BEGIN EXCLUSIVE -> 503, Retry-After: 5, error.code=STORE_BUSY, elapsed 5.6s; 201 after release; pytest test_sqlite_contention_t19.py::test_ac1 green",
+      "p7_xss_inert_csp": "HTML response 200 with Content-Security-Policy-Report-Only: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; pytest test_middleware.py::test_csp_on_html_responses green",
+      "p8_logout_clears_slots": "frontend npx vitest run src/stores/staffStore.test.ts -> 16 passed (incl. 'logout clears token', 'destroySession clears all four slots and the in-memory token')",
+      "backend_probe_pytest_run": "9 test ids (14 collected incl. parametrized) all passed in 11.33s"
+    },
+    "known_drifts_documented": "exactly 7 of 44 index blocks fail by design: 1x t25 AC-1 .gitignore (by-design revert) + 6x t29 (2-space-indented python -c -> IndentationError before any measurement); listed explicitly in AC-3 text; the t27 'manual' block is counted N/A, honestly documented as a human-only check",
+    "notes": "no-repro/N-A items documented honestly: the t27 manual block is N/A (not a failure); the t29 IndentationError blocks fail by block-authoring artifact, not product regression (t29 behaviour re-covered by the green AC-1 suite and AC-4 overflow probes); the 5 t26 uv blocks run in the documented equivalent cd-backend form because uv no-project resolution from the repo root cannot spawn pytest. depends extended from the draft (t9-t31) to t9-t36 because the cumulative re-run executes the t35/t36 blocks. Platform #68: body synced (leading newline prepended to work around the CLI flag parser rejecting values starting with '--'), label defined removed, groomed added, one-line groom comment posted."
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/issues/t13.md",
+      "docs/state/outputs/t13_definer_groom.json"
+    ],
+    "platform_issue": 68,
+    "output_path": "docs/state/outputs/t13_definer_groom.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-10T13:02:12Z",
+  "retry_count": 0
+}
