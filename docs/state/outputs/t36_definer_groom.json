@@ -1,0 +1,76 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t36",
+  "role": "definer",
+  "phase": "groom",
+  "status": "COMPLETE",
+  "reached_state": "groomed",
+  "evidence": {
+    "evidence_type": "grooming",
+    "ac_hash": "sha256:139dd5d6a9ea476b5813c9fe174c20f518af413aa8209005cc4c6aefc624e583",
+    "ac_count": 7,
+    "verification_commands": {
+      "ac1": "cd backend\nFAIL=0\nfor i in $(seq 1 10); do\n  ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t36baseline-0123456789-abcdefghijklmnopqrstuvwxyz STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest tests/test_auth.py tests/test_rate_limit_t23.py -q -p no:randomly || FAIL=1\ndone\ngit checkout -- test.db\nif [ $FAIL -eq 0 ]; then echo \"ac1 ok: 10/10 consecutive order runs green\"; else echo \"ac1 FAIL: an order run was not green\"; exit 1; fi",
+      "ac2": "cd backend\nFAIL=0\nfor i in $(seq 1 10); do\n  ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t36baseline-0123456789-abcdefghijklmnopqrstuvwxyz STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest tests/test_rate_limit_t23.py -q -p no:randomly || FAIL=1\ndone\ngit checkout -- test.db\nif [ $FAIL -eq 0 ]; then echo \"ac2 ok: 10/10 consecutive XFF-file runs green\"; else echo \"ac2 FAIL: a file run was not green\"; exit 1; fi",
+      "ac3": "cd backend\nENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t36baseline-0123456789-abcdefghijklmnopqrstuvwxyz STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest -q -p no:randomly\nRC=$?\ngit checkout -- test.db\nif [ $RC -eq 0 ]; then echo \"ac3 ok: full suite green\"; else echo \"ac3 FAIL: full suite exited $RC\"; exit 1; fi",
+      "ac4": "cd backend\nif grep -nE 'limiter\\._storage *=|limiter\\._limiter *=|limiter\\.enabled *=|trusted_proxies *=' tests/test_rate_limit_t23.py | grep -v 'def \\|\"\"\"'; then echo \"ac4 FAIL: in-place mutation of the shared limiter or cached settings still present\"; exit 1; fi\ngrep -q '@pytest.fixture' tests/test_rate_limit_t23.py || { echo \"ac4 FAIL: no pytest fixture provides the isolation\"; exit 1; }\necho \"ac4 ok: XFF tests isolated from the shared limiter state via fixture teardown\"",
+      "ac5": "cd backend\nCOLLECTED=$(ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t36baseline-0123456789-abcdefghijklmnopqrstuvwxyz STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest tests/test_rate_limit_t23.py --collect-only -q -p no:randomly | grep -c '::test_')\n[ \"$COLLECTED\" = \"7\" ] || { echo \"ac5 FAIL: expected 7 collected tests, got $COLLECTED\"; exit 1; }\nSUMMARY=$(ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t36baseline-0123456789-abcdefghijklmnopqrstuvwxyz STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest tests/test_rate_limit_t23.py -q -p no:randomly | tail -1)\necho \"$SUMMARY\" | grep -q '7 passed' || { echo \"ac5 FAIL: file summary changed: $SUMMARY\"; exit 1; }\ngit checkout -- test.db\nASSERTS=$(grep -c 'assert ' tests/test_rate_limit_t23.py)\n[ \"$ASSERTS\" -ge 27 ] || { echo \"ac5 FAIL: assertion lines reduced ($ASSERTS < 27)\"; exit 1; }\necho \"ac5 ok: no assertion weakening (invariant, passes pre-fix by design)\"",
+      "ac6": "[ -z \"$(git status --porcelain backend/app)\" ] || { echo \"ac6 FAIL: backend/app has working-tree changes\"; exit 1; }\n[ -z \"$(git diff --name-only HEAD -- backend/app)\" ] || { echo \"ac6 FAIL: backend/app differs from HEAD\"; exit 1; }\necho \"ac6 ok: no production code changes (test-infra only)\"",
+      "ac7": "grep -q 'does not reproduce' docs/issues/t36.md && grep -qi 'native Windows' docs/issues/t36.md && grep -q '3/3' docs/issues/t36.md && grep -q 'app.main.limiter' docs/issues/t36.md || { echo \"ac7 FAIL: no-repro/scope note or shared-state name missing from the spec\"; exit 1; }\necho \"ac7 ok: scope documented (documentation AC, passes by construction)\""
+    },
+    "acs": [
+      {
+        "id": "ac1",
+        "text": "running pytest tests/test_auth.py tests/test_rate_limit_t23.py -q -p no:randomly 10 consecutive times yields 10 green runs (exit 0 each, 29 passed, no XFF failure in any run); backend/test.db restored after the loop"
+      },
+      {
+        "id": "ac2",
+        "text": "running pytest tests/test_rate_limit_t23.py -q -p no:randomly 10 consecutive times yields 10 green runs (exit 0 each, 7 passed); backend/test.db restored after the loop"
+      },
+      {
+        "id": "ac3",
+        "text": "the full backend suite (pytest -q -p no:randomly) exits 0 with no failures or errors, at the groom baseline of 388 passed, 2 xfailed; backend/test.db restored afterwards"
+      },
+      {
+        "id": "ac4",
+        "text": "tests/test_rate_limit_t23.py performs no in-place mutation of the shared limiter or the cached settings (no limiter._storage =, limiter._limiter =, limiter.enabled =, or settings.trusted_proxies = writes) and the isolation is provided by a pytest fixture whose teardown restores the state; FAILS pre-fix"
+      },
+      {
+        "id": "ac5",
+        "text": "the file still collects exactly 7 tests, its run summary is 7 passed, and its assert-line count is >= 27 (pre-fix baseline); invariant, passes pre-fix by design"
+      },
+      {
+        "id": "ac6",
+        "text": "no production code changes: git status --porcelain backend/app and git diff --name-only HEAD -- backend/app are both empty"
+      },
+      {
+        "id": "ac7",
+        "text": "the spec states the scope explicitly: the flake does not reproduce on this native-Windows host (groom baseline 3/3 + 3/3 + 1/1), the fix removes the shared-state mutation mechanism (in-place rebind of the module-level app.main.limiter store/strategy/enabled flag and in-place rewrite of the cached get_settings() trusted_proxies), and the guarantee is the 10/10 stability plus that mechanism removal; documentation AC, passes by construction"
+      }
+    ],
+    "sections_filled": [
+      "context",
+      "acceptance_criteria",
+      "out_of_scope",
+      "definition_of_done"
+    ],
+    "contract_first_applied": true,
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands",
+    "spec_path": "docs/issues/t36.md",
+    "baseline": "Pre-fix baseline on THIS host (native Windows, main repo, this grooming): XFF file alone (tests/test_rate_limit_t23.py, -p no:randomly) 3/3 green ('7 passed', ~6.2s each, rc=0); two-file order (tests/test_auth.py tests/test_rate_limit_t23.py, -p no:randomly) 3/3 green ('29 passed', ~18.2s each, rc=0); full suite 1/1 green ('388 passed, 2 xfailed', 84.6s, rc=0). backend/test.db restored via git checkout after every run; git status clean. Note: pytest-randomly is NOT installed in the main venv, so --randomly-seed=42 (the QA mode) cannot be run here; -p no:randomly is a no-op and the fixed order is the natural file order.",
+    "repro": "The order-dependent flake does NOT reproduce on this host (3/3 file + 3/3 order + 1/1 suite, all rc=0); per the t35 precedent the AC is the stability guarantee (10/10 order + 10/10 file + suite green) plus removal of the mechanism, not a repro. Verification commands run pre-fix: ac4 FAILS (in-place mutations limiter._storage/limiter._limiter/limiter.enabled at lines 68-76 and settings.trusted_proxies at lines 84/88 confirmed present; no @pytest.fixture in the file) - non-vacuous; ac1/ac2/ac3 PASS (stability guarantee + suite, pass pre-fix on this host); ac5/ac6/ac7 PASS (documented invariants / test-infra-only / documentation AC).",
+    "notes": "Root cause (recon of the two files that own the mechanism): the XFF tests operate on process-wide shared state - the module-level app.main.limiter singleton (slowapi Limiter whose BoundedFrozenClockMemoryStorage counter store is swapped in place via limiter._storage/limiter._limiter and whose enabled flag is toggled by the test-local limiter_on_fresh_store() contextmanager) and the @lru_cache'd app.config.get_settings() singleton whose trusted_proxies field is rewritten in place by the trusted_proxies() contextmanager while app.services.rate_limit.get_rate_limit_key reads it on every request. Isolation is save/restore in test-body contextmanagers rather than fixture-scoped isolation, so what a later test observes depends on what an earlier test's save/restore left behind (the conftest.py autouse disable_limiter fixture reads/writes the same limiter.enabled flag around every test). Design: replace both contextmanagers with pytest-fixture-scoped isolation (dedicated limiter/storage instance or reference override; monkeypatch-style settings override), matching the suite's established patterns; no backend/app changes. Resume note: previous definer run (retry_count=0) timed out in recon with no artifacts; this run completed baseline + spec + platform + handoff. Platform #92: label defined->groomed, one summary comment (body sync not required by this run's instructions)."
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/issues/t36.md",
+      "docs/state/outputs/t36_definer_groom.json"
+    ],
+    "platform_issue": 92,
+    "output_path": "docs/state/outputs/t36_definer_groom.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-10T06:33:14Z",
+  "retry_count": 1
+}
