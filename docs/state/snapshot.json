@@ -1,17 +1,17 @@
 {
   "schema_version": "2.0",
-  "updated_at": "2026-10-10T23:58:00Z",
+  "updated_at": "2026-10-11T00:20:00Z",
   "last_seq": 167,
   "slots": [
     {
       "slot_id": "slot_0",
       "issue_id": "t13",
-      "role": "definer",
-      "phase": "groom (surgical re-groom: ac3 driver env fix)",
-      "run_id": "e764d1aa-5c96-4ce7-8646-7e9fa087f8b9",
-      "spawn_at": "2026-10-10T23:58:00Z",
-      "last_activity_at": "2026-10-10T23:58:00Z",
-      "worktree_path": null
+      "role": "builder",
+      "phase": "implement (resumed: ac3 + COMPLETE handoff)",
+      "run_id": "6f3d3f4c-366e-49fa-bba9-977f33f6d9a7",
+      "spawn_at": "2026-10-11T00:20:00Z",
+      "last_activity_at": "2026-10-11T00:20:00Z",
+      "worktree_path": ".worktrees/t13"
     }
   ],
   "merge_queue": [],
