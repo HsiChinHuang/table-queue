@@ -176,7 +176,7 @@
     },
     {
       "issue_id": "t36",
-      "command": "grep -q 'does not reproduce' docs/issues/t36.md && grep -qi 'native Windows' docs/issues/t36.md && grep -q '3/3' docs/issues/t36.md && grep -q 'app.main.limiter' docs/issues/t36.md || { echo \"ac7 FAIL: no-repro/scope note or shared-state name missing from the spec\"; exit 1; }\necho \"ac7 ok: scope documented (documentation AC, passes by construction)\""
+      "command": "grep -q 'does not reproduce' docs/issues/closed/t36.md && grep -qi 'native Windows' docs/issues/closed/t36.md && grep -q '3/3' docs/issues/closed/t36.md && grep -q 'app.main.limiter' docs/issues/closed/t36.md || { echo \"ac7 FAIL: no-repro/scope note or shared-state name missing from the spec\"; exit 1; }\necho \"ac7 ok: scope documented (documentation AC, passes by construction)\""
     }
   ]
 }
