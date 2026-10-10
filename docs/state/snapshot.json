@@ -1,8 +1,19 @@
 {
   "schema_version": "2.0",
-  "updated_at": "2026-10-10T13:20:00Z",
+  "updated_at": "2026-10-10T13:25:00Z",
   "last_seq": 167,
-  "slots": [],
+  "slots": [
+    {
+      "slot_id": "slot_0",
+      "issue_id": "t35",
+      "role": "verifier",
+      "phase": "verify_issue (resumed)",
+      "run_id": "e283309d-cd18-4f86-a9f4-f965e3baad13",
+      "spawn_at": "2026-10-10T13:25:00Z",
+      "last_activity_at": "2026-10-10T13:25:00Z",
+      "worktree_path": ".worktrees/verify-t35"
+    }
+  ],
   "merge_queue": [],
   "active_issues": [
     "t13",
