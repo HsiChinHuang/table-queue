@@ -1,8 +1,19 @@
 {
   "schema_version": "2.0",
-  "updated_at": "2026-10-10T18:05:00Z",
+  "updated_at": "2026-10-10T18:45:00Z",
   "last_seq": 167,
-  "slots": [],
+  "slots": [
+    {
+      "slot_id": "slot_0",
+      "issue_id": "t36",
+      "role": "verifier",
+      "phase": "verify_pre_merge (resumed)",
+      "run_id": "f8e0c97e-aa9b-45d8-ad17-7e4a67003be6",
+      "spawn_at": "2026-10-10T18:45:00Z",
+      "last_activity_at": "2026-10-10T18:45:00Z",
+      "worktree_path": ".worktrees/verify-t36-pre"
+    }
+  ],
   "merge_queue": [],
   "active_issues": [
     "t13",
