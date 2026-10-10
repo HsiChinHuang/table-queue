@@ -1,0 +1,66 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t35",
+  "role": "builder",
+  "phase": "implement",
+  "status": "COMPLETE",
+  "reached_state": "built",
+  "evidence": {
+    "evidence_type": "build",
+    "branch": "issue/t35-test-isolation-drvfs-flake",
+    "branch_sha": "0124243da27c4d5aac4b8cdc5266bdc02e60b149",
+    "ac_mapping": {
+      "ac1": {
+        "commit": "0124243da27c4d5aac4b8cdc5266bdc02e60b149",
+        "test": "cd backend && for i in 1..10: ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t35repro-... STAFF_PIN=0000 TZ=UTC <venv python> -m pytest tests/test_log_hygiene.py tests/test_db_atomicity.py -q -p no:randomly; git checkout -- test.db (ac1: 10 consecutive pair runs)",
+        "verdict": "PASS"
+      },
+      "ac2": {
+        "commit": "0124243da27c4d5aac4b8cdc5266bdc02e60b149",
+        "test": "cd backend && ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t35repro-... STAFF_PIN=0000 TZ=UTC <venv python> -m pytest -q -p no:randomly; git checkout -- test.db (ac2: full suite exits 0)",
+        "verdict": "PASS"
+      },
+      "ac3": {
+        "commit": "0124243da27c4d5aac4b8cdc5266bdc02e60b149",
+        "test": "cd backend && sha256/mtime of test.db before; <venv python> -m pytest tests/test_log_hygiene.py::test_500_traceback_is_redacted -q -p no:randomly; sha256/mtime after; git checkout -- test.db; assert sha+mtime identical, no test.db-wal/-shm, and grep engine.dispose() in test_log_hygiene.py (ac3: mechanism removal)",
+        "verdict": "PASS"
+      },
+      "ac4": {
+        "commit": "0124243da27c4d5aac4b8cdc5266bdc02e60b149",
+        "test": "cd backend && grep Database(\"d02_atomicity\") in test_db_atomicity.py and assert no app.database engine/SessionLocal import (ac4: atomicity isolation invariant)",
+        "verdict": "PASS"
+      },
+      "ac5": {
+        "commit": "0124243da27c4d5aac4b8cdc5266bdc02e60b149",
+        "test": "cd backend && --collect-only count == 10; pair run summary '8 passed, 2 xfailed'; grep -c 'assert ' test_log_hygiene.py >= 22 and test_db_atomicity.py >= 38 (ac5: no assertion weakening)",
+        "verdict": "PASS"
+      },
+      "ac6": {
+        "commit": "0124243da27c4d5aac4b8cdc5266bdc02e60b149",
+        "test": "grep 'drvfs' and 'native Windows' and '10/10' in docs/issues/t35.md (ac6: scope documented, passes by construction)",
+        "verdict": "PASS"
+      }
+    },
+    "test_summary": {
+      "total": 390,
+      "passed": 388,
+      "failed": 0
+    },
+    "lint_status": "CLEAN",
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands",
+    "notes": "retry_count=1 (timeout-resume): the first attempt (run 4f5779a5) spent its budget in recon and timed out before implementing, but completed the diagnosis: TestClient runs the app lifespan even without a `with` block, and the lifespan (create_all + bootstrap_defaults) runs on app.main.engine, so merely overriding get_db is not enough - the shared engine's test.db would still be rewritten at startup. The fix (commit 0124243) redirects the app's shared engine onto a dedicated scratch db for the test's duration: test_500_traceback_is_redacted now (1) builds a dedicated scratch file backend/tests/_scratch/t35_hygiene.db with its own NullPool engine, (2) points app.main.engine AND app.database.engine at it so the startup lifespan never opens test.db, (3) lets the lifespan boot on the healthy scratch file (via `with client:`) BEFORE corrupting it, (4) corrupts + the probe request hits the corrupted scratch file (get_db override), (5) teardown closes the request sessions (a still-checked-out connection holds the file handle on Windows -> WinError 32 on unlink), disposes the scratch engine, removes the scratch file + sidecars, restores the original engine references, and disposes the shared engine as defense in depth. All 6 spec verification commands run verbatim (only substitution: ./.venv/Scripts/python.exe -> C:/Users/tw097/Desktop/261003_ai_test/table-queue/backend/.venv/Scripts/python.exe): ac1 10/10 pair runs green (8 passed, 2 xfailed each); ac2 full suite 388 passed, 2 xfailed, exit 0; ac3 test.db sha256 AND mtime byte-identical, no WAL sidecars, engine.dispose() present (FAILS pre-fix); ac4 atomicity isolation invariant holds; ac5 10 collected, 8 passed/2 xfailed, assert baselines hygiene=22/atomicity=38; ac6 scope documented. Floors: full suite 388 passed / 2 xfailed / 0 failed (JWT_SECRET=t35build-...), ruff check . All checks passed. Zero assertion changes in either test file; test_db_atomicity.py and conftest.py untouched; backend/app untouched. backend/test.db (tracked) restored via git checkout -- and never committed; only backend/tests/test_log_hygiene.py is in the diff. Platform #91: groomed removed, built added, one summary comment posted.",
+    "memory_applied": []
+  },
+  "artifacts": {
+    "files_written": [
+      "backend/tests/test_log_hygiene.py",
+      "docs/state/outputs/t35_builder_implement.json"
+    ],
+    "platform_issue": 91,
+    "output_path": "docs/state/outputs/t35_builder_implement.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-10T10:30:00Z",
+  "retry_count": 1
+}
