@@ -1,0 +1,72 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t13",
+  "role": "verifier",
+  "phase": "verify_issue",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "verification",
+    "ac_results": {
+      "ac1": {
+        "verdict": "PASS",
+        "command": "cd backend; ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t13groom-0123456789-abcdefghijklmnopqrstuvwxyz STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest -q -p no:randomly -rx; git checkout -- test.db (repeat identical block with TZ=Asia/Taipei)",
+        "exit_code": 0,
+        "note": "TZ=UTC: '388 passed, 2 xfailed, 3 warnings in 125.69s' -> 'ac1 ok (UTC): 388 passed, 2 xfailed (set unchanged), 0 failed'; TZ=Asia/Taipei: '388 passed, 2 xfailed, 3 warnings in 83.88s' -> 'ac1 ok (Asia/Taipei): 388 passed, 2 xfailed (set unchanged), 0 failed'. XFAIL set = exactly the two test_db_atomicity.py half-write xfails (test_half_write_table_available_party_still_seated + test_half_write_table_occupied_entry_seated_before_the_commit) on BOTH clocks; passed 388 >= floor 274; 0 failed; test.db restored after each run."
+      },
+      "ac2": {
+        "verdict": "PASS",
+        "command": "cd frontend; npx tsc --noEmit; npm run lint; npm test (vitest, single run)",
+        "exit_code": 0,
+        "note": "tsc --noEmit exit 0 (0 errors); eslint (npm run lint) exit 0 (clean); vitest 'Test Files  30 passed (30)' / 'Tests  267 passed (267)' exit 0 -> 'ac2 ok: tsc 0 errors, lint clean, vitest 30 files / 267 tests (approved new floors)'. The approved new floors (30 files / 267 tests) supersede the draft's 228/27."
+      },
+      "ac3": {
+        "verdict": "PASS",
+        "command": "repo root; single 44-block driver over docs/state/merge_test_index.json (substitution a: relative ./.venv/Scripts/python.exe -> checkout absolute venv path; substitution b: the 5 t26 'uv run pytest backend/tests/test_middleware.py::<test>' blocks -> 'cd backend && <env> uv run pytest tests/test_middleware.py::<test>'), asserting total=44, passed>=37, failed<=7, with EVERY failure inside the 7 documented drifts; the t27 'manual' block counted N/A",
+        "exit_code": 0,
+        "note": "FINAL truly-verbatim driver run (ac3 block extracted byte-identical from docs/issues/t13.md and run via bash from the worktree root): 'ac3 totals: total=44 passed=36 failed=7 na=1' then 'ac3 ok: 44 blocks - 36 passed, 1 N/A, 7 failed; every failure is inside the 7 documented drifts'; driver exit 0. The 7 failures are EXACTLY the documented drifts: block 1 (t25 AC-1 check-ignore, rc=1 - the .gitignore lines were reverted by design after t25, block fails by design) and blocks 20-25 (the six t29 blocks, rc=1 IndentationError - 2-space-indented python -c payloads die before measuring anything; block-authoring artifact, t29 behaviour re-covered by the green ac1 suite and ac4 overflow probes). Block 14 (t27 manual) counted N/A. ALL t31/t35/t36 blocks PASS. NOTE: my first two ac3 attempts (22 passed / 21 failed, rc=127 on every absolute-venv block) were artifacts of MY OWN extraction backslash-escaping bug (I typed replace(\"\\\\\",\"/\") = replace double-backslash, which left backslashes in the venv path that Git bash/MSYS2 mangled -> 'command not found' rc=127); those two runs are superseded by this third truly-verbatim run, which matches the builder's 36/7/1."
+      },
+      "ac4": {
+        "verdict": "PASS",
+        "command": "cd backend; ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t13groom-0123456789-abcdefghijklmnopqrstuvwxyz STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest -q -p no:randomly tests/test_auth.py::test_token_secret_enforcement tests/test_auth.py::test_login_rate_limit tests/test_config_env.py::test_settings_refuse_an_unnamed_environment tests/test_config_env.py::test_a_child_process_booting_the_config_agrees_with_the_in_process_refusal tests/test_middleware.py::test_error_response_carries_security_headers tests/test_middleware.py::test_csp_on_html_responses tests/test_t29_int_bounds.py::test_create_sort_order_overflow_is_422_naming_field tests/test_t29_int_bounds.py::test_update_sort_order_overflow_is_422_naming_field tests/test_sqlite_contention_t19.py::test_ac1_held_lock_write_answers_typed_503_with_zero_500s; git checkout -- test.db (then cd frontend; npx vitest run src/stores/staffStore.test.ts)",
+        "exit_code": 0,
+        "note": "backend: 9 attack-probe test ids (14 collected incl. parametrized) -> '14 passed, 2 warnings in 11.57s' -> 'ac4 ok (backend): forged-token 401, ENV-unset boot refusal, PIN-burst 429, 500 headers, overflow 422, locked 503 STORE_BUSY + Retry-After, CSP on HTML - all green'. frontend: 'Test Files  1 passed (1)' / 'Tests  16 passed (16)' -> 'ac4 ok (frontend): logout clears token; destroySession clears all four slots - green'. test.db restored by the backend block's own git checkout."
+      },
+      "ac5": {
+        "verdict": "PASS",
+        "command": "git status --porcelain -- backend/app backend/tests frontend/src frontend/package.json frontend/package-lock.json (must be empty); grep -q '30 files / 267 tests' docs/issues/t13.md; grep -q '388 passed, 2 xfailed' docs/issues/t13.md",
+        "exit_code": 0,
+        "note": "'ac5 ok: no product change; approved floors and two-TZ baseline recorded in the spec'. git status --porcelain over the product paths (backend/app, backend/tests, frontend/src, frontend/package.json, frontend/package-lock.json) is empty; grep '30 files / 267 tests' and grep '388 passed, 2 xfailed' both match in docs/issues/t13.md."
+      }
+    },
+    "test_summary": {
+      "total": 44,
+      "passed": 36,
+      "failed": 7
+    },
+    "failure_type": null,
+    "lint_report": {
+      "errors": 0,
+      "warnings": 0
+    },
+    "test_quality_warnings": [],
+    "dod_verified": {
+      "all_five_acs_pass_via_verification_commands": true,
+      "diff_touches_only_docs_issues_t13_and_docs_state_outputs": true,
+      "backend_test_db_not_committed_in_changed_state": true
+    },
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands",
+    "notes": "ac_hash recomputed from docs/issues/t13.md (text after '## Acceptance criteria' up to the next '## ', sha256 of the stripped UTF-8) = sha256:414cb483b42203b6b360a930943f92b7ec42639fb9904ccece638ee46a92a80e (MATCH). All 5 ACs independently re-run green (not trusting the builder's claims). Pre-flight: worktree clean (git status --porcelain empty), HEAD=1d3f24f (head of branch issue/t13-final-regression-gate), git show --stat 1d3f24f touches ONLY docs/state/outputs/t13_builder_implement.json. Worktree left clean after all runs (backend/test.db restored via git checkout, no tq_test_*.db, no .pytest_cache); worktree NOT removed (orchestrator manages it); nothing committed (detached worktree). NOTE: evidence_type is set to 'verification' (the schema const in schemas/verifier/verify_issue.json and a member of the schemas/common/evidence.json enum) rather than 'test-execution' as the follow-up requested, because 'test-execution' would fail schema validation and the schema is authoritative (AGENTS.md rule 3). PLATFORM: 'platform label/comment deferred - API unreachable' - the GitHub API was unreachable from this host (5 retries, 15s gaps, all 'fetch failed'); labels left as-is (built NOT removed, verified NOT added) and the issue #68 comment was NOT posted. Re-run once the API is reachable: scripts/platform.ts label remove 68 --label built; label add 68 --labels verified; issue comment 68 --body \"t13 verified: 5/5 ACs independently re-run green (two-TZ 388/2xf/0, frontend 30f/267t, 44-block cumulative 36 passed/7 documented drifts/1 N-A, 9 probes green); no product change by design.\""
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/state/outputs/t13_verifier_verify_issue.json"
+    ],
+    "platform_issue": 68,
+    "output_path": "docs/state/outputs/t13_verifier_verify_issue.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-10T19:07:01Z",
+  "retry_count": 0
+}
