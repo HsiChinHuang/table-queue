@@ -1,0 +1,60 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t13",
+  "role": "builder",
+  "phase": "implement",
+  "status": "COMPLETE",
+  "reached_state": "built",
+  "evidence": {
+    "evidence_type": "build",
+    "branch": "issue/t13-final-regression-gate",
+    "branch_sha": "874f2fbf102ce4017f162eabff742a8999dd1754",
+    "ac_mapping": {
+      "ac1": {
+        "commit": "874f2fbf102ce4017f162eabff742a8999dd1754",
+        "test": "cd backend; ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t13groom-... STAFF_PIN=000 TZ=UTC ./.venv/Scripts/python.exe -m pytest -q -p no:randomly -rx (then git checkout -- test.db); second block identical with TZ=Asia/Taipei. Measured 2026-10-10 in worktree .worktrees/t13: UTC '388 passed, 2 xfailed, 3 warnings in 85.47s' -> 'ac1 ok (UTC): 388 passed, 2 xfailed (set unchanged), 0 failed'; Asia/Taipei '388 passed, 2 xfailed, 3 warnings in 84.52s' -> 'ac1 ok (Asia/Taipei): 388 passed, 2 xfailed (set unchanged), 0 failed'. XFAIL set = exactly the two test_db_atomicity.py half-write xfails on both clocks; passed 388 >= floor 274; test.db restored after each run.",
+        "verdict": "PASS"
+      },
+      "ac2": {
+        "commit": "874f2fbf102ce4017f162eabff742a8999dd1754",
+        "test": "cd frontend; npx tsc --noEmit (exit 0, 0 errors); npm run lint (eslint, exit 0, clean); npm test (vitest, single run) 'Test Files  30 passed (30)' / 'Tests  267 passed (267)' -> 'ac2 ok: tsc 0 errors, lint clean, vitest 30 files / 267 tests (approved new floors)'. Measured 2026-10-10 in the worktree.",
+        "verdict": "PASS"
+      },
+      "ac3": {
+        "commit": "874f2fbf102ce4017f162eabff742a8999dd1754",
+        "test": "repo root; single 44-block driver over docs/state/merge_test_index.json, run VERBATIM from the UPDATED docs/issues/t13.md ## Verification commands (driver now selects Git bash C:/Program Files/Git/usr/bin/bash.exe with 'bash' fallback + forward-slash absolute venv path - the spec-level env fix, WAL 308-310) in ONE bash call from the worktree root, 2026-10-10. Final lines: 'ac3 totals: total=44 passed=36 failed=7 na=1' then 'ac3 ok: 44 blocks - 36 passed, 1 N/A, 7 failed; every failure is inside the 7 documented drifts' (driver exit 0). The 7 failures are exactly the documented drifts: block 1 (t25 AC-1 check-ignore - the .gitignore lines were reverted by design after t25; block fails by design, rc=1 'FAIL AC-1: .gitignore does not cover the DB sidecars / local dot-env files') and blocks 20-25 (the six t29 blocks - 2-space-indented python -c payloads die with IndentationError rc=1 before measuring anything; block-authoring artifact, t29 behaviour re-covered by the green ac1 suite and the ac4 overflow probes). Block 14 (t27 manual) counted N/A. Block 43 (t36 ac7) now PASSES after the index path fix to docs/issues/closed/t36.md.",
+        "verdict": "PASS"
+      },
+      "ac4": {
+        "commit": "874f2fbf102ce4017f162eabff742a8999dd1754",
+        "test": "backend block: cd backend; the 9 attack-probe test ids (test_auth.py::test_token_secret_enforcement, ::test_login_rate_limit, test_config_env.py::test_settings_refuse_an_unnamed_environment, ::test_a_child_process_booting_the_config_agrees_with_the_in_process_refusal, test_middleware.py::test_error_response_carries_security_headers, ::test_csp_on_html_responses, test_t29_int_bounds.py::test_create_sort_order_overflow_is_422_naming_field, ::test_update_sort_order_overflow_is_422_naming_field, test_sqlite_contention_t19.py::test_ac1_held_lock_write_answers_typed_503_with_zero_500s) -> '14 passed, 2 warnings in 11.69s' -> 'ac4 ok (backend): forged-token 401, ENV-unset boot refusal, PIN-burst 429, 500 headers, overflow 422, locked 503 STORE_BUSY + Retry-After, CSP on HTML - all green'. frontend block: cd frontend; npx vitest run src/stores/staffStore.test.ts -> 'Test Files  1 passed (1)' / 'Tests  16 passed (16)' -> 'ac4 ok (frontend): logout clears token; destroySession clears all four slots - green'. test.db restored by the block's own git checkout. Measured 2026-10-10 in the worktree.",
+        "verdict": "PASS"
+      },
+      "ac5": {
+        "commit": "874f2fbf102ce4017f162eabff742a8999dd1754",
+        "test": "repo root; git status --porcelain -- backend/app backend/tests frontend/src frontend/package.json frontend/package-lock.json is empty; grep '30 files / 267 tests' docs/issues/t13.md and grep '388 passed, 2 xfailed' docs/issues/t13.md both match -> 'ac5 ok: no product change; approved floors and two-TZ baseline recorded in the spec'. Re-confirmed clean at pre-flight of the ac3 run (2026-10-10) and after it (worktree clean except this handoff).",
+        "verdict": "PASS"
+      }
+    },
+    "test_summary": {
+      "total": 44,
+      "passed": 36,
+      "failed": 7
+    },
+    "lint_status": "CLEAN",
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands",
+    "notes": "no product change by design - verification + floor recording only; ac3 driver env defect fixed at spec level (WAL 308-310) before this run. This issue is the final regression gate: the 'implementation' is executing the 5 ACs green and recording results. All 5 ACs PASS. Measured floors: two-TZ backend full suite 388 passed / 2 xfailed / 0 failed on BOTH TZ=UTC (85.47s) and TZ=Asia/Taipei (84.52s), xfail set unchanged = the two test_db_atomicity.py half-write xfails, passed 388 >= old floor 274; frontend tsc 0 errors, eslint clean, vitest 30 files / 267 tests (approved new floors superseding the draft's 228/27); 8 attack probes green (backend 9 ids / 14 collected passed in 11.69s; frontend staffStore 16 passed); 44-block cumulative re-run 36 passed / 7 failed / 1 N/A with every failure inside the 7 documented drifts (1x t25 check-ignore .gitignore-by-design revert + 6x t29 IndentationError block-authoring artifacts). History: the first builder attempt timed out; the second produced a BLOCKER (committed b18e8ca) diagnosing (a) the verbatim driver's subprocess bash resolving to the WSL launcher (cwd -> /mnt/c/..., git worktree unresolvable, backslash venv path mangled - deterministic 29-failure pattern, byte-identical across two runs) and (b) index block 43 (t36 ac7) stale path docs/issues/t36.md (spec moved to closed/ at t36 closeout 90d67c4). Orchestrator + definer fixed both (spec driver now selects Git bash + forward-slash venv path; index block 43 -> docs/issues/closed/t36.md; ac_hash unchanged; orchestrator independent slice [1,15,25,32,43] 5/5 rc=0); this run is the post-fix green. Worktree left clean: backend/test.db restored (git checkout --), no tq_test_*.db, no .pytest_cache; branch carries only docs/ changes (spec already on main via sync commits cffb21a/874f2fb; this handoff is the only builder commit). Platform #68: groomed removed, built added, one summary comment posted.",
+    "memory_applied": []
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/state/outputs/t13_builder_implement.json"
+    ],
+    "platform_issue": 68,
+    "output_path": "docs/state/outputs/t13_builder_implement.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-10T16:44:27Z",
+  "retry_count": 2
+}
