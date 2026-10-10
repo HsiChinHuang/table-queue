@@ -148,7 +148,7 @@
     },
     {
       "issue_id": "t35",
-      "command": "grep -q 'drvfs' docs/issues/t35.md && grep -qi 'native Windows' docs/issues/t35.md && grep -q '10/10' docs/issues/t35.md || { echo \"ac6 FAIL: WSL/drvfs-vs-native-Windows scope note missing from the spec\"; exit 1; }\necho \"ac6 ok: scope documented (documentation AC, passes by construction)\""
+      "command": "grep -q 'drvfs' docs/issues/closed/t35.md && grep -qi 'native Windows' docs/issues/closed/t35.md && grep -q '10/10' docs/issues/closed/t35.md || { echo \"ac6 FAIL: WSL/drvfs-vs-native-Windows scope note missing from the spec\"; exit 1; }\necho \"ac6 ok: scope documented (documentation AC, passes by construction)\""
     }
   ]
 }
