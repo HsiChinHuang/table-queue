@@ -4,7 +4,7 @@ Adopted 2026-10-06 (framework commit 34591cc). 15 open platform issues (HsiChinH
 
 | ID | Title | Depends | Platform | Status |
 |---|---|---|---|---|
-| t13 | FINAL regression gate: every closed-feature QA surface re-passes green after the audit batch | t9, t10, t11, t12, t14, t15, t16-t31 (see docs/issues/t13.md) | 68 | defined |
+| t13 | FINAL regression gate: every closed-feature QA surface re-passes green after the audit batch | - | 68 | closed |
 | t16 | Contract completion: client-facing 404 trio, bodiless 422 docs, Close-Day endpoint | - | 71 | closed |
 | t17 | Frontend client lifecycle: expires_at honoured, router-driven redirect, shared-UI resource cleanup | - | 72 | closed |
 | t18 | Response-envelope compliance: contract error envelope on every non-2xx, including router-level refusals | - | 73 | closed |

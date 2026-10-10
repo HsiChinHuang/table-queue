@@ -10,3 +10,4 @@ Runtime-maintained by Orchestrator.
 | t31 | Staff waitlist list paginates in SQL instead of materialising the full result | 2026-10-09T23:31:23Z | 0 | 4876506 |
 | t35 | test-infra: drvfs SQLite flake between test_log_hygiene and test_db_atomicity (disk I/O error in setup) | #91 | [prio-medium] | 2026-10-10 | 1ade7681 |
 | t36 | test-infra: test_rate_limit_t23.py XFF tests order-dependent shared limiter state (flake) | #92 | [prio-medium] | 2026-10-10 | ea323670 |
+| t13 | FINAL regression gate: every closed-feature QA surface re-passes green after the audit batch | 2026-10-10 | 0 | 7040958 |
