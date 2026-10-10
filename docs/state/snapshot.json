@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "updated_at": "2026-10-10T14:12:00Z",
+  "updated_at": "2026-10-10T14:35:00Z",
   "last_seq": 167,
   "slots": [
     {
@@ -14,7 +14,15 @@
       "worktree_path": ".worktrees/verify-t35-pre"
     }
   ],
-  "merge_queue": [],
+  "merge_queue": [
+    {
+      "issue_id": "t35",
+      "branch": "issue/t35-test-isolation-drvfs-flake",
+      "branch_sha": "95724c747ab066f004d1dc307d2e38a0ce6ce378",
+      "verifier_pass": "pending-comment",
+      "state": "merging"
+    }
+  ],
   "active_issues": [
     "t13",
     "t28",
