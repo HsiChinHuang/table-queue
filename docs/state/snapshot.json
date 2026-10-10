@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "updated_at": "2026-10-10T14:35:00Z",
+  "updated_at": "2026-10-10T14:42:00Z",
   "last_seq": 167,
   "slots": [
     {
@@ -19,8 +19,8 @@
       "issue_id": "t35",
       "branch": "issue/t35-test-isolation-drvfs-flake",
       "branch_sha": "95724c747ab066f004d1dc307d2e38a0ce6ce378",
-      "verifier_pass": "pending-comment",
-      "state": "merging"
+      "verifier_pass": "2026-10-10T04:33:24Z",
+      "state": "pushed"
     }
   ],
   "active_issues": [
