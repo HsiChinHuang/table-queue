@@ -1,0 +1,81 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t35",
+  "role": "verifier",
+  "phase": "verify_pre_merge",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "merge_verification",
+    "cumulative_tests": {
+      "total": 31,
+      "passed": 24,
+      "failed": 7
+    },
+    "smoke_tests": {
+      "total": 6,
+      "passed": 6,
+      "failed": 0
+    },
+    "failed_tests": [
+      {
+        "test": "t25 AC-1 (.gitignore check)",
+        "error_summary": "KNOWN DRIFT (a): .gitignore revert is by design on this repo; all 7 patterns missing"
+      },
+      {
+        "test": "t29 AC-1 (schema bounds)",
+        "error_summary": "KNOWN DRIFT (b): IndentationError from 2-space-indented python -c lines in spec formatting"
+      },
+      {
+        "test": "t29 AC-2 (sort_order overflow)",
+        "error_summary": "KNOWN DRIFT (b): IndentationError from 2-space-indented python -c lines in spec formatting"
+      },
+      {
+        "test": "t29 AC-3 (negative limit/offset)",
+        "error_summary": "KNOWN DRIFT (b): IndentationError from 2-space-indented python -c lines in spec formatting"
+      },
+      {
+        "test": "t29 AC-4 (branch_id overflow)",
+        "error_summary": "KNOWN DRIFT (b): IndentationError from 2-space-indented python -c lines in spec formatting"
+      },
+      {
+        "test": "t29 AC-5 (SQLite max in-domain)",
+        "error_summary": "KNOWN DRIFT (b): IndentationError from 2-space-indented python -c lines in spec formatting"
+      },
+      {
+        "test": "t29 AC-6 (_reject_int)",
+        "error_summary": "KNOWN DRIFT (b): IndentationError from 2-space-indented python -c lines in spec formatting"
+      }
+    ],
+    "known_drift_notes": "All 7 failures are documented known drift, NOT t35 regressions. (a) t25 AC-1: .gitignore revert is by design on this repo. (b) t29 blocks: 2-space indent in python -c causes IndentationError on verbatim re-run; documented at t29 closeout as spec formatting drift. Zero unexpected failures.",
+    "merge_dry_run": {
+      "method": "git merge-tree --write-tree HEAD origin/main",
+      "result": "clean",
+      "conflicts": 0,
+      "merged_files": [
+        "backend/tests/test_log_hygiene.py"
+      ],
+      "commits_on_branch": [
+        "0124243 fix(t35): isolate test_log_hygiene db-corruption test off the shared engine (drvfs flake mechanism removal)",
+        "95724c7 docs(t35): builder implement handoff (6/6 ACs green, floors 388+/2xf/0, ruff clean)"
+      ],
+      "production_code_changes": "none (only backend/tests/test_log_hygiene.py changed)"
+    },
+    "floors": {
+      "backend_pytest": "388 passed, 2 xfailed, 0 failed",
+      "ruff": "All checks passed",
+      "frontend": "NOT APPLICABLE (zero frontend files changed)"
+    }
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/state/outputs/t35_verifier_verify_pre_merge.json"
+    ],
+    "platform_issue": 91,
+    "output_path": "docs/state/outputs/t35_verifier_verify_pre_merge.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-10T04:28:31Z",
+  "retry_count": 0
+}

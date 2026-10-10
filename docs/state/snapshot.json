@@ -1,28 +1,9 @@
 {
   "schema_version": "2.0",
-  "updated_at": "2026-10-10T14:48:00Z",
+  "updated_at": "2026-10-10T15:20:00Z",
   "last_seq": 167,
-  "slots": [
-    {
-      "slot_id": "slot_0",
-      "issue_id": "t35",
-      "role": "verifier",
-      "phase": "verify_post_merge",
-      "run_id": "3fec9dd0-39c0-4c59-85bf-80805050c847",
-      "spawn_at": "2026-10-10T14:48:00Z",
-      "last_activity_at": "2026-10-10T14:48:00Z",
-      "worktree_path": ".worktrees/verify-1ade768"
-    }
-  ],
-  "merge_queue": [
-    {
-      "issue_id": "t35",
-      "branch": "issue/t35-test-isolation-drvfs-flake",
-      "branch_sha": "95724c747ab066f004d1dc307d2e38a0ce6ce378",
-      "verifier_pass": "2026-10-10T04:33:24Z",
-      "state": "pushed"
-    }
-  ],
+  "slots": [],
+  "merge_queue": [],
   "active_issues": [
     "t13",
     "t28",

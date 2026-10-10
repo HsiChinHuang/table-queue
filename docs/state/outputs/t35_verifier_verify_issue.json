@@ -1,0 +1,85 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t35",
+  "role": "verifier",
+  "phase": "verify_issue",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "verification",
+    "ac_results": {
+      "ac1": {
+        "verdict": "PASS",
+        "command": "cd backend\nFAIL=0\nfor i in $(seq 1 10); do\n  ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t35repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest tests/test_log_hygiene.py tests/test_db_atomicity.py -q -p no:randomly || FAIL=1\ndone\ngit checkout -- test.db\nif [ $FAIL -eq 0 ]; then echo \"ac1 ok: 10/10 consecutive pair runs green\"; else echo \"ac1 FAIL: a pair run was not green\"; exit 1; fi",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "10/10 consecutive pair runs green, each \"8 passed, 2 xfailed\" (~1.1s); no disk I/O error or setup error. Executed in the first (pre-timeout) session; not re-run on resume per orchestrator instruction."
+      },
+      "ac2": {
+        "verdict": "PASS",
+        "command": "cd backend\nENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t35repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest -q -p no:randomly\nRC=$?\ngit checkout -- test.db\nif [ $RC -eq 0 ]; then echo \"ac2 ok: full suite green\"; else echo \"ac2 FAIL: full suite exited $RC\"; exit 1; fi",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "Full backend suite: 388 passed, 2 xfailed, 0 failed, exit 0 (85.05s). This run also serves as the pytest floor (full suite not run twice)."
+      },
+      "ac3": {
+        "verdict": "PASS",
+        "command": "cd backend\nSHA_BEFORE=$(sha256sum test.db | cut -d' ' -f1)\nMT_BEFORE=$(stat -c '%Y' test.db)\nENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t35repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest tests/test_log_hygiene.py::test_500_traceback_is_redacted -q -p no:randomly\nRC=$?\nSHA_AFTER=$(sha256sum test.db | cut -d' ' -f1)\nMT_AFTER=$(stat -c '%Y' test.db)\ngit checkout -- test.db\n[ $RC -eq 0 ] || { echo \"ac3 FAIL: corruption test itself failed\"; exit 1; }\n[ \"$SHA_BEFORE\" = \"$SHA_AFTER\" ] && [ \"$MT_BEFORE\" = \"$MT_AFTER\" ] || { echo \"ac3 FAIL: the corruption test still rewrites the shared engine file backend/test.db\"; exit 1; }\n[ ! -f test.db-wal ] && [ ! -f test.db-shm ] || { echo \"ac3 FAIL: WAL sidecars of the shared file left behind\"; exit 1; }\ngrep -q 'engine.dispose()' tests/test_log_hygiene.py || { echo \"ac3 FAIL: shared engine not disposed in the hygiene module\"; exit 1; }\necho \"ac3 ok: corruption test isolated from the shared engine file\"",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "Corruption test passed (1 passed); backend/test.db sha256 byte-identical (b85ea15c...==b85ea15c...) AND mtime identical (1791603926==1791603926); no test.db-wal/-shm sidecars left; engine.dispose() present in test_log_hygiene.py. FAILS pre-fix (mechanism removed)."
+      },
+      "ac4": {
+        "verdict": "PASS",
+        "command": "cd backend\ngrep -q 'Database(\"d02_atomicity\")' tests/test_db_atomicity.py || { echo \"ac4 FAIL: dedicated Database fixture missing\"; exit 1; }\nif grep -qE 'from app import database|from app\\.database import|app\\.database\\.(engine|SessionLocal)' tests/test_db_atomicity.py; then echo \"ac4 FAIL: test_db_atomicity imports the shared engine module\"; exit 1; fi\necho \"ac4 ok: test_db_atomicity uses its own file+engine (invariant, passes pre-fix by design)\"",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "test_db_atomicity.py uses dedicated Database(\"d02_atomicity\") file+engine and imports nothing from app.database (invariant, passes pre-fix by design)."
+      },
+      "ac5": {
+        "verdict": "PASS",
+        "command": "cd backend\nCOLLECTED=$(ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t35repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest tests/test_log_hygiene.py tests/test_db_atomicity.py --collect-only -q -p no:randomly | grep -c '::test_')\n[ \"$COLLECTED\" = \"10\" ] || { echo \"ac5 FAIL: expected 10 collected tests, got $COLLECTED\"; exit 1; }\nSUMMARY=$(ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t35repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest tests/test_log_hygiene.py tests/test_db_atomicity.py -q -p no:randomly | tail -1)\necho \"$SUMMARY\" | grep -q '8 passed, 2 xfailed' || { echo \"ac5 FAIL: pair summary changed: $SUMMARY\"; exit 1; }\ngit checkout -- test.db\nHYG=$(grep -c 'assert ' tests/test_log_hygiene.py)\nATM=$(grep -c 'assert ' tests/test_db_atomicity.py)\n[ \"$HYG\" -ge 22 ] && [ \"$ATM\" -ge 38 ] || { echo \"ac5 FAIL: assertion lines reduced (hygiene=$HYG <22 or atomicity=$ATM <38)\"; exit 1; }\necho \"ac5 ok: no assertion weakening (invariant, passes pre-fix by design)\"",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "10 collected tests; pair summary \"8 passed, 2 xfailed\"; assert baselines hygiene=22 (>=22), atomicity=38 (>=38). No assertion weakening."
+      },
+      "ac6": {
+        "verdict": "PASS",
+        "command": "grep -q 'drvfs' docs/issues/t35.md && grep -qi 'native Windows' docs/issues/t35.md && grep -q '10/10' docs/issues/t35.md || { echo \"ac6 FAIL: WSL/drvfs-vs-native-Windows scope note missing from the spec\"; exit 1; }\necho \"ac6 ok: scope documented (documentation AC, passes by construction)\"",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "Spec documents WSL/drvfs-vs-native-Windows scope (grep drvfs + native Windows + 10/10 all present). Documentation AC, passes by construction."
+      }
+    },
+    "test_summary": {
+      "total": 390,
+      "passed": 388,
+      "failed": 0
+    },
+    "failure_type": null,
+    "lint_report": {
+      "errors": 0,
+      "warnings": 0
+    },
+    "test_quality_warnings": [],
+    "dod_verified": {
+      "all_six_acs_pass_via_verification_commands": true,
+      "diff_touches_only_backend_tests_test_log_hygiene.py": true,
+      "backend_app_production_untouched": true,
+      "test_db_atomicity_and_conftest_untouched": true,
+      "test_db_not_committed_in_changed_state": true
+    },
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands"
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/state/outputs/t35_verifier_verify_issue.json"
+    ],
+    "platform_issue": 91,
+    "output_path": "docs/state/outputs/t35_verifier_verify_issue.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-10T03:49:29Z",
+  "retry_count": 0
+}

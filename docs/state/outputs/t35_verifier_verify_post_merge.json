@@ -1,0 +1,64 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t35",
+  "role": "verifier",
+  "phase": "verify_post_merge",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "merge_verification",
+    "smoke_tests": {
+      "total": 6,
+      "passed": 6,
+      "failed": 0
+    },
+    "merge_sha": "1ade76812429b93aaa1bcc149174e253af4def72",
+    "regressions_detected": [],
+    "merge_identity": {
+      "head_sha": "1ade76812429b93aaa1bcc149174e253af4def72",
+      "parents": [
+        "8502516e969c884549337c67b2370944e1278ce1",
+        "95724c747ab066f004d1dc307d2e38a0ce6ce378"
+      ],
+      "commit_message_contains": {
+        "Issues: t35": true,
+        "VERIFIER-PASS: 2026-10-10T04:33:24Z": true,
+        "Test-suite: full": true
+      }
+    },
+    "merge_content": {
+      "diff_stat": "backend/tests/test_log_hygiene.py | 123 +++++++---\ndocs/state/outputs/t35_builder_implement.json | 66 +++++++\n2 files changed, 157 insertions(+), 32 deletions(-)",
+      "files_changed": [
+        "backend/tests/test_log_hygiene.py",
+        "docs/state/outputs/t35_builder_implement.json"
+      ],
+      "unexpected_files": []
+    },
+    "ac_results": {
+      "ac1": "PASS: 10/10 consecutive pair runs green (8 passed, 2 xfailed each)",
+      "ac2": "PASS: full suite green (388 passed, 2 xfailed)",
+      "ac3": "PASS: corruption test isolated from the shared engine file (sha+mtime unchanged, no WAL sidecars, engine.dispose() present)",
+      "ac4": "PASS: test_db_atomicity uses its own file+engine (invariant)",
+      "ac5": "PASS: no assertion weakening (10 collected, 8 passed 2 xfailed, hygiene>=22, atomicity>=38)",
+      "ac6": "PASS: scope documented (drvfs, native Windows, 10/10 all present in spec)"
+    },
+    "floors": {
+      "backend_pytest": "PASS: 388 passed, 2 xfailed, 0 failed",
+      "backend_ruff": "PASS: All checks passed!",
+      "frontend": "NOT APPLICABLE: merge changed zero frontend files",
+      "test_db_restored": true,
+      "untracked_db_files_removed": true
+    }
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/state/outputs/t35_verifier_verify_post_merge.json"
+    ],
+    "platform_issue": 91,
+    "output_path": "docs/state/outputs/t35_verifier_verify_post_merge.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-10T04:52:43Z",
+  "retry_count": 0
+}

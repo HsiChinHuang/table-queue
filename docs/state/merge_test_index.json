@@ -125,6 +125,30 @@
     {
       "issue_id": "t31",
       "command": "cd backend && rm -f /tmp/t31ac.db && ENV=development DATABASE_URL=sqlite:////tmp/t31ac.db JWT_SECRET=t31repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -c \"\nimport pathlib;pathlib.Path('/tmp/t31ac.db').unlink(missing_ok=True)\nfrom fastapi.testclient import TestClient\nfrom app.main import app\nfrom app import seed\nfrom app.database import SessionLocal\ndb=SessionLocal();seed.seed_data(reset=True);db.close()\nfrom datetime import datetime,timedelta\nfrom zoneinfo import ZoneInfo\nfrom app.models import Branch,WaitlistEntry,WaitlistStatus,WaitlistSource\ndb=SessionLocal()\nbid=db.query(Branch).first().id\nday=(datetime.now(ZoneInfo('Asia/Taipei'))-timedelta(hours=4)).date().isoformat()\nfor i in range(200):\n    db.add(WaitlistEntry(branch_id=bid,queue_number='F%03d'%i,full_queue_number='F-%s-%03d'%(day.replace('-',''),i),queue_prefix='F',seq=100+i,business_date=day,name='Fix%03d'%i,phone='0911-000-%03d'%(100+i),party_size=2,status=WaitlistStatus.WAITING,sort_order=100+i,source=WaitlistSource.CUSTOMER))\ndb.commit();db.close()\nc=TestClient(app,raise_server_exceptions=False)\nt=c.post('/api/v1/auth/login',json={'pin':'0000'}).json()['access_token']\nH={'Authorization':'Bearer '+t}\ns1=c.get('/api/v1/staff/waitlist?search=Fix&limit=10',headers=H).json()\nassert s1['total']==200,('search total = match count',s1['total'])\nassert len(s1['items'])==10 and all(i['name'].startswith('Fix') for i in s1['items']),('search page',s1['items'][:2])\ns2=c.get('/api/v1/staff/waitlist?search=Fix&limit=10&offset=195',headers=H).json()\nassert len(s2['items'])==5 and s2['total']==200,('search offset into filtered set',(len(s2['items']),s2['total']))\nfull=c.get('/api/v1/staff/waitlist?search=Fix&limit=1000',headers=H).json()\nassert [i['id'] for i in s1['items']]==[i['id'] for i in full['items'][:10]],('search page is prefix of filtered list')\nprint('ac6 ok')\n\"\n  "
+    },
+    {
+      "issue_id": "t35",
+      "command": "cd backend\nFAIL=0\nfor i in $(seq 1 10); do\n  ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t35repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest tests/test_log_hygiene.py tests/test_db_atomicity.py -q -p no:randomly || FAIL=1\ndone\ngit checkout -- test.db\nif [ $FAIL -eq 0 ]; then echo \"ac1 ok: 10/10 consecutive pair runs green\"; else echo \"ac1 FAIL: a pair run was not green\"; exit 1; fi"
+    },
+    {
+      "issue_id": "t35",
+      "command": "cd backend\nENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t35repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest -q -p no:randomly\nRC=$?\ngit checkout -- test.db\nif [ $RC -eq 0 ]; then echo \"ac2 ok: full suite green\"; else echo \"ac2 FAIL: full suite exited $RC\"; exit 1; fi"
+    },
+    {
+      "issue_id": "t35",
+      "command": "cd backend\nSHA_BEFORE=$(sha256sum test.db | cut -d' ' -f1)\nMT_BEFORE=$(stat -c '%Y' test.db)\nENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t35repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest tests/test_log_hygiene.py::test_500_traceback_is_redacted -q -p no:randomly\nRC=$?\nSHA_AFTER=$(sha256sum test.db | cut -d' ' -f1)\nMT_AFTER=$(stat -c '%Y' test.db)\ngit checkout -- test.db\n[ $RC -eq 0 ] || { echo \"ac3 FAIL: corruption test itself failed\"; exit 1; }\n[ \"$SHA_BEFORE\" = \"$SHA_AFTER\" ] && [ \"$MT_BEFORE\" = \"$MT_AFTER\" ] || { echo \"ac3 FAIL: the corruption test still rewrites the shared engine file backend/test.db\"; exit 1; }\n[ ! -f test.db-wal ] && [ ! -f test.db-shm ] || { echo \"ac3 FAIL: WAL sidecars of the shared file left behind\"; exit 1; }\ngrep -q 'engine.dispose()' tests/test_log_hygiene.py || { echo \"ac3 FAIL: shared engine not disposed in the hygiene module\"; exit 1; }\necho \"ac3 ok: corruption test isolated from the shared engine file\""
+    },
+    {
+      "issue_id": "t35",
+      "command": "cd backend\ngrep -q 'Database(\"d02_atomicity\")' tests/test_db_atomicity.py || { echo \"ac4 FAIL: dedicated Database fixture missing\"; exit 1; }\nif grep -qE 'from app import database|from app\\.database import|app\\.database\\.(engine|SessionLocal)' tests/test_db_atomicity.py; then echo \"ac4 FAIL: test_db_atomicity imports the shared engine module\"; exit 1; fi\necho \"ac4 ok: test_db_atomicity uses its own file+engine (invariant, passes pre-fix by design)\""
+    },
+    {
+      "issue_id": "t35",
+      "command": "cd backend\nCOLLECTED=$(ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t35repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest tests/test_log_hygiene.py tests/test_db_atomicity.py --collect-only -q -p no:randomly | grep -c '::test_')\n[ \"$COLLECTED\" = \"10\" ] || { echo \"ac5 FAIL: expected 10 collected tests, got $COLLECTED\"; exit 1; }\nSUMMARY=$(ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t35repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest tests/test_log_hygiene.py tests/test_db_atomicity.py -q -p no:randomly | tail -1)\necho \"$SUMMARY\" | grep -q '8 passed, 2 xfailed' || { echo \"ac5 FAIL: pair summary changed: $SUMMARY\"; exit 1; }\ngit checkout -- test.db\nHYG=$(grep -c 'assert ' tests/test_log_hygiene.py)\nATM=$(grep -c 'assert ' tests/test_db_atomicity.py)\n[ \"$HYG\" -ge 22 ] && [ \"$ATM\" -ge 38 ] || { echo \"ac5 FAIL: assertion lines reduced (hygiene=$HYG <22 or atomicity=$ATM <38)\"; exit 1; }\necho \"ac5 ok: no assertion weakening (invariant, passes pre-fix by design)\""
+    },
+    {
+      "issue_id": "t35",
+      "command": "grep -q 'drvfs' docs/issues/t35.md && grep -qi 'native Windows' docs/issues/t35.md && grep -q '10/10' docs/issues/t35.md || { echo \"ac6 FAIL: WSL/drvfs-vs-native-Windows scope note missing from the spec\"; exit 1; }\necho \"ac6 ok: scope documented (documentation AC, passes by construction)\""
     }
   ]
 }
