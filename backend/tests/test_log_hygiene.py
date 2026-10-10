@@ -140,38 +140,97 @@ def test_access_line_masks_the_lookup_query_string(caplog):
 def test_500_traceback_is_redacted(caplog):
     """AC-2 live arm, in-process: a forced DB error logs a traceback without binding lines.
 
-    The store is corrupted between the seed and the probe - the same move the AC makes against
-    a live server - and the schema is rebuilt on the way out so the rest of the suite sees the
-    shared engine's file the way it found it.
+    The store is corrupted between the seed and the probe - the same move the AC makes against a
+    live server. The corruption target is a DEDICATED scratch file with its own engine, and the
+    app's shared engine is redirected onto that scratch file for the test's duration (t35 AC-3):
+    the startup lifespan (``create_all`` + ``bootstrap_defaults``, which run on ``app.main.engine``)
+    and the probe request both hit the scratch file, so the shared engine's ``test.db`` is never
+    touched - it stays byte- and mtime-identical and no ``test.db-wal``/``test.db-shm`` sidecars of
+    it are left behind. The lifespan is let to run on the healthy scratch file first, the scratch
+    file is corrupted only afterwards, and the scratch sessions are closed, the scratch engine
+    disposed and the shared engine references restored on the way out.
     """
-    db = fresh_session()
-    try:
-        seed_branch(db)
-        entry = seed_entry(
-            db,
-            queue_number="A001",
-            seq=1,
-            status=WaitlistStatus.WAITING,
-            sort_order=1,
-        )
-        token = token_for(entry)
-    finally:
-        db.close()
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session as _Session
+    from sqlalchemy.pool import NullPool
 
-    db_file = Path("test.db")
+    from app import main as main_module
+    from app.database import get_db
+
+    scratch_dir = Path(__file__).resolve().parent / "_scratch"
+    scratch_dir.mkdir(parents=True, exist_ok=True)
+    scratch_file = scratch_dir / "t35_hygiene.db"
+    for _suffix in ("", "-wal", "-shm"):
+        Path(str(scratch_file) + _suffix).unlink(missing_ok=True)
+    # A scratch engine of its own: the file this test corrupts is never the shared engine's file.
+    # NullPool (a connection per checkout) matches the shared engine and is safe across the worker
+    # thread the TestClient serves the request on.
+    scratch_engine = create_engine(
+        f"sqlite:///{scratch_file}",
+        connect_args={"check_same_thread": False},
+        poolclass=NullPool,
+    )
+    database.Base.metadata.create_all(bind=scratch_engine)
+
+    # Redirect the app's shared engine onto the scratch file for the test's duration, so nothing in
+    # the app - the startup lifespan included - ever opens the shared engine's test.db.
+    original_engine = database.engine
+    database.engine = scratch_engine
+    main_module.engine = scratch_engine
+    # The request sessions the override hands out, kept so teardown can close them: on Windows a
+    # still-checked-out connection keeps the scratch file handle open and the unlink fails (WinError
+    # 32), and dispose alone does not close a connection an open session still holds.
+    scratch_sessions: list[_Session] = []
     try:
-        db_file.write_text("t21 probe: not a sqlite database file", encoding="utf-8")
-        client = TestClient(app, raise_server_exceptions=False)
-        with _quiet_httpx(), caplog.at_level(logging.ERROR, logger="app.errors"):
-            resp = client.get(f"{STATUS_PATH}/A001", params={"token": token})
-        assert resp.status_code == 500
-        assert resp.json()["error"]["code"] == "INTERNAL_ERROR"
-        # The traceback stays (T21 D-3), the binding segments do not.
-        assert "Traceback (most recent call last):" in caplog.text
-        assert "[SQL:" not in caplog.text
-        assert "[parameters:" not in caplog.text
-        assert "('A001',)" not in caplog.text
+        db = _Session(bind=scratch_engine)
+        try:
+            seed_branch(db)
+            entry = seed_entry(
+                db,
+                queue_number="A001",
+                seq=1,
+                status=WaitlistStatus.WAITING,
+                sort_order=1,
+            )
+            token = token_for(entry)
+        finally:
+            db.close()
+
+        def _scratch_db():
+            session = _Session(bind=scratch_engine)
+            scratch_sessions.append(session)
+            return session
+
+        app.dependency_overrides[get_db] = _scratch_db
+        try:
+            client = TestClient(app, raise_server_exceptions=False)
+            with client:  # the startup lifespan runs here, on the healthy scratch file
+                # Corrupt only after the lifespan has already booted: the probe request then hits a
+                # corrupted scratch file, never the shared engine's file.
+                scratch_file.write_text("t21 probe: not a sqlite database file", encoding="utf-8")
+                with _quiet_httpx(), caplog.at_level(logging.ERROR, logger="app.errors"):
+                    resp = client.get(f"{STATUS_PATH}/A001", params={"token": token})
+            assert resp.status_code == 500
+            assert resp.json()["error"]["code"] == "INTERNAL_ERROR"
+            # The traceback stays (T21 D-3), the binding segments do not.
+            assert "Traceback (most recent call last):" in caplog.text
+            assert "[SQL:" not in caplog.text
+            assert "[parameters:" not in caplog.text
+            assert "('A001',)" not in caplog.text
+        finally:
+            app.dependency_overrides.pop(get_db, None)
     finally:
-        # Restore a usable schema for the rest of the suite: the shared engine points here.
-        db_file.unlink(missing_ok=True)
-        database.Base.metadata.create_all(bind=database.engine)
+        # Restore the shared engine references, close the scratch request sessions, dispose the
+        # scratch engine, and remove the scratch file (and any sidecars it left). Nothing here
+        # reopens the shared engine's file.
+        database.engine = original_engine
+        main_module.engine = original_engine
+        for session in scratch_sessions:
+            session.close()
+        scratch_sessions.clear()
+        scratch_engine.dispose()
+        for _suffix in ("", "-wal", "-shm"):
+            Path(str(scratch_file) + _suffix).unlink(missing_ok=True)
+        # Defense in depth (t35): dispose the shared engine so no pooled connection of the process
+        # can outlive the file churn. NullPool makes this cheap; nothing here reopens it.
+        original_engine.dispose()
