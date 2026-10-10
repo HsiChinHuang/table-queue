@@ -1,0 +1,44 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t35",
+  "role": "definer",
+  "phase": "groom",
+  "status": "COMPLETE",
+  "reached_state": "groomed",
+  "evidence": {
+    "evidence_type": "grooming",
+    "ac_hash": "sha256:80c0870d01b9f50d5015434736995546dd1526f943e7cf53e274415f6e056b5f",
+    "ac_count": 6,
+    "verification_commands": {
+      "ac1": "cd backend\nFAIL=0\nfor i in $(seq 1 10); do\n  ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t35repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest tests/test_log_hygiene.py tests/test_db_atomicity.py -q -p no:randomly || FAIL=1\ndone\ngit checkout -- test.db\nif [ $FAIL -eq 0 ]; then echo \"ac1 ok: 10/10 consecutive pair runs green\"; else echo \"ac1 FAIL: a pair run was not green\"; exit 1; fi",
+      "ac2": "cd backend\nENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t35repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest -q -p no:randomly\nRC=$?\ngit checkout -- test.db\nif [ $RC -eq 0 ]; then echo \"ac2 ok: full suite green\"; else echo \"ac2 FAIL: full suite exited $RC\"; exit 1; fi",
+      "ac3": "cd backend\nSHA_BEFORE=$(sha256sum test.db | cut -d' ' -f1)\nMT_BEFORE=$(stat -c '%Y' test.db)\nENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t35repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest tests/test_log_hygiene.py::test_500_traceback_is_redacted -q -p no:randomly\nRC=$?\nSHA_AFTER=$(sha256sum test.db | cut -d' ' -f1)\nMT_AFTER=$(stat -c '%Y' test.db)\ngit checkout -- test.db\n[ $RC -eq 0 ] || { echo \"ac3 FAIL: corruption test itself failed\"; exit 1; }\n[ \"$SHA_BEFORE\" = \"$SHA_AFTER\" ] && [ \"$MT_BEFORE\" = \"$MT_AFTER\" ] || { echo \"ac3 FAIL: the corruption test still rewrites the shared engine file backend/test.db\"; exit 1; }\n[ ! -f test.db-wal ] && [ ! -f test.db-shm ] || { echo \"ac3 FAIL: WAL sidecars of the shared file left behind\"; exit 1; }\ngrep -q 'engine.dispose()' tests/test_log_hygiene.py || { echo \"ac3 FAIL: shared engine not disposed in the hygiene module\"; exit 1; }\necho \"ac3 ok: corruption test isolated from the shared engine file\"",
+      "ac4": "cd backend\ngrep -q 'Database(\"d02_atomicity\")' tests/test_db_atomicity.py || { echo \"ac4 FAIL: dedicated Database fixture missing\"; exit 1; }\nif grep -qE 'from app import database|from app\\.database import|app\\.database\\.(engine|SessionLocal)' tests/test_db_atomicity.py; then echo \"ac4 FAIL: test_db_atomicity imports the shared engine module\"; exit 1; fi\necho \"ac4 ok: test_db_atomicity uses its own file+engine (invariant, passes pre-fix by design)\"",
+      "ac5": "cd backend\nCOLLECTED=$(ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t35repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest tests/test_log_hygiene.py tests/test_db_atomicity.py --collect-only -q -p no:randomly | grep -c '::test_')\n[ \"$COLLECTED\" = \"10\" ] || { echo \"ac5 FAIL: expected 10 collected tests, got $COLLECTED\"; exit 1; }\nSUMMARY=$(ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t35repro-0123456789-abcdefghijklmnopqrstuvwxyz-abcd1234 STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest tests/test_log_hygiene.py tests/test_db_atomicity.py -q -p no:randomly | tail -1)\necho \"$SUMMARY\" | grep -q '8 passed, 2 xfailed' || { echo \"ac5 FAIL: pair summary changed: $SUMMARY\"; exit 1; }\ngit checkout -- test.db\nHYG=$(grep -c 'assert ' tests/test_log_hygiene.py)\nATM=$(grep -c 'assert ' tests/test_db_atomicity.py)\n[ \"$HYG\" -ge 22 ] && [ \"$ATM\" -ge 38 ] || { echo \"ac5 FAIL: assertion lines reduced (hygiene=$HYG <22 or atomicity=$ATM <38)\"; exit 1; }\necho \"ac5 ok: no assertion weakening (invariant, passes pre-fix by design)\"",
+      "ac6": "grep -q 'drvfs' docs/issues/t35.md && grep -qi 'native Windows' docs/issues/t35.md && grep -q '10/10' docs/issues/t35.md || { echo \"ac6 FAIL: WSL/drvfs-vs-native-Windows scope note missing from the spec\"; exit 1; }\necho \"ac6 ok: scope documented (documentation AC, passes by construction)\""
+    },
+    "sections_filled": [
+      "context",
+      "acceptance_criteria",
+      "out_of_scope",
+      "definition_of_done"
+    ],
+    "contract_first_applied": true,
+    "verification_commands_source": "docs/issues/t35.md#verification-commands",
+    "spec_path": "docs/issues/t35.md",
+    "repro": "Pre-fix baseline on THIS host (native Windows, MSYS2 git-bash, main @ 905f0b3): two-module pair (test_log_hygiene.py + test_db_atomicity.py, -p no:randomly) 10/10 green ('8 passed, 2 xfailed', ~1.1s each); full suite 1/1 green ('388 passed, 2 xfailed', 85s). The WSL/drvfs 'disk I/O error' flake does NOT reproduce here, as expected (environment-sensitive). Verification commands run pre-fix: ac3 FAILS (corruption test rewrites/unlinks the shared engine file backend/test.db: sha+mtime change confirmed) - non-vacuous; ac1/ac2 PASS (stability guarantee is the AC, documented); ac4/ac5/ac6 PASS (documented invariants / documentation AC). backend/test.db restored via git checkout after every run; never committed.",
+    "notes": "Env nuance: repo runs on native Windows, not WSL; the drvfs dangling-handle race is not reproducible here, so the AC is the stability guarantee (10/10 pair + suite green) plus removal of the mechanism the stub identified (corruption test moved off the shared engine file, shared engine disposed, no WAL sidecars; test_db_atomicity's dedicated file+engine pinned as invariant). Recon confirmed: shared engine is NullPool with per-connect PRAGMA journal_mode=wal; test_db_atomicity already uses its own _d02_atomicity.db + engine (victim, not cause). Resume note: previous definer run timed out during recon/convention study; this run (retry_count=1) completed baseline + spec + platform + handoff. Platform #91: body synced, label defined->groomed, one summary comment."
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/issues/t35.md",
+      "docs/state/outputs/t35_definer_groom.json"
+    ],
+    "platform_issue": 91,
+    "output_path": "docs/state/outputs/t35_definer_groom.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-10T01:09:40Z",
+  "retry_count": 1
+}
