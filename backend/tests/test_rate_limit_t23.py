@@ -11,16 +11,19 @@ The four behaviours this module pins are the four things the audit measured as b
   no setting to say which proxy may be believed (AC-3);
 * the counter store was slowapi's default ``MemoryStorage`` with no stated bound (AC-4).
 
-Each test that expects a 429 enables the shared limiter and installs a FRESH counter store for
-the block: the limiter is module-level, so a burst one test spends must not be the burst the next
-test inherits, and the fresh store is also what makes the boundary assertions exact (the first N
-answers 200/401, the (N+1)st answers 429) rather than "somewhere in the burst". The store swap
-mirrors the one ``app.main`` performs at import, and is undone in teardown.
+Each test that expects a 429 takes the ``fresh_limiter`` fixture, which enables the shared
+limiter on a FRESH counter store for the block and restores both in fixture teardown: the limiter
+is module-level, so a burst one test spends must not be the burst the next test inherits, and the
+fresh store is also what makes the boundary assertions exact (the first N answers 200/401, the
+(N+1)st answers 429) rather than "somewhere in the burst". The store swap mirrors the one
+``app.main`` performs at import, and the XFF tests' ``TRUSTED_PROXIES`` value is scoped the same
+way through the ``set_trusted_proxies`` fixture - no test body mutates the process-wide limiter or
+the cached settings in place, so what a test observes never depends on what an earlier test's
+save/restore left behind.
 """
 
 from __future__ import annotations
 
-import contextlib
 import os
 import sys
 
@@ -33,6 +36,7 @@ if os.sep == "/":  # WSL: the Windows drive is not writable by the venv's platfo
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import bcrypt  # noqa: E402
+import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from limits.strategies import STRATEGIES  # noqa: E402
 from starlette.datastructures import Address, Headers  # noqa: E402
@@ -52,40 +56,38 @@ CHANGE_PIN = "/api/v1/auth/change-pin"
 BRANCH_READ = "/api/v1/public/branches/1"
 
 
-@contextlib.contextmanager
-def limiter_on_fresh_store():
-    """Enable the shared limiter on a fresh counter store, then restore both.
+@pytest.fixture
+def fresh_limiter(monkeypatch):
+    """Enable the shared limiter on a fresh counter store for the test; teardown restores both.
 
     Enabling alone is not enough for an exact boundary: the store is process-wide, so a burst an
     earlier test spent inside the same window is still spent. The swap installs the same class
-    ``app.main`` installs at import, rebuilt around it the same way, and teardown puts the
-    original instance and the original enabled flag back.
+    ``app.main`` installs at import, rebuilt around it the same way, and the ``monkeypatch``
+    teardown puts the original instance and the original enabled flag back. The ``conftest``
+    autouse ``disable_limiter`` fixture keeps owning the enabled flag for the rest of the suite;
+    this fixture layers on top of it and is undone by its own teardown.
     """
-    previous_enabled = limiter.enabled
-    previous_storage = limiter._storage  # noqa: SLF001
-    previous_strategy = limiter._limiter  # noqa: SLF001
     storage = BoundedFrozenClockMemoryStorage()
-    limiter._storage = storage  # noqa: SLF001
-    limiter._limiter = STRATEGIES[limiter._strategy or "fixed-window"](storage)  # noqa: SLF001
-    limiter.enabled = True
-    try:
-        yield limiter
-    finally:
-        limiter.enabled = previous_enabled
-        limiter._storage = previous_storage  # noqa: SLF001
-        limiter._limiter = previous_strategy  # noqa: SLF001
+    strategy = STRATEGIES[limiter._strategy or "fixed-window"](storage)  # noqa: SLF001
+    monkeypatch.setattr(limiter, "enabled", True)
+    monkeypatch.setattr(limiter, "_storage", storage)
+    monkeypatch.setattr(limiter, "_limiter", strategy)
+    yield limiter
 
 
-@contextlib.contextmanager
-def trusted_proxies(value: str):
-    """Point the cached settings' ``TRUSTED_PROXIES`` at ``value`` for the block, then restore."""
-    settings = get_settings()
-    previous = settings.trusted_proxies
-    settings.trusted_proxies = value
-    try:
-        yield
-    finally:
-        settings.trusted_proxies = previous
+@pytest.fixture
+def set_trusted_proxies(monkeypatch):
+    """Return a callable that points the cached settings' ``TRUSTED_PROXIES`` at a value.
+
+    Each call is a ``monkeypatch.setattr`` on the ``@lru_cache``d ``get_settings()`` instance, so
+    the value the key function reads is scoped to the test and the ``monkeypatch`` teardown
+    restores the original - never a bare in-place rewrite with a hand-written ``finally``.
+    """
+
+    def _set(value: str) -> None:
+        monkeypatch.setattr(get_settings(), "trusted_proxies", value)
+
+    return _set
 
 
 def _seeded_client() -> TestClient:
@@ -114,30 +116,28 @@ def _change_pin(client: TestClient, token: str) -> int:
     ).status_code
 
 
-def test_default_limit_reaches_mounted_api_v1_route():
+def test_default_limit_reaches_mounted_api_v1_route(fresh_limiter):
     """AC-1: a burst on an include_router-mounted /api/v1 route 429s, and is counted once.
 
     The branch read carries no limit of its own, so the 10/minute default prices it. Exactly ten
     200s then 429s is the single-count proof: a request counted on both sides of the
     middleware/wrapper boundary would empty the budget at five.
     """
-    with limiter_on_fresh_store():
-        client = _seeded_client()
-        codes = [client.get(BRANCH_READ).status_code for _ in range(45)]
+    client = _seeded_client()
+    codes = [client.get(BRANCH_READ).status_code for _ in range(45)]
     assert codes[:10] == [200] * 10
     assert codes[10:] == [429] * 35
 
 
-def test_change_pin_is_budgeted():
+def test_change_pin_is_budgeted(fresh_limiter):
     """AC-2: wrong-PIN change-pin attempts reach the handler until the budget is spent, then 429.
 
     The route carries no limit of its own, so the 10/minute default prices it: ten attempts run
     the bcrypt check and answer 401, the eleventh is refused before the handler.
     """
-    with limiter_on_fresh_store():
-        client = _seeded_client()
-        token = client.post(LOGIN, json={"pin": "1234"}).json()["access_token"]
-        codes = [_change_pin(client, token) for _ in range(25)]
+    client = _seeded_client()
+    token = client.post(LOGIN, json={"pin": "1234"}).json()["access_token"]
+    codes = [_change_pin(client, token) for _ in range(25)]
     n401 = codes.count(401)
     n429 = codes.count(429)
     assert n401 == 10
@@ -146,49 +146,51 @@ def test_change_pin_is_budgeted():
     assert codes[10:] == [429] * 15
 
 
-def test_xff_not_honoured_when_trusted_proxies_unset():
+def test_xff_not_honoured_when_trusted_proxies_unset(fresh_limiter, set_trusted_proxies):
     """AC-3: with the setting empty, a spoofed XFF cannot rotate a client around the budget.
 
     Twelve logins each carrying a different XFF value all spend the ONE 5/minute login budget of
     the address the process is connected from: five 200s, then 429.
     """
-    with trusted_proxies(""), limiter_on_fresh_store():
-        client = _seeded_client()
-        codes = [_login(client, xff=f"10.66.{i}.1") for i in range(12)]
+    set_trusted_proxies("")
+    client = _seeded_client()
+    codes = [_login(client, xff=f"10.66.{i}.1") for i in range(12)]
     assert codes.count(200) == 5
     assert codes.count(429) == 7
 
 
-def test_xff_honoured_when_trusted_proxies_names_the_proxy():
+def test_xff_honoured_when_trusted_proxies_names_the_proxy(fresh_limiter, set_trusted_proxies):
     """AC-3: a named proxy's XFF is honoured, and distinct XFF values get distinct budgets.
 
     ``TestClient`` connects as ``testclient``, so naming that address is naming the proxy. Twelve
     logins under one XFF value spend that value's 5/minute budget (five 200s, then 429), and the
     FIRST login under a second XFF value still answers 200.
     """
-    with trusted_proxies("testclient"), limiter_on_fresh_store():
-        client = _seeded_client()
-        codes = [_login(client, xff="203.0.113.5") for _ in range(12)]
-        second_value_first_request = _login(client, xff="198.51.100.7")
+    set_trusted_proxies("testclient")
+    client = _seeded_client()
+    codes = [_login(client, xff="203.0.113.5") for _ in range(12)]
+    second_value_first_request = _login(client, xff="198.51.100.7")
     assert codes.count(200) == 5
     assert codes.count(429) == 7
     assert second_value_first_request == 200
 
 
-def test_xff_not_honoured_when_trusted_proxies_names_a_different_proxy():
+def test_xff_not_honoured_when_trusted_proxies_names_a_different_proxy(
+    fresh_limiter, set_trusted_proxies,
+):
     """AC-3: naming a proxy the request did not come from honours nothing.
 
     The connecting address (``testclient``) is not in the list, so the header is ignored and the
     rotating-XFF burst spends one shared 5/minute budget: five 200s, then 429.
     """
-    with trusted_proxies("10.9.9.9"), limiter_on_fresh_store():
-        client = _seeded_client()
-        codes = [_login(client, xff=f"10.66.{i}.1") for i in range(12)]
+    set_trusted_proxies("10.9.9.9")
+    client = _seeded_client()
+    codes = [_login(client, xff=f"10.66.{i}.1") for i in range(12)]
     assert codes.count(200) == 5
     assert codes.count(429) == 7
 
 
-def test_rate_limit_key_honours_only_a_named_proxy():
+def test_rate_limit_key_honours_only_a_named_proxy(set_trusted_proxies):
     """AC-3, at the key function: the leftmost XFF hop wins only for a named connecting address."""
 
     class _Request:
@@ -200,17 +202,17 @@ def test_rate_limit_key_honours_only_a_named_proxy():
         def headers(self):
             return self._headers
 
-    with trusted_proxies(""):
-        assert get_rate_limit_key(_Request("127.0.0.1", "10.66.1.1")) == "127.0.0.1"
-        assert get_rate_limit_key(_Request(None, "10.66.1.1")) == "unknown"
-    with trusted_proxies("127.0.0.1"):
-        assert get_rate_limit_key(_Request("127.0.0.1", "10.66.1.1")) == "10.66.1.1"
-        assert get_rate_limit_key(_Request("127.0.0.1", "10.66.1.1, 10.66.2.2")) == "10.66.1.1"
-        assert get_rate_limit_key(_Request("127.0.0.1")) == "127.0.0.1"
-    with trusted_proxies("10.9.9.9"):
-        assert get_rate_limit_key(_Request("127.0.0.1", "10.66.1.1")) == "127.0.0.1"
-    with trusted_proxies("10.9.9.9, 127.0.0.1"):
-        assert get_rate_limit_key(_Request("127.0.0.1", "10.66.1.1")) == "10.66.1.1"
+    set_trusted_proxies("")
+    assert get_rate_limit_key(_Request("127.0.0.1", "10.66.1.1")) == "127.0.0.1"
+    assert get_rate_limit_key(_Request(None, "10.66.1.1")) == "unknown"
+    set_trusted_proxies("127.0.0.1")
+    assert get_rate_limit_key(_Request("127.0.0.1", "10.66.1.1")) == "10.66.1.1"
+    assert get_rate_limit_key(_Request("127.0.0.1", "10.66.1.1, 10.66.2.2")) == "10.66.1.1"
+    assert get_rate_limit_key(_Request("127.0.0.1")) == "127.0.0.1"
+    set_trusted_proxies("10.9.9.9")
+    assert get_rate_limit_key(_Request("127.0.0.1", "10.66.1.1")) == "127.0.0.1"
+    set_trusted_proxies("10.9.9.9, 127.0.0.1")
+    assert get_rate_limit_key(_Request("127.0.0.1", "10.66.1.1")) == "10.66.1.1"
 
 
 def test_counter_store_carries_a_stated_per_process_cap():
