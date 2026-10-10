@@ -1,0 +1,91 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t36",
+  "role": "verifier",
+  "phase": "verify_issue",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "verification",
+    "ac_results": {
+      "ac1": {
+        "verdict": "PASS",
+        "command": "cd backend\nFAIL=0\nfor i in $(seq 1 10); do\n  ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t36baseline-0123456789-abcdefghijklmnopqrstuvwxyz STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest tests/test_auth.py tests/test_rate_limit_t23.py -q -p no:randomly || FAIL=1\ndone\ngit checkout -- test.db\nif [ $FAIL -eq 0 ]; then echo \"ac1 ok: 10/10 consecutive order runs green\"; else echo \"ac1 FAIL: an order run was not green\"; exit 1; fi",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "10/10 consecutive order runs green, each 29 passed (~18s each)"
+      },
+      "ac2": {
+        "verdict": "PASS",
+        "command": "cd backend\nFAIL=0\nfor i in $(seq 1 10); do\n  ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t36baseline-0123456789-abcdefghijklmnopqrstuvwxyz STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest tests/test_rate_limit_t23.py -q -p no:randomly || FAIL=1\ndone\ngit checkout -- test.db\nif [ $FAIL -eq 0 ]; then echo \"ac2 ok: 10/10 consecutive XFF-file runs green\"; else echo \"ac2 FAIL: a file run was not green\"; exit 1; fi",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "10/10 consecutive XFF-file runs green, each 7 passed (~6.1s each)"
+      },
+      "ac3": {
+        "verdict": "PASS",
+        "command": "cd backend\nENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t36baseline-0123456789-abcdefghijklmnopqrstuvwxyz STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest -q -p no:randomly\nRC=$?\ngit checkout -- test.db\nif [ $RC -eq 0 ]; then echo \"ac3 ok: full suite green\"; else echo \"ac3 FAIL: full suite exited $RC\"; exit 1; fi",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "388 passed, 2 xfailed in 84.80s"
+      },
+      "ac4": {
+        "verdict": "PASS",
+        "command": "cd backend\nif grep -nE 'limiter\\._storage *=|limiter\\._limiter *=|limiter\\.enabled *=|trusted_proxies *=' tests/test_rate_limit_t23.py | grep -v 'def \\|\"\"\"'; then echo \"ac4 FAIL: in-place mutation of the shared limiter or cached settings still present\"; exit 1; fi\ngrep -q '@pytest.fixture' tests/test_rate_limit_t23.py || { echo \"ac4 FAIL: no pytest fixture provides the isolation\"; exit 1; }\necho \"ac4 ok: XFF tests isolated from the shared limiter state via fixture teardown\"",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "No in-place mutation found; @pytest.fixture present (fresh_limiter + set_trusted_proxies use monkeypatch.setattr)"
+      },
+      "ac5": {
+        "verdict": "PASS",
+        "command": "cd backend\nCOLLECTED=$(ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t36baseline-0123456789-abcdefghijklmnopqrstuvwxyz STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest tests/test_rate_limit_t23.py --collect-only -q -p no:randomly | grep -c '::test_')\n[ \"$COLLECTED\" = \"7\" ] || { echo \"ac5 FAIL: expected 7 collected tests, got $COLLECTED\"; exit 1; }\nSUMMARY=$(ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t36baseline-0123456789-abcdefghijklmnopqrstuvwxyz STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest tests/test_rate_limit_t23.py -q -p no:randomly | tail -1)\necho \"$SUMMARY\" | grep -q '7 passed' || { echo \"ac5 FAIL: file summary changed: $SUMMARY\"; exit 1; }\ngit checkout -- test.db\nASSERTS=$(grep -c 'assert ' tests/test_rate_limit_t23.py)\n[ \"$ASSERTS\" -ge 27 ] || { echo \"ac5 FAIL: assertion lines reduced ($ASSERTS < 27)\"; exit 1; }\necho \"ac5 ok: no assertion weakening (invariant, passes pre-fix by design)\"",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "7 collected, 7 passed, 27 assert lines (unchanged from baseline)"
+      },
+      "ac6": {
+        "verdict": "PASS",
+        "command": "[ -z \"$(git status --porcelain backend/app)\" ] || { echo \"ac6 FAIL: backend/app has working-tree changes\"; exit 1; }\n[ -z \"$(git diff --name-only HEAD -- backend/app)\" ] || { echo \"ac6 FAIL: backend/app differs from HEAD\"; exit 1; }\necho \"ac6 ok: no production code changes (test-infra only)\"",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "Only backend/tests/test_rate_limit_t23.py changed; backend/app untouched"
+      },
+      "ac7": {
+        "verdict": "PASS",
+        "command": "grep -q 'does not reproduce' docs/issues/t36.md && grep -qi 'native Windows' docs/issues/t36.md && grep -q '3/3' docs/issues/t36.md && grep -q 'app.main.limiter' docs/issues/t36.md || { echo \"ac7 FAIL: no-repro/scope note or shared-state name missing from the spec\"; exit 1; }\necho \"ac7 ok: scope documented (documentation AC, passes by construction)\"",
+        "exit_code": 0,
+        "output_path": null,
+        "note": "Scope documented in spec (no-repro note, native Windows, 3/3 baseline, app.main.limiter reference)"
+      }
+    },
+    "test_summary": {
+      "total": 390,
+      "passed": 388,
+      "failed": 0
+    },
+    "failure_type": null,
+    "lint_report": {
+      "errors": 0,
+      "warnings": 0
+    },
+    "test_quality_warnings": [],
+    "dod_verified": {
+      "all_seven_acs_pass": true,
+      "diff_touches_only_test_file": true,
+      "test_db_not_committed_changed": true,
+      "platform_issue_synced_and_labeled": true
+    },
+    "verification_commands_source": "docs/issues/<id>.md#verification-commands"
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/state/outputs/t36_verifier_verify_issue.json"
+    ],
+    "platform_issue": 92,
+    "output_path": "docs/state/outputs/t36_verifier_verify_issue.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-10T07:33:42Z",
+  "retry_count": 0
+}

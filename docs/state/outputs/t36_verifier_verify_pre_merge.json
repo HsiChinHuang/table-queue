@@ -1,0 +1,85 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t36",
+  "role": "verifier",
+  "phase": "verify_pre_merge",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "merge_verification",
+    "cumulative_tests": {
+      "total": 37,
+      "passed": 29,
+      "failed": 8
+    },
+    "smoke_tests": {
+      "total": 7,
+      "passed": 7,
+      "failed": 0
+    },
+    "failed_tests": [
+      {
+        "test": "t25 AC-1 (.gitignore check)",
+        "error_summary": "KNOWN DRIFT (a): .gitignore revert is by design on this repo; all 7 patterns missing"
+      },
+      {
+        "test": "t29 AC-1 (schema bounds)",
+        "error_summary": "KNOWN DRIFT (b): IndentationError from 2-space-indented python -c lines in spec formatting"
+      },
+      {
+        "test": "t29 AC-2 (sort_order overflow)",
+        "error_summary": "KNOWN DRIFT (b): IndentationError from 2-space-indented python -c lines in spec formatting"
+      },
+      {
+        "test": "t29 AC-3 (negative limit/offset)",
+        "error_summary": "KNOWN DRIFT (b): IndentationError from 2-space-indented python -c lines in spec formatting"
+      },
+      {
+        "test": "t29 AC-4 (branch_id overflow)",
+        "error_summary": "KNOWN DRIFT (b): IndentationError from 2-space-indented python -c lines in spec formatting"
+      },
+      {
+        "test": "t29 AC-5 (SQLite max in-domain)",
+        "error_summary": "KNOWN DRIFT (b): IndentationError from 2-space-indented python -c lines in spec formatting"
+      },
+      {
+        "test": "t29 AC-6 (_reject_int)",
+        "error_summary": "KNOWN DRIFT (b): IndentationError from 2-space-indented python -c lines in spec formatting"
+      },
+      {
+        "test": "t35 AC-6 (scope documented)",
+        "error_summary": "KNOWN DRIFT (c): spec moved docs/issues/t35.md -> closed/t35.md at t35 closeout; content present in closed/ (stale path, not a t36 regression)"
+      }
+    ],
+    "known_drift_notes": "All 8 failures are documented known drift, NOT t36 regressions. (a) t25 AC-1: .gitignore revert is by design on this repo. (b) t29 blocks: 2-space indent in python -c causes IndentationError on verbatim re-run; documented at t29 closeout as spec formatting drift. (c) t35 AC-6: spec file moved docs/issues/t35.md -> docs/issues/closed/t35.md during t35 closeout (commit 70fb917, on main); the scope documentation it checks IS present in closed/t35.md (drvfs/native-Windows/10-10 all found) - stale-path drift, not a t36 regression. Zero unexpected failures. NOTE: t26 uv blocks run via the equivalent 'cd backend && uv run pytest tests/test_middleware.py::<test>' form because uv no-project resolution from the worktree root cannot spawn pytest - equivalent invocation, all 5 tests PASS.",
+    "merge_dry_run": {
+      "method": "git merge-tree --write-tree HEAD origin/main",
+      "result": "clean",
+      "conflicts": 0,
+      "merged_files": [
+        "backend/tests/test_rate_limit_t23.py"
+      ],
+      "commits_on_branch": [
+        "0a94620 fix(t36): fixture-scoped XFF limiter isolation (no in-place shared-state mutation)",
+        "1f3d509 docs(t36): builder implement handoff"
+      ],
+      "production_code_changes": "none (only backend/tests/test_rate_limit_t23.py changed)"
+    },
+    "floors": {
+      "backend_pytest": "388 passed, 2 xfailed, 0 failed",
+      "ruff": "All checks passed",
+      "frontend": "NOT APPLICABLE (zero frontend files changed)"
+    }
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/state/outputs/t36_verifier_verify_pre_merge.json"
+    ],
+    "platform_issue": 92,
+    "output_path": "docs/state/outputs/t36_verifier_verify_pre_merge.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-10T10:23:23Z",
+  "retry_count": 0
+}

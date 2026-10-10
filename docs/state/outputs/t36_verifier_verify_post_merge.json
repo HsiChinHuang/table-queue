@@ -1,0 +1,65 @@
+{
+  "schema_version": "2.0",
+  "issue_id": "t36",
+  "role": "verifier",
+  "phase": "verify_post_merge",
+  "status": "COMPLETE",
+  "reached_state": "verified",
+  "evidence": {
+    "evidence_type": "merge_verification",
+    "smoke_tests": {
+      "total": 7,
+      "passed": 7,
+      "failed": 0
+    },
+    "merge_sha": "ea3236708196895c0dda4d3d7d64ab4eb8e89529",
+    "regressions_detected": [],
+    "merge_identity": {
+      "head_sha": "ea3236708196895c0dda4d3d7d64ab4eb8e89529",
+      "parents": [
+        "c3cf83527e0fa7baeba49abc2e9d3a0932545838",
+        "1f3d50933c911c61096eb058563ff3b9680c188c"
+      ],
+      "commit_message_contains": {
+        "Issues: t36": true,
+        "VERIFIER-PASS: 2026-10-10T10:34:27Z": true,
+        "Test-suite: full": true
+      }
+    },
+    "merge_content": {
+      "diff_stat": "backend/tests/test_rate_limit_t23.py          | 140 +++++++++++++-------------\n docs/state/outputs/t36_builder_implement.json |  71 +++++++++++++\n 2 files changed, 142 insertions(+), 69 deletions(-)",
+      "files_changed": [
+        "backend/tests/test_rate_limit_t23.py",
+        "docs/state/outputs/t36_builder_implement.json"
+      ],
+      "unexpected_files": []
+    },
+    "ac_results": {
+      "ac1": "PASS: 10/10 consecutive order runs green (29 passed each, -p no:randomly)",
+      "ac2": "PASS: 10/10 consecutive XFF-file runs green (7 passed each, -p no:randomly)",
+      "ac3": "PASS: full suite green (388 passed, 2 xfailed, 0 failed, ~85s)",
+      "ac4": "PASS: no in-place mutation of shared limiter/cached settings remains; @pytest.fixture present providing isolation",
+      "ac5": "PASS: no assertion weakening (7 collected, 7 passed, assert lines >= 27)",
+      "ac6": "PASS: no production code changes (backend/app clean vs HEAD and working tree)",
+      "ac7": "PASS: scope documented (no-repro / native Windows / 3/3 / app.main.limiter present in spec)"
+    },
+    "floors": {
+      "backend_pytest": "PASS: 388 passed, 2 xfailed, 0 failed",
+      "backend_ruff": "PASS: All checks passed!",
+      "frontend": "NOT APPLICABLE: merge changed zero frontend files",
+      "test_db_restored": true,
+      "untracked_db_files_removed": true
+    }
+  },
+  "artifacts": {
+    "files_written": [
+      "docs/state/outputs/t36_verifier_verify_post_merge.json"
+    ],
+    "platform_issue": 92,
+    "output_path": "docs/state/outputs/t36_verifier_verify_post_merge.json"
+  },
+  "error": null,
+  "next_action": null,
+  "timestamp": "2026-10-10T11:01:10Z",
+  "retry_count": 0
+}

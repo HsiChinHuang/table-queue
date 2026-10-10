@@ -149,6 +149,34 @@
     {
       "issue_id": "t35",
       "command": "grep -q 'drvfs' docs/issues/closed/t35.md && grep -qi 'native Windows' docs/issues/closed/t35.md && grep -q '10/10' docs/issues/closed/t35.md || { echo \"ac6 FAIL: WSL/drvfs-vs-native-Windows scope note missing from the spec\"; exit 1; }\necho \"ac6 ok: scope documented (documentation AC, passes by construction)\""
+    },
+    {
+      "issue_id": "t36",
+      "command": "cd backend\nFAIL=0\nfor i in $(seq 1 10); do\n  ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t36baseline-0123456789-abcdefghijklmnopqrstuvwxyz STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest tests/test_auth.py tests/test_rate_limit_t23.py -q -p no:randomly || FAIL=1\ndone\ngit checkout -- test.db\nif [ $FAIL -eq 0 ]; then echo \"ac1 ok: 10/10 consecutive order runs green\"; else echo \"ac1 FAIL: an order run was not green\"; exit 1; fi"
+    },
+    {
+      "issue_id": "t36",
+      "command": "cd backend\nFAIL=0\nfor i in $(seq 1 10); do\n  ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t36baseline-0123456789-abcdefghijklmnopqrstuvwxyz STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest tests/test_rate_limit_t23.py -q -p no:randomly || FAIL=1\ndone\ngit checkout -- test.db\nif [ $FAIL -eq 0 ]; then echo \"ac2 ok: 10/10 consecutive XFF-file runs green\"; else echo \"ac2 FAIL: a file run was not green\"; exit 1; fi"
+    },
+    {
+      "issue_id": "t36",
+      "command": "cd backend\nENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t36baseline-0123456789-abcdefghijklmnopqrstuvwxyz STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest -q -p no:randomly\nRC=$?\ngit checkout -- test.db\nif [ $RC -eq 0 ]; then echo \"ac3 ok: full suite green\"; else echo \"ac3 FAIL: full suite exited $RC\"; exit 1; fi"
+    },
+    {
+      "issue_id": "t36",
+      "command": "cd backend\nif grep -nE 'limiter\\._storage *=|limiter\\._limiter *=|limiter\\.enabled *=|trusted_proxies *=' tests/test_rate_limit_t23.py | grep -v 'def \\|\"\"\"'; then echo \"ac4 FAIL: in-place mutation of the shared limiter or cached settings still present\"; exit 1; fi\ngrep -q '@pytest.fixture' tests/test_rate_limit_t23.py || { echo \"ac4 FAIL: no pytest fixture provides the isolation\"; exit 1; }\necho \"ac4 ok: XFF tests isolated from the shared limiter state via fixture teardown\""
+    },
+    {
+      "issue_id": "t36",
+      "command": "cd backend\nCOLLECTED=$(ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t36baseline-0123456789-abcdefghijklmnopqrstuvwxyz STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest tests/test_rate_limit_t23.py --collect-only -q -p no:randomly | grep -c '::test_')\n[ \"$COLLECTED\" = \"7\" ] || { echo \"ac5 FAIL: expected 7 collected tests, got $COLLECTED\"; exit 1; }\nSUMMARY=$(ENV=development DATABASE_URL=sqlite:///./test.db JWT_SECRET=t36baseline-0123456789-abcdefghijklmnopqrstuvwxyz STAFF_PIN=0000 TZ=UTC ./.venv/Scripts/python.exe -m pytest tests/test_rate_limit_t23.py -q -p no:randomly | tail -1)\necho \"$SUMMARY\" | grep -q '7 passed' || { echo \"ac5 FAIL: file summary changed: $SUMMARY\"; exit 1; }\ngit checkout -- test.db\nASSERTS=$(grep -c 'assert ' tests/test_rate_limit_t23.py)\n[ \"$ASSERTS\" -ge 27 ] || { echo \"ac5 FAIL: assertion lines reduced ($ASSERTS < 27)\"; exit 1; }\necho \"ac5 ok: no assertion weakening (invariant, passes pre-fix by design)\""
+    },
+    {
+      "issue_id": "t36",
+      "command": "[ -z \"$(git status --porcelain backend/app)\" ] || { echo \"ac6 FAIL: backend/app has working-tree changes\"; exit 1; }\n[ -z \"$(git diff --name-only HEAD -- backend/app)\" ] || { echo \"ac6 FAIL: backend/app differs from HEAD\"; exit 1; }\necho \"ac6 ok: no production code changes (test-infra only)\""
+    },
+    {
+      "issue_id": "t36",
+      "command": "grep -q 'does not reproduce' docs/issues/t36.md && grep -qi 'native Windows' docs/issues/t36.md && grep -q '3/3' docs/issues/t36.md && grep -q 'app.main.limiter' docs/issues/t36.md || { echo \"ac7 FAIL: no-repro/scope note or shared-state name missing from the spec\"; exit 1; }\necho \"ac7 ok: scope documented (documentation AC, passes by construction)\""
     }
   ]
 }
